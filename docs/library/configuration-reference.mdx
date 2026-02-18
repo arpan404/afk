@@ -69,6 +69,24 @@ from afk.core import RunnerConfig
 | `max_parallel_subagents_per_target_agent` | `int`            | `4`                                        | Per-target-agent cap                                       |
 | `subagent_queue_backpressure_limit`       | `int`            | `512`                                      | Max pending subagent nodes before backpressure             |
 
+### Deep Dive: Interaction Models
+
+The `interaction_mode` setting fundamentally changes how the Runner handles decision points like tool approval or user input requests.
+
+- **`headless` (default)**: The Runner never pauses.
+  - If a policy returns `defer` or `request_user_input`, the Runner immediately uses the configured `approval_fallback` or `input_fallback` (default: `deny`).
+  - _Use case:_ Backend workers, cron jobs, automated testing.
+
+- **`interactive`**: The Runner pauses execution and uses the configured `InteractionProvider` to ask for human input.
+  - For CLI apps, this prints to stdout and reads from stdin.
+  - The run blocks until input is received or `approval_timeout_s` expires.
+  - _Use case:_ Local CLI tools, scripts run by humans.
+
+- **`external`**: The Runner emits a `run_paused` event and **suspends execution**.
+  - The `run()` loop exits (or yields a paused state). The state is persisted to memory.
+  - The system waits for an external API call to `runner.resume_with_input()`.
+  - _Use case:_ Chatbots, web UIs, Slack bots where the user is asynchronous.
+
 ---
 
 ## FailSafeConfig
@@ -96,6 +114,25 @@ from afk.agents import FailSafeConfig
 | `fallback_model_chain`         | `list[str]`     | `[]`                  | Ordered fallback model list for LLM retries   |
 | `breaker_failure_threshold`    | `int`           | `5`                   | Circuit breaker open threshold                |
 | `breaker_cooldown_s`           | `float`         | `30.0`                | Circuit breaker cooldown window in seconds    |
+
+### Deep Dive: Failure & Recovery
+
+FailSafeConfig controls the agent's resilience. The policies work in a hierarchy:
+
+1.  **Lower-level retries**: Transient errors (network glitches, rate limits) are retried automatically by the LLM client, guided by `AFK_LLM_MAX_RETRIES`.
+
+2.  **`llm_failure_policy`**: If the LLM call fails after all retries (or hits a terminal error like 401 Unauthorized):
+    - `retry_then_fail`: Tries a few more times at the agent level, then fails the run.
+    - `retry_then_degrade`: Tries again, then marks the run as `degraded` but returns partial results (useful for "best effort" responses).
+
+3.  **`tool_failure_policy`**: If a tool raises an exception:
+    - `continue_with_error` (default): The error message is fed back to the model. The model can then try to fix its mistake or apologize. **This is usually the best setting** for capable models.
+    - `fail_run`: Immediately stops the run. Use this for critical transactional agents where any error is unacceptable.
+
+4.  **Circuit Breakers**:
+    - If a model provider fails `breaker_failure_threshold` times in a row, the circuit opens.
+    - Subsequent calls fail _instantly_ without network traffic until `breaker_cooldown_s` passes.
+    - This protects your system (and wallet) from hammering a down service.
 
 ### FailurePolicy values
 

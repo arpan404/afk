@@ -12,7 +12,7 @@ from afk.queues import TaskQueue, TaskItem
 from afk.agents import Agent
 from afk.core import Runner
 
-agent = Agent(name="analyzer", model="gpt-4.1-mini", instructions="Analyze data.")
+agent = Agent(name="analyzer", model="gpt-5.2-mini", instructions="Analyze data.")
 
 # Push a task
 queue = TaskQueue()
@@ -151,11 +151,11 @@ for task in dead_letters:
 
 The queue uses error classification to decide whether to retry:
 
-| Error type    | Retried?                         | Example                                          |
-| ------------- | -------------------------------- | ------------------------------------------------ |
-| **Retryable** | ✅ (with backoff)                | Network timeout, rate limit, transient LLM error |
-| **Terminal**  | ❌ (sent to DLQ)                 | Invalid arguments, auth failure, missing model   |
-| **Non-fatal** | ❌ (task completes with warning) | Telemetry export failure                         |
+| Error type    | Retried?                                                                             | Example                                          |
+| ------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| **Retryable** | <Icon icon="check" iconType="solid" color="#22c55e" /> (with backoff)                | Network timeout, rate limit, transient LLM error |
+| **Terminal**  | <Icon icon="xmark" iconType="solid" color="#ef4444" /> (sent to DLQ)                 | Invalid arguments, auth failure, missing model   |
+| **Non-fatal** | <Icon icon="xmark" iconType="solid" color="#ef4444" /> (task completes with warning) | Telemetry export failure                         |
 
 ## Queue backends
 

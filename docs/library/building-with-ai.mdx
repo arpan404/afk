@@ -32,7 +32,7 @@ flowchart LR
     ```python
     agent = Agent(
         name="classifier",
-        model="gpt-4.1-mini",
+        model="gpt-5.2-mini",
         instructions="""
         Classify the support ticket into exactly one category:
         billing, technical, account, feature-request, other.
@@ -58,7 +58,7 @@ flowchart LR
 
     agent = Agent(
         name="rag-agent",
-        model="gpt-4.1-mini",
+        model="gpt-5.2-mini",
         instructions="""
         Always search the knowledge base before answering.
         Cite sources. If no relevant docs found, say so.
@@ -84,7 +84,7 @@ flowchart LR
 
     agent = Agent(
         name="coder",
-        model="gpt-4.1",
+        model="gpt-5.2",
         instructions="""
         Write code, then run the tests to verify.
         Fix any failures before presenting the final version.
@@ -110,7 +110,7 @@ flowchart LR
     ```python
     coordinator = Agent(
         name="coordinator",
-        model="gpt-4.1-mini",
+        model="gpt-5.2-mini",
         instructions="""
         Route each request to the appropriate specialist:
         - Technical questions → 'engineer'
@@ -149,18 +149,18 @@ flowchart LR
 
 ## Production readiness checklist
 
-| Area              | Requirement                                       | Status |
-| ----------------- | ------------------------------------------------- | ------ |
-| **Safety**        | `FailSafeConfig` with cost, step, and time limits | ☐      |
-| **Safety**        | Policy rules for all mutating tools               | ☐      |
-| **Observability** | Telemetry exporter configured (OTEL recommended)  | ☐      |
-| **Observability** | Alerts on error rate and latency                  | ☐      |
-| **Testing**       | Eval suite with ≥ 5 cases running in CI           | ☐      |
-| **Testing**       | Golden traces captured for regression detection   | ☐      |
-| **Memory**        | Persistent backend for multi-turn conversations   | ☐      |
-| **Memory**        | Thread compaction configured                      | ☐      |
-| **Security**      | Secrets in environment variables, not code        | ☐      |
-| **Security**      | Sandbox profiles for code execution tools         | ☐      |
+| Area              | Requirement                                       | Status                                    |
+| ----------------- | ------------------------------------------------- | ----------------------------------------- |
+| **Safety**        | `FailSafeConfig` with cost, step, and time limits | <Icon icon="square" iconType="regular" /> |
+| **Safety**        | Policy rules for all mutating tools               | <Icon icon="square" iconType="regular" /> |
+| **Observability** | Telemetry exporter configured (OTEL recommended)  | <Icon icon="square" iconType="regular" /> |
+| **Observability** | Alerts on error rate and latency                  | <Icon icon="square" iconType="regular" /> |
+| **Testing**       | Eval suite with ≥ 5 cases running in CI           | <Icon icon="square" iconType="regular" /> |
+| **Testing**       | Golden traces captured for regression detection   | <Icon icon="square" iconType="regular" /> |
+| **Memory**        | Persistent backend for multi-turn conversations   | <Icon icon="square" iconType="regular" /> |
+| **Memory**        | Thread compaction configured                      | <Icon icon="square" iconType="regular" /> |
+| **Security**      | Secrets in environment variables, not code        | <Icon icon="square" iconType="regular" /> |
+| **Security**      | Sandbox profiles for code execution tools         | <Icon icon="square" iconType="regular" /> |
 
 ## Next steps
 

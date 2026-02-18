@@ -30,10 +30,10 @@ Use `profile()` to apply a curated set of policies:
 from afk.llms import LLMBuilder
 
 # Development: no retry, no caching, fast failures
-dev = LLMBuilder().provider("openai").model("gpt-4.1-mini").profile("development").build()
+dev = LLMBuilder().provider("openai").model("gpt-5.2-mini").profile("development").build()
 
 # Production: retry, circuit breaker, rate limiting, caching
-prod = LLMBuilder().provider("openai").model("gpt-4.1-mini").profile("production").build()
+prod = LLMBuilder().provider("openai").model("gpt-5.2-mini").profile("production").build()
 ```
 
 | Profile       | Retry                           | Cache               | Rate Limit | Circuit Breaker        | Timeout |
@@ -54,7 +54,7 @@ Configure each policy independently:
     client = (
         LLMBuilder()
         .provider("openai")
-        .model("gpt-4.1-mini")
+        .model("gpt-5.2-mini")
         .retry(max_attempts=3, backoff_base=1.0, backoff_max=30.0)
         .build()
     )
@@ -75,7 +75,7 @@ Configure each policy independently:
     client = (
         LLMBuilder()
         .provider("openai")
-        .model("gpt-4.1-mini")
+        .model("gpt-5.2-mini")
         .circuit_breaker(failure_threshold=5, recovery_timeout=30.0)
         .build()
     )
@@ -98,7 +98,7 @@ Configure each policy independently:
     client = (
         LLMBuilder()
         .provider("openai")
-        .model("gpt-4.1-mini")
+        .model("gpt-5.2-mini")
         .rate_limit(requests_per_minute=60, tokens_per_minute=100_000)
         .build()
     )
@@ -112,7 +112,7 @@ Configure each policy independently:
     client = (
         LLMBuilder()
         .provider("openai")
-        .model("gpt-4.1-mini")
+        .model("gpt-5.2-mini")
         .cache(ttl_seconds=300, max_entries=1000)
         .build()
     )
@@ -128,7 +128,7 @@ Configure each policy independently:
     client = (
         LLMBuilder()
         .provider("openai")
-        .model("gpt-4.1-mini")
+        .model("gpt-5.2-mini")
         .timeout(connect_s=5.0, read_s=60.0)
         .build()
     )
@@ -146,12 +146,12 @@ from afk.agents import Agent, FailSafeConfig
 
 agent = Agent(
     name="resilient",
-    model="gpt-4.1",
+    model="gpt-5.2",
     fail_safe=FailSafeConfig(
-        fallback_model_chain=["gpt-4.1-mini", "gpt-4.1-nano"],
+        fallback_model_chain=["gpt-5.2-mini", "gpt-5.2-nano"],
     ),
 )
-# If gpt-4.1 fails → try gpt-4.1-mini → try gpt-4.1-nano
+# If gpt-5.2 fails → try gpt-5.2-mini → try gpt-5.2-nano
 ```
 
 ## Tuning cheat sheet

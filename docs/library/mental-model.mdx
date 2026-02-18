@@ -9,7 +9,7 @@ AFK agents execute through three coordinated loops — **Decision**, **Execution
 
 ```mermaid
 flowchart LR
-    subgraph Decision["🧠 Decision Loop"]
+    subgraph Decision["Decision Loop"]
         direction TB
         D1["Receive input"]
         D2["Select action"]
@@ -17,7 +17,7 @@ flowchart LR
         D1 --> D2 --> D3
     end
 
-    subgraph Execution["⚡ Execution Loop"]
+    subgraph Execution["Execution Loop"]
         direction TB
         E1["Validate arguments"]
         E2["Check policy gate"]
@@ -26,7 +26,7 @@ flowchart LR
         E1 --> E2 --> E3 --> E4
     end
 
-    subgraph Assurance["🛡️ Assurance Loop"]
+    subgraph Assurance["Assurance Loop"]
         direction TB
         A1["Check step limits"]
         A2["Check cost budget"]
@@ -42,7 +42,7 @@ flowchart LR
 ```
 
 <AccordionGroup>
-  <Accordion title="🧠 Decision Loop — what the LLM does" icon="brain">
+  <Accordion title="Decision Loop — what the LLM does" icon="brain">
     The Decision Loop is the model's turn. On each step:
     1. The runner sends the conversation history + tool schemas to the LLM
     2. The LLM decides whether to respond with text (done) or request tool calls (continue)
@@ -54,14 +54,14 @@ flowchart LR
     # The Decision Loop is shaped by these fields
     agent = Agent(
         instructions="...",    # ← What the model knows
-        model="gpt-4.1-mini", # ← How the model thinks
+        model="gpt-5.2-mini", # ← How the model thinks
         tools=[...],           # ← What the model can do
     )
     ```
 
   </Accordion>
 
-  <Accordion title="⚡ Execution Loop — what happens when a tool is called" icon="bolt">
+  <Accordion title="Execution Loop — what happens when a tool is called" icon="bolt">
     The Execution Loop handles every tool call:
     1. **Validate** arguments against the Pydantic schema
     2. **Policy gate** — allow, deny, or defer for human approval
@@ -87,7 +87,7 @@ flowchart LR
 
   </Accordion>
 
-  <Accordion title="🛡️ Assurance Loop — what keeps things safe" icon="shield">
+  <Accordion title="Assurance Loop — what keeps things safe" icon="shield">
     The Assurance Loop runs continuously, enforcing limits on both other loops:
     - **Step count** — stops the agent after N iterations
     - **Tool call count** — prevents excessive tool usage

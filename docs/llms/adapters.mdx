@@ -13,7 +13,7 @@ Adapters translate between AFK's normalized contracts (`LLMRequest`/`LLMResponse
     o-series models.
   </Card>
   <Card title="Anthropic" icon="circle-a">
-    Direct integration via the Anthropic SDK. Supports Claude 4 Sonnet and Opus.
+    Direct integration via the Anthropic SDK. Supports Claude Opus 4.5 and Opus.
   </Card>
   <Card title="LiteLLM" icon="circle-l">
     Proxy adapter for 100+ providers (Azure, Bedrock, Gemini, Mistral, local
@@ -23,14 +23,14 @@ Adapters translate between AFK's normalized contracts (`LLMRequest`/`LLMResponse
 
 ## Capability comparison
 
-| Feature              | OpenAI | Anthropic | LiteLLM                 |
-| -------------------- | ------ | --------- | ----------------------- |
-| Text generation      | ✅     | ✅        | ✅                      |
-| Tool calling         | ✅     | ✅        | ✅ (provider-dependent) |
-| Structured output    | ✅     | ✅        | Provider-dependent      |
-| Streaming            | ✅     | ✅        | ✅                      |
-| Vision (image input) | ✅     | ✅        | Provider-dependent      |
-| Custom endpoints     | ✅     | ✅        | ✅                      |
+| Feature              | OpenAI                                                 | Anthropic                                              | LiteLLM                                                                     |
+| -------------------- | ------------------------------------------------------ | ------------------------------------------------------ | --------------------------------------------------------------------------- |
+| Text generation      | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" />                      |
+| Tool calling         | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> (provider-dependent) |
+| Structured output    | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> | Provider-dependent                                                          |
+| Streaming            | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" />                      |
+| Vision (image input) | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> | Provider-dependent                                                          |
+| Custom endpoints     | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" />                      |
 
 ## Usage
 
@@ -38,10 +38,10 @@ Adapters translate between AFK's normalized contracts (`LLMRequest`/`LLMResponse
 from afk.llms import LLMBuilder
 
 # OpenAI
-openai_client = LLMBuilder().provider("openai").model("gpt-4.1-mini").build()
+openai_client = LLMBuilder().provider("openai").model("gpt-5.2-mini").build()
 
 # Anthropic
-anthropic_client = LLMBuilder().provider("anthropic").model("claude-4-sonnet").build()
+anthropic_client = LLMBuilder().provider("anthropic").model("claude-opus-4-5").build()
 
 # LiteLLM (any provider)
 gemini_client = LLMBuilder().provider("litellm").model("gemini/gemini-2.5-pro").build()
@@ -115,7 +115,7 @@ transport = httpx.AsyncHTTPTransport(
 client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-4.1-mini")
+    .model("gpt-5.2-mini")
     .transport(transport)
     .build()
 )

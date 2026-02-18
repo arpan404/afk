@@ -1,5 +1,5 @@
 ---
-title: AFK — Agent Framework Kit
+title: AFK — Agent Forge Kit
 description: Build reliable AI agents in Python with typed tools, multi-agent orchestration, and production-grade controls.
 ---
 
@@ -31,7 +31,7 @@ from afk.core import Runner
 
 agent = Agent(
     name="my-agent",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="You are a helpful assistant. Be concise and accurate.",
 )
 
@@ -67,7 +67,7 @@ def get_weather(args: WeatherArgs) -> dict:
 
 agent = Agent(
     name="weather-bot",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="Answer weather questions using your tools.",
     tools=[get_weather],           # ← Attach tools here
 )

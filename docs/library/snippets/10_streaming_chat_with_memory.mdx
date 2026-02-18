@@ -16,7 +16,7 @@ from afk.core import Runner, RunnerConfig
 
 agent = Agent(
     name="chat-assistant",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="""
     You are a helpful assistant. Remember context from earlier in the conversation.
     Be concise but thorough. If the user refers to something from a previous message,
@@ -42,15 +42,15 @@ async def stream_turn(runner: Runner, user_message: str, thread_id: str):
             case "text_delta":
                 print(event.text_delta, end="", flush=True)
             case "tool_started":
-                print(f"\n🔧 {event.tool_name}...")
+                print(f"\n[TOOL] {event.tool_name}...")
             case "tool_completed":
-                status = "✓" if event.tool_success else "✗"
+                status = "[OK]" if event.tool_success else "[ERR]"
                 print(f"   {status} done")
             case "error":
                 if event.error:
-                    print(f"\n⚠️ {event.error}")
+                    print(f"\n[WARN] {event.error}")
             case "completed":
-                print(f"\n✓ ({event.result.state})")
+                print(f"\n[DONE] ({event.result.state})")
 
     return handle.result
 

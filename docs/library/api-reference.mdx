@@ -1,6 +1,6 @@
 ---
 title: API Reference
-description: Quick import reference and constructor signatures for the AFK Python SDK.
+description: Quick import reference and constructor signatures for the Agent Forge Kit (AFK) Python SDK.
 ---
 
 This page provides a quick reference for commonly used AFK imports and constructor signatures. For the full field-by-field reference, see the [Configuration Reference](/library/configuration-reference). For module-level documentation, see the [Module Reference](/library/full-module-reference).
@@ -23,6 +23,68 @@ This page provides a quick reference for commonly used AFK imports and construct
 | A2A client              | `from afk.a2a import A2AClient`                       | `afk.a2a`          |
 | MCP server              | `from afk.mcp import MCPServer`                       | `afk.mcp`          |
 | Task queue              | `from afk.queues import TaskQueue, TaskItem`          | `afk.queues`       |
+
+## Architecture overview
+
+The framework is built on three core pillars that interact at runtime:
+
+1.  **Agent** (`afk.agents.Agent`) — The **definition**.
+    It holds the static configuration: "Who am I?" (instructions, name), "What can I do?" (tools, subagents), and "How safe am I?" (fail-safe limits). Agents are stateless definitions that can be reused across many runs.
+
+2.  **Runner** (`afk.core.Runner`) — The **engine**.
+    It orchestrates the dynamic execution: managing the event loop, maintaining conversation state in memory, executing tools, handling failures, and dispatching events to telemetry. Runners are stateful (holding connections to memory/telemetry) but re-entrant.
+
+3.  **Runtime** (`afk.llms`, `afk.tools`) — The **capabilities**.
+    The underlying machinery that powers the agent: LLM clients handling provider I/O, and the tool registry managing safe execution of Python functions.
+
+```mermaid
+flowchart LR
+    subgraph Definition
+      Agent[Agent Config]
+    end
+    subgraph Execution
+      Runner[Runner Engine]
+      Memory[Memory Store]
+      EventLoop[Event Loop]
+    end
+    subgraph Runtime
+      LLM[LLM Client]
+      Tools[Tool Registry]
+    end
+
+    Agent --> Runner
+    Runner --> EventLoop
+    EventLoop <--> Memory
+    EventLoop --> LLM
+    EventLoop --> Tools
+```
+
+## Execution model
+
+The `Runner` supports three execution modes for different use cases. All modes use the same underlying event loop and guarantee the same consistency models.
+
+### 1. Synchronous (`run_sync`)
+
+Blocks the calling thread until the run is complete. Best for scripts, cron jobs, and simple CLI tools.
+
+- **Concurrency**: Internal tasks (like tool execution) still run on the asyncio event loop, but the entry point is blocking.
+- **Return**: Returns the final `AgentResult` only after the run reaches a terminal state (`completed`, `failed`).
+
+### 2. Asynchronous (`await run`)
+
+Returns an awaitable coroutine. Best for backend API handlers (FastAPI, Django Async) and high-concurrency workloads.
+
+- **Concurrency**: Non-blocking. Allows thousands of concurrent agent runs in a single process.
+- **Return**: Returns `AgentResult` upon completion.
+
+### 3. Streaming (`await run_stream`)
+
+Returns an async iterator of `AgentStreamEvent`s. Best for real-time UIs (chatbots, IDE integrations).
+
+- **Feedback**: Emits events _immediately_ as they happen (token delta, tool start, tool end).
+- **Control**: Allows the consumer to abort the run by cancelling the stream consumption.
+
+---
 
 ## Most common pattern
 
@@ -84,13 +146,25 @@ runner = Runner(
 
 #### Key Runner methods
 
-| Method                                                         | Returns             | Description                    |
-| -------------------------------------------------------------- | ------------------- | ------------------------------ |
-| `run_sync(agent, *, user_message, context, thread_id)`         | `AgentResult`       | Synchronous execution (blocks) |
-| `await run(agent, *, user_message, context, thread_id)`        | `AgentResult`       | Async execution                |
-| `await run_stream(agent, *, user_message, context, thread_id)` | `AgentStreamHandle` | Real-time event stream         |
-| `await resume(agent, *, run_id, thread_id)`                    | `AgentResult`       | Resume interrupted run         |
-| `await compact_thread(*, thread_id)`                           | `None`              | Summarize old messages         |
+- **`run_sync(agent, ...)`** -> `AgentResult`
+  Blocking execution. In memory-backend modes, this persists state to the DB at every step. In-memory mode is transient.
+  _Use for:_ Scripts, CLI tools, tests.
+
+- **`await run(agent, ...)`** -> `AgentResult`
+  Async execution. This is the standard entry point for scalable applications. It handles the full agent loop: LLM calls -> Tool execution -> Policy checks -> Recursion.
+  _Use for:_ Web servers, queue workers, scalable backend services.
+
+- **`await run_stream(agent, ...)`** -> `AgentStreamHandle`
+  Returns a handle exposing an `async iterator` of events. The stream yields events as they happen. You MUST consume the stream to drive execution forward.
+  _Use for:_ Chat interfaces, real-time feedback.
+
+- **`await resume(agent, *, run_id, thread_id)`** -> `AgentResult`
+  Re-hydrates a run from the database. It loads the full execution snapshot (messages, unexecuted tool calls) and continues exactly where it left off.
+  _Use for:_ Human-in-the-loop workflows (resume after approval), recovering from process crashes.
+
+- **`await compact_thread(*, thread_id)`** -> `None`
+  Triggers memory compaction for a specific thread. This applies the configured `RetentionPolicy` to reduce token usage by summarizing history or discarding old messages.
+  _Use for:_ Long-running conversations where context window limits are a concern.
 
 ### RunnerConfig
 

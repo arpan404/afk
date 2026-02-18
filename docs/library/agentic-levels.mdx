@@ -12,7 +12,7 @@ AFK applications progress through five levels of capability. Each level adds fea
     One agent, one model, no tools. The simplest possible setup.
 
     ```python
-    agent = Agent(name="classifier", model="gpt-4.1-mini", instructions="Classify as positive/negative/neutral.")
+    agent = Agent(name="classifier", model="gpt-5.2-mini", instructions="Classify as positive/negative/neutral.")
     result = runner.run_sync(agent, user_message="Great product!")
     ```
 
@@ -31,7 +31,7 @@ AFK applications progress through five levels of capability. Each level adds fea
     @tool(args_model=SearchArgs, name="search", description="Search knowledge base.")
     def search(args: SearchArgs) -> dict: ...
 
-    agent = Agent(name="helper", model="gpt-4.1-mini", tools=[search])
+    agent = Agent(name="helper", model="gpt-5.2-mini", tools=[search])
     ```
 
     **AFK features added:** `@tool`, Pydantic models, `FailSafeConfig`
@@ -48,7 +48,7 @@ AFK applications progress through five levels of capability. Each level adds fea
     ```python
     coordinator = Agent(
         name="coordinator",
-        model="gpt-4.1-mini",
+        model="gpt-5.2-mini",
         subagents=[researcher, writer, reviewer],
     )
     ```
@@ -96,31 +96,33 @@ AFK applications progress through five levels of capability. Each level adds fea
 
 ## Capability comparison
 
-| Capability                 | L1  | L2  | L3  | L4  | L5  |
-| -------------------------- | --- | --- | --- | --- | --- |
-| Text generation            | ✅  | ✅  | ✅  | ✅  | ✅  |
-| Tool calling               | —   | ✅  | ✅  | ✅  | ✅  |
-| Multi-agent delegation     | —   | —   | ✅  | ✅  | ✅  |
-| Async processing           | —   | —   | —   | ✅  | ✅  |
-| Cross-system communication | —   | —   | —   | —   | ✅  |
-| Policy engine              | ○   | ✅  | ✅  | ✅  | ✅  |
-| Observability              | ○   | ○   | ✅  | ✅  | ✅  |
-| Evals                      | ○   | ○   | ✅  | ✅  | ✅  |
+| Capability                 | L1                                                     | L2                                                     | L3                                                     | L4                                                     | L5                                                     |
+| -------------------------- | ------------------------------------------------------ | ------------------------------------------------------ | ------------------------------------------------------ | ------------------------------------------------------ | ------------------------------------------------------ |
+| Text generation            | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> |
+| Tool calling               | —                                                      | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> |
+| Multi-agent delegation     | —                                                      | —                                                      | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> |
+| Async processing           | —                                                      | —                                                      | —                                                      | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> |
+| Cross-system communication | —                                                      | —                                                      | —                                                      | —                                                      | <Icon icon="check" iconType="solid" color="#22c55e" /> |
+| Policy engine              | <Icon icon="circle" iconType="regular" />              | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> |
+| Observability              | <Icon icon="circle" iconType="regular" />              | <Icon icon="circle" iconType="regular" />              | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> |
+| Evals                      | <Icon icon="circle" iconType="regular" />              | <Icon icon="circle" iconType="regular" />              | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> | <Icon icon="check" iconType="solid" color="#22c55e" /> |
 
-✅ = essential at this level &nbsp;&nbsp; ○ = recommended &nbsp;&nbsp; — = not applicable
+<Icon icon="check" iconType="solid" color="#22c55e" /> = essential at this level
+&nbsp;&nbsp; <Icon icon="circle" iconType="regular" /> = recommended
+&nbsp;&nbsp; — = not applicable
 
 ## Decision guide
 
 ```mermaid
 flowchart TD
     Start["What does your task need?"]
-    Start -->|"Just text in/out"| L1["✅ Level 1: Single Agent"]
-    Start -->|"External data or actions"| L2["✅ Level 2: Agent + Tools"]
+    Start -->|"Just text in/out"| L1["Level 1: Single Agent"]
+    Start -->|"External data or actions"| L2["Level 2: Agent + Tools"]
     Start -->|"Multiple specialists"| L3Q{"Long-running or high-volume?"}
-    L3Q -->|"No"| L3["✅ Level 3: Multi-Agent"]
+    L3Q -->|"No"| L3["Level 3: Multi-Agent"]
     L3Q -->|"Yes"| L4Q{"Cross-system interop?"}
-    L4Q -->|"No"| L4["✅ Level 4: Queue-Backed"]
-    L4Q -->|"Yes"| L5["✅ Level 5: A2A"]
+    L4Q -->|"No"| L4["Level 4: Queue-Backed"]
+    L4Q -->|"Yes"| L5["Level 5: A2A"]
 ```
 
 > [!TIP]

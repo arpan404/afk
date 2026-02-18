@@ -67,7 +67,7 @@ The primary way to consume events is through the run handle's `events` async ite
 from afk.agents import Agent
 from afk.core import Runner
 
-agent = Agent(name="demo", model="gpt-4.1-mini", instructions="Be helpful.")
+agent = Agent(name="demo", model="gpt-5.2-mini", instructions="Be helpful.")
 runner = Runner()
 
 handle = await runner.run_handle(agent, user_message="Hello")

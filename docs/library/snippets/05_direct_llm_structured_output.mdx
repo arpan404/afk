@@ -20,7 +20,7 @@ class Summary(BaseModel):
     bullets: list[str]
 
 # Build an LLM client using the fluent builder
-client = LLMBuilder().provider("openai").model("gpt-4.1-mini").profile("production").build()
+client = LLMBuilder().provider("openai").model("gpt-5.2-mini").profile("production").build()
 
 # Make a structured request
 resp = await client.chat(
@@ -39,7 +39,7 @@ print(resp.text)                 # The raw text response
 client = (
     LLMBuilder()
     .provider("openai")          # Which LLM provider to use
-    .model("gpt-4.1-mini")      # Which model
+    .model("gpt-5.2-mini")      # Which model
     .profile("production")       # Apply a preset profile (retry, timeout, etc.)
     .temperature(0.0)            # Override sampling temperature
     .max_tokens(1000)            # Set max response tokens

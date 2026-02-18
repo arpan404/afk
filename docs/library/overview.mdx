@@ -3,7 +3,7 @@ title: What is AFK?
 description: A contract-first Python framework for building reliable AI agents.
 ---
 
-AFK (**Agent Framework Kit**) is a Python SDK for building AI agents that are predictable, testable, and production-ready. It separates **what your agent does** (contracts) from **how it runs** (runtime), so you can iterate on behavior without touching infrastructure.
+AFK (**Agent Forge Kit**) is a Python SDK for building AI agents that are predictable, testable, and production-ready. It separates **what your agent does** (contracts) from **how it runs** (runtime), so you can iterate on behavior without touching infrastructure.
 
 <Tip>
   If you've used the OpenAI Assistants API or LangChain, think of AFK as the
@@ -18,8 +18,11 @@ Every AFK application is built from three pieces:
 
 ```mermaid
 flowchart LR
-    Agent["Agent\n(what to do)"] --> Runner["Runner\n(how to run it)"]
-    Runner --> Result["AgentResult\n(what happened)"]
+    Agent["Agent
+    (what to do)"] --> Runner["Runner
+    (how to run it)"]
+    Runner --> Result["AgentResult
+    (what happened)"]
 ```
 
 | Piece           | What it is                                                                                                      | You define                                            |
@@ -48,7 +51,7 @@ flowchart LR
 
     agent = Agent(
         name="assistant",
-        model="gpt-4.1-mini",
+        model="gpt-5.2-mini",
         instructions="Help users find information.",
         tools=[search],
     )
@@ -83,12 +86,12 @@ flowchart LR
     Build systems where a coordinator agent delegates tasks to specialist subagents. AFK manages the DAG execution, join policies, and backpressure automatically.
 
     ```python
-    researcher = Agent(name="researcher", model="gpt-4.1-mini", instructions="Find facts.")
-    writer = Agent(name="writer", model="gpt-4.1-mini", instructions="Write summaries.")
+    researcher = Agent(name="researcher", model="gpt-5.2-mini", instructions="Find facts.")
+    writer = Agent(name="writer", model="gpt-5.2-mini", instructions="Write summaries.")
 
     coordinator = Agent(
         name="coordinator",
-        model="gpt-4.1-mini",
+        model="gpt-5.2-mini",
         instructions="Delegate research, then summarize.",
         subagents=[researcher, writer],
     )
@@ -113,7 +116,7 @@ flowchart LR
 
     agent = Agent(
         name="safe-agent",
-        model="gpt-4.1-mini",
+        model="gpt-5.2-mini",
         instructions="...",
         fail_safe=FailSafeConfig(
             max_steps=10,
@@ -134,7 +137,7 @@ flowchart LR
     client = (
         LLMBuilder()
         .provider("openai")
-        .model("gpt-4.1-mini")
+        .model("gpt-5.2-mini")
         .profile("production")    # ← retry, timeout, rate limit, circuit breaker
         .build()
     )
@@ -165,14 +168,16 @@ flowchart LR
 
 ## When should you use AFK?
 
-| Scenario                                  | AFK is a good fit                                | Consider alternatives                 |
-| ----------------------------------------- | ------------------------------------------------ | ------------------------------------- |
-| Building a production AI agent with tools | ✅ Typed contracts, policy gates, observability  | —                                     |
-| Prototyping a quick LLM chat              | ✅ `Agent` + `Runner` in 5 lines                 | Raw API calls may be simpler          |
-| Multi-agent orchestration                 | ✅ DAG delegation, join policies, backpressure   | —                                     |
-| Fine-tuning or training models            | —                                                | ❌ AFK is for inference, not training |
-| Simple text completion without tools      | ✅ Works, but may be more than you need          | Direct SDK call is lighter            |
-| Enterprise deployment with compliance     | ✅ Policy engine, audit events, secret isolation | —                                     |
+| Scenario                                  | AFK is a good fit                                                                                    | Consider alternatives                                                                     |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Scenario                                  | AFK is a good fit                                                                                    | Consider alternatives                                                                     |
+| ----------------------------------------- | ------------------------------------------------                                                     | -------------------------------------                                                     |
+| Building a production AI agent with tools | <Icon icon="check" iconType="solid" color="#22c55e" /> Typed contracts, policy gates, observability  | —                                                                                         |
+| Prototyping a quick LLM chat              | <Icon icon="check" iconType="solid" color="#22c55e" /> `Agent` + `Runner` in 5 lines                 | Raw API calls may be simpler                                                              |
+| Multi-agent orchestration                 | <Icon icon="check" iconType="solid" color="#22c55e" /> DAG delegation, join policies, backpressure   | —                                                                                         |
+| Fine-tuning or training models            | —                                                                                                    | <Icon icon="xmark" iconType="solid" color="#ef4444" /> AFK is for inference, not training |
+| Simple text completion without tools      | <Icon icon="check" iconType="solid" color="#22c55e" /> Works, but may be more than you need          | Direct SDK call is lighter                                                                |
+| Enterprise deployment with compliance     | <Icon icon="check" iconType="solid" color="#22c55e" /> Policy engine, audit events, secret isolation | —                                                                                         |
 
 ## Key design decisions
 

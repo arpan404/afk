@@ -41,7 +41,7 @@ The adapter translates between AFK's normalized contracts and the provider's nat
             Message(role="system", content="You are a helpful assistant."),
             Message(role="user", content="What is Python?"),
         ],
-        model="gpt-4.1-mini",
+        model="gpt-5.2-mini",
         temperature=0.7,
         max_tokens=500,
     )
@@ -90,7 +90,7 @@ class Sentiment(BaseModel):
 
 request = LLMRequest(
     messages=[Message(role="user", content="I love this product!")],
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     response_format=Sentiment,   # ← Forces structured JSON output
 )
 

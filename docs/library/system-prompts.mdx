@@ -14,7 +14,7 @@ System prompts define what your agent knows and how it behaves. AFK supports thr
     ```python
     agent = Agent(
         name="assistant",
-        model="gpt-4.1-mini",
+        model="gpt-5.2-mini",
         instructions="You are a helpful assistant. Be concise and accurate.",
     )
     ```
@@ -26,7 +26,7 @@ System prompts define what your agent knows and how it behaves. AFK supports thr
     ```python
     agent = Agent(
         name="analyst",
-        model="gpt-4.1-mini",
+        model="gpt-5.2-mini",
         instruction_file="prompts/analyst.md",
     )
     ```
@@ -46,7 +46,7 @@ System prompts define what your agent knows and how it behaves. AFK supports thr
     AFK automatically looks for an instruction file based on the agent's name:
 
     ```python
-    agent = Agent(name="writer", model="gpt-4.1-mini")
+    agent = Agent(name="writer", model="gpt-5.2-mini")
     # AFK looks for: prompts/writer.md, prompts/writer.txt, writer.md, etc.
     ```
 
@@ -84,7 +84,7 @@ Use `{{ variable }}` syntax to inject dynamic values into prompts:
 ```python
 agent = Agent(
     name="support-agent",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="""
     You are a support agent for {{ company_name }}.
     Today's date is {{ current_date }}.
@@ -119,7 +119,7 @@ Templates work in instruction files too:
 ```python
 agent = Agent(
     name="reviewer",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instruction_file="prompts/reviewer.md",
     context={
         "language": "Python",

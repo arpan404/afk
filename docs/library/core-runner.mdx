@@ -11,7 +11,7 @@ The **Runner** is the execution engine that runs agents. It manages the step loo
 from afk.agents import Agent
 from afk.core import Runner
 
-agent = Agent(name="demo", model="gpt-4.1-mini", instructions="Be helpful.")
+agent = Agent(name="demo", model="gpt-5.2-mini", instructions="Be helpful.")
 runner = Runner()
 
 # Synchronous (simplest)
@@ -81,13 +81,13 @@ stateDiagram-v2
 
 ### Terminal states
 
-| State         | Meaning                                  | `final_text`            |
-| ------------- | ---------------------------------------- | ----------------------- |
-| `completed`   | Run finished successfully                | ✅ Model's response     |
-| `failed`      | Unrecoverable error occurred             | ❌ Error message        |
-| `degraded`    | Partial result (some failures tolerated) | ⚠️ Best-effort response |
-| `cancelled`   | Caller cancelled the run                 | ❌ Empty or partial     |
-| `interrupted` | Timeout or external interrupt            | ❌ Empty or partial     |
+| State         | Meaning                                  | `final_text`                                                                               |
+| ------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `completed`   | Run finished successfully                | <Icon icon="check" iconType="solid" color="#22c55e" /> Model's response                    |
+| `failed`      | Unrecoverable error occurred             | <Icon icon="xmark" iconType="solid" color="#ef4444" /> Error message                       |
+| `degraded`    | Partial result (some failures tolerated) | <Icon icon="triangle-exclamation" iconType="solid" color="#f59e0b" /> Best-effort response |
+| `cancelled`   | Caller cancelled the run                 | <Icon icon="xmark" iconType="solid" color="#ef4444" /> Empty or partial                    |
+| `interrupted` | Timeout or external interrupt            | <Icon icon="xmark" iconType="solid" color="#ef4444" /> Empty or partial                    |
 
 ## The step loop
 

@@ -27,7 +27,7 @@ from afk.core import Runner
 
 agent = Agent(
     name="assistant",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="You are a helpful assistant. Be concise.",
 )
 
@@ -69,7 +69,7 @@ def calculate(args: CalcArgs) -> dict:
 # 3. Attach it to an agent
 agent = Agent(
     name="math-agent",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="Use the calculate tool to solve math problems. Show your work.",
     tools=[calculate],
 )
@@ -103,7 +103,7 @@ For real-time UIs, use streaming to receive text as it's generated.
 
     agent = Agent(
         name="streamer",
-        model="gpt-4.1-mini",
+        model="gpt-5.2-mini",
         instructions="Explain topics clearly and concisely.",
     )
 
@@ -117,7 +117,7 @@ For real-time UIs, use streaming to receive text as it's generated.
             if event.type == "text_delta":
                 print(event.text_delta, end="", flush=True)
             elif event.type == "completed":
-                print(f"\n\n✓ Done (state={event.result.state})")
+                print(f"\n\n[DONE] Done (state={event.result.state})")
 
     asyncio.run(main())
     ```
@@ -130,7 +130,7 @@ For real-time UIs, use streaming to receive text as it's generated.
 
     agent = Agent(
         name="streamer",
-        model="gpt-4.1-mini",
+        model="gpt-5.2-mini",
         instructions="Explain topics clearly and concisely.",
     )
 
@@ -175,7 +175,7 @@ def lint_code(args: ReviewArgs) -> dict:
 
 reviewer = Agent(
     name="reviewer",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="Review code for quality issues using the lint_code tool.",
     tools=[lint_code],
 )
@@ -183,14 +183,14 @@ reviewer = Agent(
 # Specialist agent: documentation writer
 writer = Agent(
     name="writer",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="Write clear, concise documentation for code snippets.",
 )
 
 # Coordinator: delegates work
 coordinator = Agent(
     name="coordinator",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="""
     You manage a team of specialists:
     - 'reviewer' checks code quality
@@ -233,7 +233,7 @@ from afk.core import Runner, RunnerConfig
 
 agent = Agent(
     name="safe-agent",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="Help users with their questions.",
     tools=[calculate],
     fail_safe=FailSafeConfig(

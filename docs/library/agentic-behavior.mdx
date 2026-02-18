@@ -13,14 +13,14 @@ from afk.agents import Agent
 from afk.core import Runner
 
 # Specialist agents
-researcher = Agent(name="researcher", model="gpt-4.1-mini", instructions="Find facts.")
-writer = Agent(name="writer", model="gpt-4.1-mini", instructions="Write summaries.")
-reviewer = Agent(name="reviewer", model="gpt-4.1-mini", instructions="Review for accuracy.")
+researcher = Agent(name="researcher", model="gpt-5.2-mini", instructions="Find facts.")
+writer = Agent(name="writer", model="gpt-5.2-mini", instructions="Write summaries.")
+reviewer = Agent(name="reviewer", model="gpt-5.2-mini", instructions="Review for accuracy.")
 
 # Coordinator
 coordinator = Agent(
     name="coordinator",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="""
     1. Ask 'researcher' for facts
     2. Ask 'writer' to summarize
@@ -147,11 +147,11 @@ When multiple subagents run in parallel (fan-out), the **join policy** controls 
 
 ## Failure handling
 
-| Failure            | `all_required` | `allow_optional_failures` | `first_success`  | `quorum`                      |
-| ------------------ | -------------- | ------------------------- | ---------------- | ----------------------------- |
-| One subagent fails | ❌ Batch fails | ⚠️ Continue with others   | Continue waiting | Continue if quorum not needed |
-| All subagents fail | ❌ Batch fails | ❌ Batch fails            | ❌ Batch fails   | ❌ Batch fails                |
-| Timeout            | ❌ Batch fails | ⚠️ Use available results  | ❌ Batch fails   | Depends on completed count    |
+| Failure            | `all_required`                                                     | `allow_optional_failures`                                                                   | `first_success`                                                    | `quorum`                                                           |
+| ------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| One subagent fails | <Icon icon="xmark" iconType="solid" color="#ef4444" /> Batch fails | <Icon icon="triangle-exclamation" iconType="solid" color="#f59e0b" /> Continue with others  | Continue waiting                                                   | Continue if quorum not needed                                      |
+| All subagents fail | <Icon icon="xmark" iconType="solid" color="#ef4444" /> Batch fails | <Icon icon="xmark" iconType="solid" color="#ef4444" /> Batch fails                          | <Icon icon="xmark" iconType="solid" color="#ef4444" /> Batch fails | <Icon icon="xmark" iconType="solid" color="#ef4444" /> Batch fails |
+| Timeout            | <Icon icon="xmark" iconType="solid" color="#ef4444" /> Batch fails | <Icon icon="triangle-exclamation" iconType="solid" color="#f59e0b" /> Use available results | <Icon icon="xmark" iconType="solid" color="#ef4444" /> Batch fails | Depends on completed count                                         |
 
 ## Backpressure
 
@@ -169,13 +169,13 @@ When the concurrency limit is reached, additional subagent calls are queued and 
 
 ## When to use multi-agent delegation
 
-| Scenario                          | Single agent         | Multi-agent         |
-| --------------------------------- | -------------------- | ------------------- |
-| Simple Q&A or classification      | ✅                   | Overkill            |
-| Task needs different expertise    | Consider             | ✅                  |
-| Need to parallelize work          | N/A                  | ✅                  |
-| Task needs consensus/verification | N/A                  | ✅                  |
-| Tight latency budget              | ✅ (fewer LLM calls) | ⚠️ (more LLM calls) |
+| Scenario                          | Single agent                                                             | Multi-agent                                                                            |
+| --------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| Simple Q&A or classification      | <Icon icon="check" iconType="solid" color="#22c55e" />                   | Overkill                                                                               |
+| Task needs different expertise    | Consider                                                                 | <Icon icon="check" iconType="solid" color="#22c55e" />                                 |
+| Need to parallelize work          | N/A                                                                      | <Icon icon="check" iconType="solid" color="#22c55e" />                                 |
+| Task needs consensus/verification | N/A                                                                      | <Icon icon="check" iconType="solid" color="#22c55e" />                                 |
+| Tight latency budget              | <Icon icon="check" iconType="solid" color="#22c55e" /> (fewer LLM calls) | <Icon icon="triangle-exclamation" iconType="solid" color="#f59e0b" /> (more LLM calls) |
 
 ## Next steps
 

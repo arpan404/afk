@@ -30,24 +30,24 @@ from afk.core import Runner
 # Define specialist subagents
 triage = Agent(
     name="triage",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="Classify incident severity as SEV1, SEV2, SEV3, or SEV4 based on the description.",
 )
 analysis = Agent(
     name="analysis",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="Identify the most likely root causes for the described incident.",
 )
 comms = Agent(
     name="comms",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="Draft a concise stakeholder update email summarizing the incident and current status.",
 )
 
 # Define the coordinator agent
 lead = Agent(
     name="lead",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="Delegate to specialists and synthesize their outputs into a final response.",
     subagents=[triage, analysis, comms],
 )
@@ -99,7 +99,7 @@ from afk.agents import FailSafeConfig
 
 lead = Agent(
     name="lead",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="Delegate to specialists. If any specialist fails, work with available results.",
     subagents=[triage, analysis, comms],
     fail_safe=FailSafeConfig(

@@ -132,14 +132,14 @@ flowchart TB
 
 AFK defaults to **least privilege**:
 
-| Setting                  | Default   | Meaning                               |
-| ------------------------ | --------- | ------------------------------------- |
-| Tool policy              | `allow`   | Tools run unless explicitly denied    |
-| Tool output sanitization | `True`    | Output is sanitized by default        |
-| A2A authentication       | Required  | No unauthenticated A2A                |
-| MCP authentication       | Required  | No unauthenticated MCP                |
-| Cost limits              | None (⚠️) | **You must set `max_total_cost_usd`** |
-| Sandbox                  | None      | Tools run in the host process         |
+| Setting                  | Default                                                                      | Meaning                               |
+| ------------------------ | ---------------------------------------------------------------------------- | ------------------------------------- |
+| Tool policy              | `allow`                                                                      | Tools run unless explicitly denied    |
+| Tool output sanitization | `True`                                                                       | Output is sanitized by default        |
+| A2A authentication       | Required                                                                     | No unauthenticated A2A                |
+| MCP authentication       | Required                                                                     | No unauthenticated MCP                |
+| Cost limits              | None (<Icon icon="triangle-exclamation" iconType="solid" color="#f59e0b" />) | **You must set `max_total_cost_usd`** |
+| Sandbox                  | None                                                                         | Tools run in the host process         |
 
 <Warning>
   **Cost limits are not set by default.** Always configure `max_total_cost_usd`
@@ -148,22 +148,22 @@ AFK defaults to **least privilege**:
 
 ## Production hardening checklist
 
-| Area           | Action                                          | Status |
-| -------------- | ----------------------------------------------- | ------ |
-| **Cost**       | Set `max_total_cost_usd` on all agents          | ☐      |
-| **Cost**       | Set `max_steps` and `max_tool_calls`            | ☐      |
-| **Policy**     | Add `deny` rules for admin/destructive tools    | ☐      |
-| **Policy**     | Add `request_approval` for mutating operations  | ☐      |
-| **Tools**      | Enable `sanitize_tool_output=True`              | ☐      |
-| **Tools**      | Set `tool_output_max_chars`                     | ☐      |
-| **Tools**      | Use sandbox profiles for code execution         | ☐      |
-| **A2A/MCP**    | Configure auth providers with valid tokens      | ☐      |
-| **A2A/MCP**    | Set per-caller agent access lists               | ☐      |
-| **A2A/MCP**    | Enable rate limiting                            | ☐      |
-| **Secrets**    | Store API keys in environment variables         | ☐      |
-| **Secrets**    | Use secret scope isolation per tool call        | ☐      |
-| **Monitoring** | Configure telemetry exporter (OTEL)             | ☐      |
-| **Monitoring** | Set up alerts for error rate and cost anomalies | ☐      |
+| Area           | Action                                          | Status                                    |
+| -------------- | ----------------------------------------------- | ----------------------------------------- |
+| **Cost**       | Set `max_total_cost_usd` on all agents          | <Icon icon="square" iconType="regular" /> |
+| **Cost**       | Set `max_steps` and `max_tool_calls`            | <Icon icon="square" iconType="regular" /> |
+| **Policy**     | Add `deny` rules for admin/destructive tools    | <Icon icon="square" iconType="regular" /> |
+| **Policy**     | Add `request_approval` for mutating operations  | <Icon icon="square" iconType="regular" /> |
+| **Tools**      | Enable `sanitize_tool_output=True`              | <Icon icon="square" iconType="regular" /> |
+| **Tools**      | Set `tool_output_max_chars`                     | <Icon icon="square" iconType="regular" /> |
+| **Tools**      | Use sandbox profiles for code execution         | <Icon icon="square" iconType="regular" /> |
+| **A2A/MCP**    | Configure auth providers with valid tokens      | <Icon icon="square" iconType="regular" /> |
+| **A2A/MCP**    | Set per-caller agent access lists               | <Icon icon="square" iconType="regular" /> |
+| **A2A/MCP**    | Enable rate limiting                            | <Icon icon="square" iconType="regular" /> |
+| **Secrets**    | Store API keys in environment variables         | <Icon icon="square" iconType="regular" /> |
+| **Secrets**    | Use secret scope isolation per tool call        | <Icon icon="square" iconType="regular" /> |
+| **Monitoring** | Configure telemetry exporter (OTEL)             | <Icon icon="square" iconType="regular" /> |
+| **Monitoring** | Set up alerts for error rate and cost anomalies | <Icon icon="square" iconType="regular" /> |
 
 ## Secret isolation
 

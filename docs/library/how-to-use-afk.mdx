@@ -44,7 +44,7 @@ flowchart LR
 
     agent = Agent(
         name="ticket-classifier",
-        model="gpt-4.1-mini",
+        model="gpt-5.2-mini",
         instructions="""
         Read the support ticket and classify it as exactly one of:
         billing, technical, account, or other.
@@ -101,7 +101,7 @@ flowchart LR
 
     agent = Agent(
         name="ticket-agent",
-        model="gpt-4.1-mini",
+        model="gpt-5.2-mini",
         instructions="Look up tickets and classify priority. Never modify without approval.",
         tools=[lookup_ticket],
         fail_safe=FailSafeConfig(
@@ -205,16 +205,16 @@ flowchart LR
 
 Use this to track your progress:
 
-| Phase | Milestone                                           | Status |
-| ----- | --------------------------------------------------- | ------ |
-| 1     | Agent produces correct output for 20+ test cases    | ☐      |
-| 2     | Tools have Pydantic models, FailSafe limits are set | ☐      |
-| 2     | Policy rules gate all mutating operations           | ☐      |
-| 3     | Telemetry is configured and exporting               | ☐      |
-| 3     | Eval suite runs in CI with ≥ 5 cases                | ☐      |
-| 3     | Memory persistence is configured                    | ☐      |
-| 4     | Golden traces are captured and compared             | ☐      |
-| 4     | Releases are gated by eval pass rate                | ☐      |
+| Phase | Milestone                                           | Status                                    |
+| ----- | --------------------------------------------------- | ----------------------------------------- |
+| 1     | Agent produces correct output for 20+ test cases    | <Icon icon="square" iconType="regular" /> |
+| 2     | Tools have Pydantic models, FailSafe limits are set | <Icon icon="square" iconType="regular" /> |
+| 2     | Policy rules gate all mutating operations           | <Icon icon="square" iconType="regular" /> |
+| 3     | Telemetry is configured and exporting               | <Icon icon="square" iconType="regular" /> |
+| 3     | Eval suite runs in CI with ≥ 5 cases                | <Icon icon="square" iconType="regular" /> |
+| 3     | Memory persistence is configured                    | <Icon icon="square" iconType="regular" /> |
+| 4     | Golden traces are captured and compared             | <Icon icon="square" iconType="regular" /> |
+| 4     | Releases are gated by eval pass rate                | <Icon icon="square" iconType="regular" /> |
 
 ## Next steps
 

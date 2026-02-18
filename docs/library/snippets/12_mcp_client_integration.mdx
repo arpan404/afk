@@ -31,7 +31,7 @@ async def main():
     # 3. Attach MCP tools to an agent — they work like local tools
     agent = Agent(
         name="mcp-assistant",
-        model="gpt-4.1-mini",
+        model="gpt-5.2-mini",
         instructions="""
         Use the available tools to help the user.
         Always explain what tool you're using and why.
@@ -52,7 +52,7 @@ async def main():
 
     # 5. Inspect tool calls — MCP tools appear just like local tools
     for rec in result.tool_executions:
-        print(f"  {'✓' if rec.success else '✗'} {rec.tool_name} ({rec.latency_ms:.0f}ms)")
+        print(f"  {'[OK]' if rec.success else '[ERR]'} {rec.tool_name} ({rec.latency_ms:.0f}ms)")
 
     # 6. Disconnect
     await store.disconnect()
@@ -70,7 +70,7 @@ from afk.agents import Agent
 # The agent connects to MCP servers automatically during startup
 agent = Agent(
     name="connected-agent",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="Use available tools to help the user.",
     mcp_servers=[
         "https://tools.example.com:3001",             # Simple URL
@@ -110,7 +110,7 @@ async def build_agent():
     # Combine local + external tools
     agent = Agent(
         name="hybrid-agent",
-        model="gpt-4.1-mini",
+        model="gpt-5.2-mini",
         instructions="Use search tools for research and summarize for concise output.",
         tools=[summarize] + mcp_tools,  # ← Mix freely
     )

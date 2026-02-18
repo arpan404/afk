@@ -12,7 +12,7 @@ import asyncio
 from afk.agents import Agent
 from afk.core import Runner
 
-agent = Agent(name="explainer", model="gpt-4.1-mini", instructions="Explain clearly.")
+agent = Agent(name="explainer", model="gpt-5.2-mini", instructions="Explain clearly.")
 
 async def main():
     runner = Runner()
@@ -23,7 +23,7 @@ async def main():
             case "text_delta":
                 print(event.text_delta, end="", flush=True)
             case "completed":
-                print(f"\n✓ Done ({event.result.state})")
+                print(f"\n[DONE] Done ({event.result.state})")
 
 asyncio.run(main())
 ```
@@ -114,7 +114,7 @@ from afk.core import Runner
 
 agent = Agent(
     name="assistant",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="Be helpful and concise.",
     tools=[search, calculate],  # hypothetical tools
 )
@@ -148,10 +148,10 @@ async for event in handle:
     match event.type:
         case "error":
             if event.recoverable:
-                print(f"⚠️ Recoverable: {event.error}")
+                print(f"[WARN] Recoverable: {event.error}")
                 # Stream continues — the runner will retry or degrade
             else:
-                print(f"❌ Fatal: {event.error}")
+                print(f"[FATAL] Fatal: {event.error}")
                 # Next event will be 'completed' with state='failed'
         case "completed":
             if event.result.state == "failed":

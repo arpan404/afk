@@ -177,7 +177,7 @@ async def add_request_metadata(call_next, req: LLMRequest) -> LLMResponse:
 client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-4.1-mini")
+    .model("gpt-5.2-mini")
     .profile("production")
     .with_middlewares(MiddlewareStack(
         chat=[add_request_metadata],

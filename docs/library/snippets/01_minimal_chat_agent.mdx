@@ -11,7 +11,7 @@ If you are new to AFK, start here. Every other example builds on this foundation
 from afk.agents import Agent
 from afk.core import Runner
 
-agent = Agent(name="chat", model="gpt-4.1-mini", instructions="Answer directly with concrete detail.")
+agent = Agent(name="chat", model="gpt-5.2-mini", instructions="Answer directly with concrete detail.")
 runner = Runner()
 result = runner.run_sync(agent, user_message="Define error budget in SRE.")
 print(result.final_text)
@@ -43,6 +43,6 @@ The `AgentResult` dataclass returned by `run_sync` includes:
 
 ## Expected behavior
 
-When you run this example, the runner makes a single LLM call to `gpt-4.1-mini` with the system instructions and user message. Since no tools are registered, the model responds with text only. The run completes in one step with `state="completed"`, and `final_text` contains a concise definition of error budgets in SRE.
+When you run this example, the runner makes a single LLM call to `gpt-5.2-mini` with the system instructions and user message. Since no tools are registered, the model responds with text only. The run completes in one step with `state="completed"`, and `final_text` contains a concise definition of error budgets in SRE.
 
 No network calls, API keys, or external services are required beyond access to the specified LLM provider (configured via environment variables like `OPENAI_API_KEY`).

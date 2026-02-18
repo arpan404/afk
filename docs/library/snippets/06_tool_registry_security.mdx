@@ -77,7 +77,7 @@ policy = PolicyEngine(rules=[
 
 agent = Agent(
     name="resource-manager",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="Manage resources using the available tools. Always look up a resource before modifying it.",
     tools=[get_resource, delete_resource],
     fail_safe=FailSafeConfig(

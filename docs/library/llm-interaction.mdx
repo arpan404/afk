@@ -31,7 +31,7 @@ Each step in this flow is described in detail below.
 
 At each step of the agent loop, the runner builds an `LLMRequest` and sends it to the configured LLM provider. Here is what goes into the request:
 
-**Model resolution.** The agent's `model` field (e.g., `"gpt-4.1-mini"`) is resolved through the model resolution chain. This maps the requested model name to a provider, adapter, and normalized model identifier. Custom `model_resolver` functions can override this mapping.
+**Model resolution.** The agent's `model` field (e.g., `"gpt-5.2-mini"`) is resolved through the model resolution chain. This maps the requested model name to a provider, adapter, and normalized model identifier. Custom `model_resolver` functions can override this mapping.
 
 **Message history.** The runner maintains a list of `Message` objects representing the conversation history. This includes:
 - A `system` message containing the agent's instructions, skill manifests, and (when enabled) an untrusted-data preamble.
@@ -48,7 +48,7 @@ At each step of the agent loop, the runner builds an `LLMRequest` and sends it t
 ```python
 # Simplified view of what the runner builds
 request = LLMRequest(
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     request_id=f"{run_id}:step:{step}",
     messages=messages,           # Full conversation history
     tools=tool_definitions,      # OpenAI-format function tools

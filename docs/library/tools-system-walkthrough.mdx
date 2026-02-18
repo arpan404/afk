@@ -96,7 +96,7 @@ def search_docs(args: SearchArgs, ctx: ToolContext) -> dict:
 # 2. Create an agent with the tool
 agent = Agent(
     name="ops-assistant",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="Use search_docs when the user asks for references.",
     tools=[search_docs],
 )

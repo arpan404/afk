@@ -16,7 +16,7 @@ from afk.agents import Agent, FailSafeConfig
 
 agent = Agent(
     name="budget-agent",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="Be helpful and concise.",
     fail_safe=FailSafeConfig(
         max_total_cost_usd=0.50,        # Hard cost ceiling
@@ -60,7 +60,7 @@ from afk.core import Runner
 
 agent = Agent(
     name="analyst",
-    model="gpt-4.1",
+    model="gpt-5.2",
     instructions="Provide detailed analysis.",
     fail_safe=FailSafeConfig(
         max_total_cost_usd=1.00,
@@ -83,7 +83,7 @@ async def monitor_cost():
             case "step_started" if event.step is not None:
                 step_count = event.step
             case "tool_completed":
-                print(f"\n  📊 Step {step_count} | Tool: {event.tool_name}")
+                print(f"\n  [STEP] Step {step_count} | Tool: {event.tool_name}")
             case "completed" if event.result is not None:
                 usage = event.result.usage
                 print(f"\n\n--- Cost Summary ---")
@@ -109,14 +109,14 @@ async def batch_process(items: list[str], budget_usd: float):
 
     for item in items:
         if cumulative_cost >= budget_usd:
-            print(f"⚠️ Budget exhausted at ${cumulative_cost:.4f}")
+            print(f"[Limit] Budget exhausted at ${cumulative_cost:.4f}")
             break
 
         # Set per-item budget as remaining budget
         remaining = budget_usd - cumulative_cost
         agent = Agent(
             name="batch-processor",
-            model="gpt-4.1-mini",
+            model="gpt-5.2-mini",
             instructions="Process the item concisely.",
             fail_safe=FailSafeConfig(
                 max_total_cost_usd=min(remaining, 0.10),  # Per-item cap
@@ -128,7 +128,7 @@ async def batch_process(items: list[str], budget_usd: float):
         cumulative_cost += result.usage.estimated_cost_usd
         results.append(result)
 
-        print(f"  ✓ {item[:40]}... (${result.usage.estimated_cost_usd:.4f})")
+        print(f"  [OK] {item[:40]}... (${result.usage.estimated_cost_usd:.4f})")
 
     print(f"\nTotal: {len(results)} items, ${cumulative_cost:.4f}")
     return results
@@ -140,7 +140,7 @@ async def batch_process(items: list[str], budget_usd: float):
 2. **Layer defenses** — combine cost limits with `max_llm_calls`, `max_steps`, and `max_wall_time_s`
 3. **Use telemetry for dashboards** — export metrics to monitor cost trends over time
 4. **Set per-item budgets in batches** — prevent one expensive item from consuming the entire budget
-5. **Use cheaper models for iteration** — use `gpt-4.1-mini` for development, `gpt-4.1` for production
+5. **Use cheaper models for iteration** — use `gpt-5.2-mini` for development, `gpt-5.2` for production
 
 ## What to read next
 

@@ -3,9 +3,29 @@ title: Full Module Reference
 description: Module inventory and responsibilities.
 ---
 
-The AFK Python SDK is organized into a set of top-level packages, each owning a distinct responsibility. This page provides a comprehensive inventory of every package, its sub-modules, key classes and functions, and example imports.
+The Agent Forge Kit (AFK) Python SDK is organized into a set of top-level packages, each owning a distinct responsibility. This page provides a comprehensive inventory of every package, its sub-modules, key classes and functions, and example imports.
 
-Use this reference when you need to find where a specific class lives or understand which package owns a particular capability.
+Use this reference when you need to find where a comprehensive inventory of every package, its sub-modules, key classes and functions, and example imports.
+
+## Module dependencies
+
+The AFK architecture is layered. Dependencies flow strictly downwards:
+
+- **`afk.agents`** (High-level definitions) -> depends on `afk.core`, `afk.tools`, `afk.llms`
+- **`afk.core`** (Execution engine) -> depends on `afk.model`, `afk.memory`, `afk.observability`
+- **`afk.llms`** (Provider I/O) -> independent
+- **`afk.tools`** (Capabilities) -> independent
+
+### Extension points
+
+The framework is designed to be extended at specific protocol boundaries. **Do not subclass internal classes**. Instead, implement these protocols:
+
+- **`InteractionProvider`** (`afk.core`): Build custom human-in-the-loop interaces (e.g. Slack, Discord, Web).
+- **`MemoryStore`** (`afk.memory`): Add support for new databases (Mongo, DynamoDB).
+- **`LLMProvider`** (`afk.llms`): Integrate new model providers (local inference, exotic APIs).
+- **`TelemetrySink`** (`afk.observability`): Export metrics/traces to custom backends (Datadog, Honeycomb).
+
+---
 
 ## `afk.agents`
 
@@ -13,17 +33,17 @@ Agent definitions, lifecycle types, delegation, policy, A2A protocol, and error 
 
 **Sub-modules:**
 
-| Sub-module | Responsibility |
-| --- | --- |
-| `afk.agents.core` | `Agent` and `BaseAgent` definitions, `ChatAgent` variant. |
-| `afk.agents.types` | Runtime types: `AgentResult`, `AgentRunEvent`, `AgentRunHandle`, `AgentState`, `PolicyEvent`, `PolicyDecision`, `FailSafeConfig`, `UsageAggregate`, execution records. |
-| `afk.agents.policy` | `PolicyEngine`, `PolicyRule`, `PolicyEvaluation`, policy subject inference. |
-| `afk.agents.delegation` | `DelegationPlan`, `DelegationNode`, `DelegationEdge`, `RetryPolicy`, `JoinPolicy`, `DelegationResult`. |
-| `afk.agents.a2a` | `InternalA2AProtocol`, A2A auth providers (`AllowAllA2AAuthProvider`, `APIKeyA2AAuthProvider`, `JWTA2AAuthProvider`), `A2AServiceHost`, delivery stores. |
-| `afk.agents.contracts` | `AgentCommunicationProtocol`, `AgentInvocationRequest`, `AgentInvocationResponse`, `AgentDeadLetter`. |
-| `afk.agents.prompts` | `PromptStore`, prompt file resolution, template rendering. |
-| `afk.agents.lifecycle` | Checkpoint versioning, schema migration, runtime helpers. |
-| `afk.agents.errors` | Full error hierarchy: `AgentError`, `AgentExecutionError`, `AgentCancelledError`, `SubagentRoutingError`, etc. |
+| Sub-module              | Responsibility                                                                                                                                                         |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `afk.agents.core`       | `Agent` and `BaseAgent` definitions, `ChatAgent` variant.                                                                                                              |
+| `afk.agents.types`      | Runtime types: `AgentResult`, `AgentRunEvent`, `AgentRunHandle`, `AgentState`, `PolicyEvent`, `PolicyDecision`, `FailSafeConfig`, `UsageAggregate`, execution records. |
+| `afk.agents.policy`     | `PolicyEngine`, `PolicyRule`, `PolicyEvaluation`, policy subject inference.                                                                                            |
+| `afk.agents.delegation` | `DelegationPlan`, `DelegationNode`, `DelegationEdge`, `RetryPolicy`, `JoinPolicy`, `DelegationResult`.                                                                 |
+| `afk.agents.a2a`        | `InternalA2AProtocol`, A2A auth providers (`AllowAllA2AAuthProvider`, `APIKeyA2AAuthProvider`, `JWTA2AAuthProvider`), `A2AServiceHost`, delivery stores.               |
+| `afk.agents.contracts`  | `AgentCommunicationProtocol`, `AgentInvocationRequest`, `AgentInvocationResponse`, `AgentDeadLetter`.                                                                  |
+| `afk.agents.prompts`    | `PromptStore`, prompt file resolution, template rendering.                                                                                                             |
+| `afk.agents.lifecycle`  | Checkpoint versioning, schema migration, runtime helpers.                                                                                                              |
+| `afk.agents.errors`     | Full error hierarchy: `AgentError`, `AgentExecutionError`, `AgentCancelledError`, `SubagentRoutingError`, etc.                                                         |
 
 **Key imports:**
 
@@ -39,13 +59,13 @@ Runner execution engine, streaming, interaction providers, delegation engine, an
 
 **Sub-modules:**
 
-| Sub-module | Responsibility |
-| --- | --- |
-| `afk.core.runner` | `Runner` class with `run()`, `run_sync()`, `run_handle()`, `run_stream()`, `resume()`, `compact_thread()`. `RunnerConfig` for safety and behavior defaults. |
-| `afk.core.streaming` | `AgentStreamHandle`, `AgentStreamEvent`, stream event constructors (`text_delta`, `tool_started`, `stream_completed`). |
-| `afk.core.interaction` | `InteractionProvider` protocol, `HeadlessInteractionProvider`, `InMemoryInteractiveProvider`. |
-| `afk.core.runtime` | `DelegationEngine`, `DelegationPlanner`, backpressure and graph error types. |
-| `afk.core.telemetry` | `TelemetrySink`, `TelemetryEvent`, `TelemetrySpan`. |
+| Sub-module             | Responsibility                                                                                                                                              |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `afk.core.runner`      | `Runner` class with `run()`, `run_sync()`, `run_handle()`, `run_stream()`, `resume()`, `compact_thread()`. `RunnerConfig` for safety and behavior defaults. |
+| `afk.core.streaming`   | `AgentStreamHandle`, `AgentStreamEvent`, stream event constructors (`text_delta`, `tool_started`, `stream_completed`).                                      |
+| `afk.core.interaction` | `InteractionProvider` protocol, `HeadlessInteractionProvider`, `InMemoryInteractiveProvider`.                                                               |
+| `afk.core.runtime`     | `DelegationEngine`, `DelegationPlanner`, backpressure and graph error types.                                                                                |
+| `afk.core.telemetry`   | `TelemetrySink`, `TelemetryEvent`, `TelemetrySpan`.                                                                                                         |
 
 **Key imports:**
 
@@ -62,18 +82,18 @@ LLM client builder, provider registry, runtime policies, caching, routing, middl
 
 **Sub-modules:**
 
-| Sub-module | Responsibility |
-| --- | --- |
-| `afk.llms.builder` | `LLMBuilder` -- fluent builder for constructing LLM client instances. |
-| `afk.llms.providers` | Provider registry: `OpenAIProvider`, `LiteLLMProvider`, `AnthropicAgentProvider`, `register_llm_provider()`. |
-| `afk.llms.runtime` | `LLMClient` with production policies: `RetryPolicy`, `TimeoutPolicy`, `RateLimitPolicy`, `CircuitBreakerPolicy`, `HedgingPolicy`, `CachePolicy`. |
-| `afk.llms.routing` | Router registry: `create_llm_router()`, `register_llm_router()`. |
-| `afk.llms.cache` | Cache backends: `create_llm_cache()`, in-memory and Redis implementations. |
-| `afk.llms.middleware` | `MiddlewareStack` for request/response transformation pipelines. |
-| `afk.llms.types` | `LLMRequest`, `LLMResponse`, `Message`, `ToolCall`, `Usage`, streaming event types. |
-| `afk.llms.config` | `LLMConfig` dataclass for model configuration. |
-| `afk.llms.profiles` | Production/development profile presets. |
-| `afk.llms.errors` | `LLMError`, `LLMTimeoutError`, `LLMRetryableError`, etc. |
+| Sub-module            | Responsibility                                                                                                                                   |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `afk.llms.builder`    | `LLMBuilder` -- fluent builder for constructing LLM client instances.                                                                            |
+| `afk.llms.providers`  | Provider registry: `OpenAIProvider`, `LiteLLMProvider`, `AnthropicAgentProvider`, `register_llm_provider()`.                                     |
+| `afk.llms.runtime`    | `LLMClient` with production policies: `RetryPolicy`, `TimeoutPolicy`, `RateLimitPolicy`, `CircuitBreakerPolicy`, `HedgingPolicy`, `CachePolicy`. |
+| `afk.llms.routing`    | Router registry: `create_llm_router()`, `register_llm_router()`.                                                                                 |
+| `afk.llms.cache`      | Cache backends: `create_llm_cache()`, in-memory and Redis implementations.                                                                       |
+| `afk.llms.middleware` | `MiddlewareStack` for request/response transformation pipelines.                                                                                 |
+| `afk.llms.types`      | `LLMRequest`, `LLMResponse`, `Message`, `ToolCall`, `Usage`, streaming event types.                                                              |
+| `afk.llms.config`     | `LLMConfig` dataclass for model configuration.                                                                                                   |
+| `afk.llms.profiles`   | Production/development profile presets.                                                                                                          |
+| `afk.llms.errors`     | `LLMError`, `LLMTimeoutError`, `LLMRetryableError`, etc.                                                                                         |
 
 **Key imports:**
 
@@ -89,12 +109,12 @@ Tool definition, registry, hooks, middleware, security, and prebuilt runtime too
 
 **Sub-modules:**
 
-| Sub-module | Responsibility |
-| --- | --- |
-| `afk.tools.core` | `tool` decorator, `ToolSpec`, `ToolContext`, `ToolResult`, `ToolRegistry`. |
-| `afk.tools.security` | `SandboxProfile`, `SandboxProfileProvider`, `SecretScopeProvider`, argument validation. |
-| `afk.tools.prebuilts` | Built-in runtime tools (file read, directory list, command execution, skill tools). |
-| `afk.tools.hooks` | Pre/post execution hook system for tool middleware. |
+| Sub-module            | Responsibility                                                                          |
+| --------------------- | --------------------------------------------------------------------------------------- |
+| `afk.tools.core`      | `tool` decorator, `ToolSpec`, `ToolContext`, `ToolResult`, `ToolRegistry`.              |
+| `afk.tools.security`  | `SandboxProfile`, `SandboxProfileProvider`, `SecretScopeProvider`, argument validation. |
+| `afk.tools.prebuilts` | Built-in runtime tools (file read, directory list, command execution, skill tools).     |
+| `afk.tools.hooks`     | Pre/post execution hook system for tool middleware.                                     |
 
 **Key imports:**
 
@@ -109,8 +129,8 @@ Pluggable memory stores, compaction, and retention policies for thread state per
 
 **Sub-modules:**
 
-| Sub-module | Responsibility |
-| --- | --- |
+| Sub-module   | Responsibility                                                                                                          |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------- |
 | `afk.memory` | `MemoryStore` protocol, `compact_thread_memory()`, `RetentionPolicy`, `StateRetentionPolicy`, `MemoryCompactionResult`. |
 
 **Key imports:**
@@ -125,13 +145,13 @@ Task queue abstraction, worker lifecycle, failure classification, and metrics.
 
 **Sub-modules:**
 
-| Sub-module | Responsibility |
-| --- | --- |
-| `afk.queues.base` | Base queue types and enqueue/dequeue contracts. |
-| `afk.queues.contracts` | Queue protocol definitions. |
-| `afk.queues.factory` | Queue backend factory for creating queue instances. |
-| `afk.queues.worker` | Worker lifecycle management and task dispatch. |
-| `afk.queues.metrics` | Queue-level operational metrics. |
+| Sub-module             | Responsibility                                      |
+| ---------------------- | --------------------------------------------------- |
+| `afk.queues.base`      | Base queue types and enqueue/dequeue contracts.     |
+| `afk.queues.contracts` | Queue protocol definitions.                         |
+| `afk.queues.factory`   | Queue backend factory for creating queue instances. |
+| `afk.queues.worker`    | Worker lifecycle management and task dispatch.      |
+| `afk.queues.metrics`   | Queue-level operational metrics.                    |
 
 **Key imports:**
 
@@ -145,13 +165,13 @@ Telemetry collection, projection, and export for runtime monitoring.
 
 **Sub-modules:**
 
-| Sub-module | Responsibility |
-| --- | --- |
-| `afk.observability.models` | `RunMetrics` dataclass with aggregated run statistics. |
-| `afk.observability.contracts` | Span and metric name constants (`SPAN_AGENT_RUN`, `METRIC_AGENT_LLM_CALLS_TOTAL`, etc.). |
-| `afk.observability.projectors` | Projection functions that transform run results into `RunMetrics`. |
-| `afk.observability.exporters` | `ConsoleRunMetricsExporter` and other output formatters. |
-| `afk.observability.backends` | Telemetry sink creation (`create_telemetry_sink`). |
+| Sub-module                     | Responsibility                                                                           |
+| ------------------------------ | ---------------------------------------------------------------------------------------- |
+| `afk.observability.models`     | `RunMetrics` dataclass with aggregated run statistics.                                   |
+| `afk.observability.contracts`  | Span and metric name constants (`SPAN_AGENT_RUN`, `METRIC_AGENT_LLM_CALLS_TOTAL`, etc.). |
+| `afk.observability.projectors` | Projection functions that transform run results into `RunMetrics`.                       |
+| `afk.observability.exporters`  | `ConsoleRunMetricsExporter` and other output formatters.                                 |
+| `afk.observability.backends`   | Telemetry sink creation (`create_telemetry_sink`).                                       |
 
 **Key imports:**
 
@@ -167,15 +187,15 @@ Eval suite execution, assertion contracts, budget constraints, and report serial
 
 **Sub-modules:**
 
-| Sub-module | Responsibility |
-| --- | --- |
-| `afk.evals.suite` | `run_suite()` and `arun_suite()` entrypoints. |
-| `afk.evals.executor` | Single-case execution via `run_case()` and `arun_case()`. |
-| `afk.evals.models` | `EvalCase`, `EvalCaseResult`, `EvalSuiteConfig`, `EvalSuiteResult`, `EvalAssertionResult`. |
-| `afk.evals.contracts` | `EvalAssertion`, `AsyncEvalAssertion`, `EvalScorer` protocols. |
-| `afk.evals.budgets` | `EvalBudget` dataclass and `evaluate_budget()` function. |
-| `afk.evals.reporting` | `suite_report_payload()`, `write_suite_report_json()`. |
-| `afk.evals.golden` | `write_golden_trace()`, `compare_event_types()` for deterministic trace comparison. |
+| Sub-module            | Responsibility                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------ |
+| `afk.evals.suite`     | `run_suite()` and `arun_suite()` entrypoints.                                              |
+| `afk.evals.executor`  | Single-case execution via `run_case()` and `arun_case()`.                                  |
+| `afk.evals.models`    | `EvalCase`, `EvalCaseResult`, `EvalSuiteConfig`, `EvalSuiteResult`, `EvalAssertionResult`. |
+| `afk.evals.contracts` | `EvalAssertion`, `AsyncEvalAssertion`, `EvalScorer` protocols.                             |
+| `afk.evals.budgets`   | `EvalBudget` dataclass and `evaluate_budget()` function.                                   |
+| `afk.evals.reporting` | `suite_report_payload()`, `write_suite_report_json()`.                                     |
+| `afk.evals.golden`    | `write_golden_trace()`, `compare_event_types()` for deterministic trace comparison.        |
 
 **Key imports:**
 
@@ -192,10 +212,10 @@ Model Context Protocol server implementation, tool store, and server registratio
 
 **Sub-modules:**
 
-| Sub-module | Responsibility |
-| --- | --- |
-| `afk.mcp.server` | MCP protocol handler. |
-| `afk.mcp.store` | Tool store registry and utility functions for MCP tool loading. |
+| Sub-module       | Responsibility                                                  |
+| ---------------- | --------------------------------------------------------------- |
+| `afk.mcp.server` | MCP protocol handler.                                           |
+| `afk.mcp.store`  | Tool store registry and utility functions for MCP tool loading. |
 
 **Key imports:**
 

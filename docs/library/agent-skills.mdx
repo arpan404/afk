@@ -75,7 +75,7 @@ from afk.agents import Agent
 
 agent = Agent(
     name="devops-agent",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="""
     You are a DevOps assistant. Use your skills to help with
     deployment, monitoring, and infrastructure tasks.
@@ -122,10 +122,10 @@ The agent autonomously decides which skills to read based on the user's question
     By default, `read_skill_file` only allows reading files within the skill directory. Path traversal (`../`) is blocked.
 
     ```python
-    # ✅ Allowed: read within skill directory
+    # [OK] Allowed: read within skill directory
     read_skill_file("deployment", "scripts/deploy.sh")
 
-    # ❌ Blocked: path traversal
+    # [BLOCKED] Blocked: path traversal
     read_skill_file("deployment", "../../../etc/passwd")
     ```
 
@@ -153,7 +153,7 @@ The agent autonomously decides which skills to read based on the user's question
     ```python
     agent = Agent(
         name="reader",
-        model="gpt-4.1-mini",
+        model="gpt-5.2-mini",
         skills_dir="skills/",
         skill_tools=["list_skills", "read_skill_md", "read_skill_file"],
         # ← No run_skill_command

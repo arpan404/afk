@@ -111,7 +111,7 @@ src/afk/
     **Wrong:** Runner code that contains OpenAI-specific types.
 
     ```python
-    # ❌ Bad: OpenAI types in the runner
+    # [BAD] Bad: OpenAI types in the runner
     from openai.types.chat import ChatCompletion
     result = await openai_client.chat.completions.create(...)
     ```
@@ -119,7 +119,7 @@ src/afk/
     **Right:** Runner sends `LLMRequest`, receives `LLMResponse`.
 
     ```python
-    # ✅ Good: Provider-agnostic contracts
+    # [OK] Good: Provider-agnostic contracts
     response: LLMResponse = await llm_client.generate(request)
     ```
 
@@ -128,7 +128,7 @@ src/afk/
     **Wrong:** All errors treated the same way.
 
     ```python
-    # ❌ Bad: Generic exception, no classification
+    # [BAD] Bad: Generic exception, no classification
     except Exception as e:
         raise RuntimeError(f"Tool failed: {e}")
     ```
@@ -136,7 +136,7 @@ src/afk/
     **Right:** Errors classified for the runner to handle appropriately.
 
     ```python
-    # ✅ Good: Classified failure
+    # [OK] Good: Classified failure
     except httpx.TimeoutException:
         return ToolResult(success=False, error_type="retryable", error="Timeout")
     except ValueError as e:
@@ -148,14 +148,14 @@ src/afk/
     **Wrong:** Passing raw dicts between modules.
 
     ```python
-    # ❌ Bad: Unvalidated dict
+    # [BAD] Bad: Unvalidated dict
     return {"tool_name": name, "result": output}
     ```
 
     **Right:** Using the Pydantic model.
 
     ```python
-    # ✅ Good: Validated contract
+    # [OK] Good: Validated contract
     return ToolExecutionRecord(tool_name=name, success=True, output=output)
     ```
 

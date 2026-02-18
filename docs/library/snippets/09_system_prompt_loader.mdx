@@ -35,14 +35,14 @@ from afk.agents import Agent
 # Option 1: Inline instructions (highest priority)
 agent = Agent(
     name="ChatAgent",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="Answer customer questions concisely.",
 )
 
 # Option 2: Explicit instruction file
 agent = Agent(
     name="ChatAgent",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instruction_file="chat_agent_system.md",   # Loaded from prompts_dir
     prompts_dir=".agents/prompt",
 )
@@ -51,7 +51,7 @@ agent = Agent(
 # Loads .agents/prompt/CHAT_AGENT.md automatically
 agent = Agent(
     name="ChatAgent",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     prompts_dir=".agents/prompt",
 )
 ```
@@ -79,14 +79,14 @@ The prompts directory is resolved through its own priority chain:
 
 ```python
 # Explicit
-agent = Agent(name="Bot", model="gpt-4.1-mini", prompts_dir="/opt/prompts")
+agent = Agent(name="Bot", model="gpt-5.2-mini", prompts_dir="/opt/prompts")
 
 # Environment variable
 # export AFK_AGENT_PROMPTS_DIR=/opt/prompts
-agent = Agent(name="Bot", model="gpt-4.1-mini")
+agent = Agent(name="Bot", model="gpt-5.2-mini")
 
 # Default: .agents/prompt/
-agent = Agent(name="Bot", model="gpt-4.1-mini")
+agent = Agent(name="Bot", model="gpt-5.2-mini")
 ```
 
 ## Jinja2 templating
@@ -117,7 +117,7 @@ from afk.core import Runner, RunnerConfig
 
 agent = Agent(
     name="SupportAgent",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     prompts_dir=".agents/prompt",
 )
 
@@ -166,7 +166,7 @@ The prompt loader enforces strict path containment. The resolved prompt file pat
 # This would raise PromptAccessError:
 agent = Agent(
     name="Agent",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instruction_file="../../etc/passwd",   # Escapes prompts root
     prompts_dir=".agents/prompt",
 )

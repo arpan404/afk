@@ -22,7 +22,7 @@ runtime_tools = build_runtime_tools(root_dir=Path("./workspace"))
 
 agent = Agent(
     name="file-assistant",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions=(
         "You help users explore and read files in the workspace directory. "
         "Use list_directory to browse the directory structure and read_file "
@@ -97,7 +97,7 @@ policy = PolicyEngine(
 
 agent = Agent(
     name="ops-assistant",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="Use approved runtime tools only. Never read sensitive configuration without approval.",
     tools=build_runtime_tools(root_dir=Path("./project")),
 )
@@ -137,7 +137,7 @@ all_tools = build_runtime_tools(root_dir=Path("./workspace")) + [grep_files]
 
 agent = Agent(
     name="dev-assistant",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="Help developers explore and search the codebase.",
     tools=all_tools,
 )

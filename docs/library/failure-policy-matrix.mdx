@@ -65,7 +65,7 @@ agent = Agent(
     ...,
     fail_safe=FailSafeConfig(
         llm_failure_policy="degrade",              # "fail" or "degrade"
-        fallback_model_chain=["gpt-4.1-mini"],     # Try cheaper model
+        fallback_model_chain=["gpt-5.2-mini"],     # Try cheaper model
     ),
 )
 ```
