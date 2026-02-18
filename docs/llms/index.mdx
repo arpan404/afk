@@ -22,17 +22,35 @@ client = (
 
 <Steps>
   <Step title="Choose a provider">
-    ```python builder = LLMBuilder().provider("openai") # Also: "anthropic",
-    "litellm", or a custom adapter ```
+
+    ```python
+    builder = LLMBuilder().provider("openai")
+    # Also: "anthropic", "litellm", or a custom adapter
+    ```
+
   </Step>
   <Step title="Set the model">
-    ```python builder = builder.model("gpt-5.2-mini") ```
+
+    ```python
+    builder = builder.model("gpt-5.2-mini")
+    ```
+
   </Step>
   <Step title="Add policies (optional)">
-    ```python builder = builder.profile("production") # retry, timeout, rate
-    limit, circuit breaker ```
+
+    ```python
+    builder = builder.profile("production")
+    # retry, timeout, rate limit, circuit breaker
+    ```
+
   </Step>
-  <Step title="Build">```python client = builder.build() ```</Step>
+  <Step title="Build">
+
+    ```python
+    client = builder.build()
+    ```
+
+  </Step>
 </Steps>
 
 ## Supported providers
