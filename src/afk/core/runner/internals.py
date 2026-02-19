@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import time
 import asyncio
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Awaitable, Callable
 
 from ...agents.errors import (
     AgentBudgetExceededError,
@@ -46,6 +47,7 @@ from ...agents.types import (
     json_value_from_tool_result,
 )
 from ...llms.types import JSONValue, LLMRequest, LLMResponse, Message, ToolCall, Usage
+from ...llms.types import StreamCompletedEvent, StreamTextDeltaEvent
 from ...memory import (
     InMemoryMemoryStore,
     MemoryEvent,
@@ -58,6 +60,23 @@ from ...observability import contracts as obs_contracts
 from ...tools import ToolResult
 from ..telemetry import TelemetryEvent, TelemetrySpan
 from .types import _RunHandle
+
+
+@dataclass(slots=True)
+class _CheckpointWrite:
+    thread_id: str
+    key: str
+    value: dict[str, Any]
+    coalesce: bool = False
+
+
+@dataclass(slots=True, frozen=True)
+class _CheckpointCoalesceToken:
+    thread_id: str
+    key: str
+
+
+StreamTextDeltaSink = Callable[[str], Awaitable[None]]
 
 
 class RunnerInternalsMixin:
@@ -205,17 +224,18 @@ class RunnerInternalsMixin:
         Returns:
             Ready-to-use memory store instance.
         """
-        if self._memory_store is None:
-            try:
-                self._memory_store = self._create_memory_store_from_env()
-                self._memory_fallback_reason = None
-            except Exception as e:
-                self._memory_store = InMemoryMemoryStore()
-                self._memory_fallback_reason = str(e)
-            self._owns_memory_store = True
+        async with self._memory_store_lock:
+            if self._memory_store is None:
+                try:
+                    self._memory_store = self._create_memory_store_from_env()
+                    self._memory_fallback_reason = None
+                except Exception as e:
+                    self._memory_store = InMemoryMemoryStore()
+                    self._memory_fallback_reason = str(e)
+                self._owns_memory_store = True
 
-        await self._memory_store.setup()
-        return self._memory_store
+            await self._memory_store.setup()
+            return self._memory_store
 
     def _transition_state(self, current: AgentState, target: AgentState) -> AgentState:
         """
@@ -261,16 +281,134 @@ class RunnerInternalsMixin:
                 str(k): json_value_from_tool_result(v) for k, v in payload.items()
             },
         }
+        state_key = checkpoint_state_key(run_id, step, phase)
+        latest_key = checkpoint_latest_key(run_id)
+        if self.config.checkpoint_async_writes:
+            await self._ensure_checkpoint_writer()
+            await self._queue_checkpoint_write(
+                _CheckpointWrite(
+                    thread_id=thread_id,
+                    key=state_key,
+                    value=data,
+                    coalesce=(
+                        self.config.checkpoint_coalesce_runtime_state
+                        and phase == "runtime_state"
+                    ),
+                )
+            )
+            await self._queue_checkpoint_write(
+                _CheckpointWrite(
+                    thread_id=thread_id,
+                    key=latest_key,
+                    value=data,
+                    coalesce=False,
+                )
+            )
+            return
+        await self._write_checkpoint_now(
+            memory=memory,
+            thread_id=thread_id,
+            key=state_key,
+            value=data,
+        )
+        await self._write_checkpoint_now(
+            memory=memory,
+            thread_id=thread_id,
+            key=latest_key,
+            value=data,
+        )
+
+    async def _write_checkpoint_now(
+        self,
+        *,
+        memory: MemoryStore,
+        thread_id: str,
+        key: str,
+        value: dict[str, Any],
+    ) -> None:
         await memory.put_state(
             thread_id,
-            checkpoint_state_key(run_id, step, phase),
-            data,  # type: ignore[arg-type]
+            key,
+            value,  # type: ignore[arg-type]
         )
-        await memory.put_state(
-            thread_id,
-            checkpoint_latest_key(run_id),
-            data,  # type: ignore[arg-type]
-        )
+
+    async def _ensure_checkpoint_writer(self) -> None:
+        if self._checkpoint_writer_task is not None and not self._checkpoint_writer_task.done():
+            return
+        if self._checkpoint_queue is None:
+            self._checkpoint_queue = asyncio.Queue(
+                maxsize=max(1, int(self.config.checkpoint_queue_maxsize))
+            )
+        self._checkpoint_writer_task = asyncio.create_task(self._checkpoint_writer_loop())
+
+    async def _queue_checkpoint_write(self, write: _CheckpointWrite) -> None:
+        queue = self._checkpoint_queue
+        if queue is None:
+            await self._ensure_checkpoint_writer()
+            queue = self._checkpoint_queue
+        assert queue is not None
+        if write.coalesce:
+            coalesce_key = (write.thread_id, write.key)
+            self._checkpoint_coalesce_buffer[coalesce_key] = write
+            if coalesce_key in self._checkpoint_coalesce_keys:
+                return
+            self._checkpoint_coalesce_keys.add(coalesce_key)
+            item: _CheckpointWrite | _CheckpointCoalesceToken = _CheckpointCoalesceToken(
+                thread_id=write.thread_id,
+                key=write.key,
+            )
+        else:
+            item = write
+        self._checkpoint_pending_count += 1
+        self._checkpoint_pending_event.clear()
+        await queue.put(item)
+
+    async def _checkpoint_writer_loop(self) -> None:
+        queue = self._checkpoint_queue
+        if queue is None:
+            return
+        while True:
+            item = await queue.get()
+            if item is None:
+                queue.task_done()
+                break
+            write: _CheckpointWrite | None
+            if isinstance(item, _CheckpointCoalesceToken):
+                coalesce_key = (item.thread_id, item.key)
+                write = self._checkpoint_coalesce_buffer.pop(coalesce_key, None)
+                self._checkpoint_coalesce_keys.discard(coalesce_key)
+            else:
+                write = item
+            try:
+                if write is not None:
+                    memory = await self._ensure_memory_store()
+                    await self._write_checkpoint_now(
+                        memory=memory,
+                        thread_id=write.thread_id,
+                        key=write.key,
+                        value=write.value,
+                    )
+            finally:
+                self._checkpoint_pending_count = max(0, self._checkpoint_pending_count - 1)
+                if self._checkpoint_pending_count == 0:
+                    self._checkpoint_pending_event.set()
+                queue.task_done()
+
+    async def _flush_checkpoint_writes(self) -> None:
+        if not self.config.checkpoint_async_writes:
+            return
+        timeout = max(0.0, float(self.config.checkpoint_flush_timeout_s))
+        await asyncio.wait_for(self._checkpoint_pending_event.wait(), timeout=timeout)
+
+    async def _stop_checkpoint_writer(self) -> None:
+        if self._checkpoint_queue is None:
+            return
+        if self._checkpoint_writer_task is None:
+            return
+        if not self._checkpoint_writer_task.done():
+            await self._checkpoint_queue.put(None)
+            await asyncio.gather(self._checkpoint_writer_task, return_exceptions=True)
+        self._checkpoint_writer_task = None
 
     def _build_llm_candidates(
         self,
@@ -575,6 +713,7 @@ class RunnerInternalsMixin:
         handle: _RunHandle,
         llm: Any,
         req: LLMRequest,
+        on_text_delta: StreamTextDeltaSink | None = None,
     ):
         """
         Execute chat call with optional provider interrupt wiring.
@@ -591,10 +730,21 @@ class RunnerInternalsMixin:
             AgentInterruptedError: If run is interrupted during streaming call.
             AgentCancelledError: If run is cancelled before response completion.
         """
-        if llm.capabilities.interrupt and llm.capabilities.streaming:
+        if llm.capabilities.streaming and (
+            llm.capabilities.interrupt or on_text_delta is not None
+        ):
             stream_handle = await llm.chat_stream_handle(req)
-            handle.set_interrupt_callback(stream_handle.interrupt)
+            if llm.capabilities.interrupt:
+                handle.set_interrupt_callback(stream_handle.interrupt)
+            else:
+                handle.set_interrupt_callback(None)
             try:
+                if on_text_delta is not None:
+                    async for event in stream_handle.events:
+                        if isinstance(event, StreamTextDeltaEvent) and event.delta:
+                            await on_text_delta(event.delta)
+                        if isinstance(event, StreamCompletedEvent):
+                            break
                 response = await stream_handle.await_result()
             finally:
                 handle.set_interrupt_callback(None)
@@ -1027,6 +1177,9 @@ class RunnerInternalsMixin:
                 "output": row.output,
                 "error": row.error,
                 "latency_ms": row.latency_ms,
+                "agent_name": row.agent_name,
+                "agent_depth": row.agent_depth,
+                "agent_path": row.agent_path,
             }
             for row in rows
         ]
@@ -1063,6 +1216,15 @@ class RunnerInternalsMixin:
                     else None,
                     latency_ms=row.get("latency_ms")
                     if isinstance(row.get("latency_ms"), (float, int))
+                    else None,
+                    agent_name=row.get("agent_name")
+                    if isinstance(row.get("agent_name"), str)
+                    else None,
+                    agent_depth=int(row.get("agent_depth"))
+                    if isinstance(row.get("agent_depth"), int)
+                    else None,
+                    agent_path=row.get("agent_path")
+                    if isinstance(row.get("agent_path"), str)
                     else None,
                 )
             )

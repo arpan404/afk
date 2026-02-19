@@ -38,6 +38,8 @@ class SQLiteMemoryStore(MemoryStore):
         self._connection: aiosqlite.Connection | None = None
 
     async def setup(self) -> None:
+        if self._is_setup and self._connection is not None:
+            return
         self._connection = await aiosqlite.connect(self.path)
         self._connection.row_factory = aiosqlite.Row
         await self._connection.execute("PRAGMA journal_mode=WAL;")

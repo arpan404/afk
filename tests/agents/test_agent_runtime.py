@@ -153,6 +153,19 @@ class _SlowLLM(_ToolCallingLLM):
         return LLMResponse(text="done")
 
 
+class _CountingSlowStateStore(InMemoryMemoryStore):
+    def __init__(self, delay_s: float = 0.0) -> None:
+        super().__init__()
+        self.delay_s = delay_s
+        self.put_state_calls = 0
+
+    async def put_state(self, thread_id: str, key: str, value):
+        self.put_state_calls += 1
+        if self.delay_s > 0:
+            await asyncio.sleep(self.delay_s)
+        await super().put_state(thread_id, key, value)
+
+
 class _SkillReaderLLM(_ToolCallingLLM):
     async def _chat_core(self, req: LLMRequest, *, response_model=None) -> LLMResponse:
         _ = response_model
@@ -807,6 +820,52 @@ def test_subagent_context_inheritance_and_isolation():
     assert "child_secret=s1" in (result.subagent_executions[0].output_text or "")
 
 
+def test_subagent_tool_executions_are_flattened_into_parent_result():
+    child = Agent(
+        model=_ToolCallingLLM(),
+        instructions="child with tool",
+        tools=[add_numbers],
+    )
+    parent = Agent(
+        model=_StaticLLM(text="parent done"),
+        subagents=[child],
+        subagent_router=lambda _: RouterDecision(targets=[child.name], parallel=True),
+        instructions="parent",
+    )
+    result = run_async(Runner().run(parent, user_message="delegate"))
+    assert result.subagent_executions
+    child_tool_rows = [
+        row for row in result.tool_executions if row.agent_name == child.name
+    ]
+    assert child_tool_rows
+    assert any(row.tool_name == "add_numbers" and row.success for row in child_tool_rows)
+
+
+def test_run_stream_relays_subagent_tool_events():
+    child = Agent(
+        model=_ToolCallingLLM(),
+        instructions="child with tool",
+        tools=[add_numbers],
+    )
+    parent = Agent(
+        model=_StaticLLM(text="parent done"),
+        subagents=[child],
+        subagent_router=lambda _: RouterDecision(targets=[child.name], parallel=True),
+        instructions="parent",
+    )
+
+    async def _scenario():
+        handle = await Runner().run_stream(parent, user_message="delegate")
+        rows = []
+        async for event in handle:
+            if event.type == "tool_completed":
+                rows.append((event.tool_name, event.data.get("subagent_name")))
+        return rows
+
+    tool_rows = run_async(_scenario())
+    assert any(name == "add_numbers" and sub == child.name for name, sub in tool_rows)
+
+
 def test_subagent_failure_policy_fail_run():
     bad_child = Agent(
         model=_FailingLLM(error="child failed"),
@@ -1457,3 +1516,52 @@ def test_runner_loads_and_executes_external_mcp_tools(monkeypatch):
         record.tool_name == "calc__add" and record.success
         for record in result.tool_executions
     )
+
+
+def test_async_checkpoint_writer_flushes_terminal_checkpoint():
+    store = InMemoryMemoryStore()
+    runner = Runner(
+        memory_store=store,
+        config=RunnerConfig(
+            checkpoint_async_writes=True,
+            checkpoint_flush_timeout_s=5.0,
+        ),
+    )
+    agent = Agent(model=_ToolCallingLLM(), tools=[add_numbers], instructions="x")
+    result = run_async(runner.run(agent, user_message="compute"))
+
+    latest = run_async(
+        store.get_state(result.thread_id, f"checkpoint:{result.run_id}:latest")
+    )
+    assert isinstance(latest, dict)
+    assert latest.get("phase") == "run_terminal"
+
+
+def test_async_checkpoint_writer_coalesces_runtime_state_writes():
+    async def _scenario(coalesce: bool) -> int:
+        store = _CountingSlowStateStore(delay_s=0.01)
+        runner = Runner(
+            memory_store=store,
+            config=RunnerConfig(
+                checkpoint_async_writes=True,
+                checkpoint_queue_maxsize=512,
+                checkpoint_coalesce_runtime_state=coalesce,
+                checkpoint_flush_timeout_s=5.0,
+            ),
+        )
+        memory = await runner._ensure_memory_store()
+        for idx in range(20):
+            await runner._persist_checkpoint(
+                memory=memory,
+                thread_id="thread_coalesce",
+                run_id="run_coalesce",
+                step=1,
+                phase="runtime_state",
+                payload={"idx": idx},
+            )
+        await runner._flush_checkpoint_writes()
+        return store.put_state_calls
+
+    calls_without = run_async(_scenario(coalesce=False))
+    calls_with = run_async(_scenario(coalesce=True))
+    assert calls_with < calls_without

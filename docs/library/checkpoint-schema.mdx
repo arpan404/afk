@@ -23,11 +23,11 @@ Checkpoints matter for three reasons:
 ```mermaid
 flowchart TB
     CP[Checkpoint]
+    CP --> Version[schema_version]
     CP --> RunID[run_id]
-    CP --> ThreadID[thread_id]
     CP --> Phase[phase]
     CP --> Payload[payload]
-    CP --> Created[created_at_ms]
+    CP --> Timestamp[timestamp_ms]
 ```
 
 ### Field reference
@@ -35,10 +35,10 @@ flowchart TB
 | Field | Type | Description |
 | --- | --- | --- |
 | `run_id` | `str` | Unique identifier for the agent run. Generated at run start or provided when resuming. Used as the primary key for checkpoint lookup. |
-| `thread_id` | `str` | Identifier for the conversation thread. Multiple runs can share a thread (for multi-turn conversations). Checkpoints are scoped to `(thread_id, run_id)`. |
+| `schema_version` | `str` | Checkpoint schema version (for migration/compat validation). |
 | `phase` | `str` | The execution phase when the checkpoint was written. Values include: `run_started`, `step_started`, `pre_llm`, `post_llm`, `pre_tool_batch`, `post_tool_batch`, `pre_subagent_batch`, `post_subagent_batch`, `run_terminal`. |
 | `payload` | `dict` | Phase-specific data. The contents vary by phase -- see the payload section below. |
-| `created_at_ms` | `int` | Unix timestamp in milliseconds when the checkpoint was written. Used for ordering when multiple checkpoints exist for the same run. |
+| `timestamp_ms` | `int` | Unix timestamp in milliseconds when the checkpoint was written. Used for ordering when multiple checkpoints exist for the same run. |
 
 ## Resume behavior
 
@@ -134,6 +134,16 @@ Beyond the runtime snapshot, individual phase checkpoints carry lighter payloads
 | `pre_tool_batch` | `tool_call_count` |
 | `post_tool_batch` | `tool_calls_total`, `tool_failures` |
 | `run_terminal` | `state`, `final_text`, `requested_model`, `normalized_model`, `provider_adapter`, `terminal_result` |
+
+## Async write-behind behavior
+
+By default, checkpoint writes are asynchronous (`RunnerConfig.checkpoint_async_writes=True`):
+
+- Writes are queued and flushed by a background writer.
+- Repeated `runtime_state` writes may be coalesced (`checkpoint_coalesce_runtime_state=True`).
+- Terminal states perform a bounded flush (`checkpoint_flush_timeout_s`) before returning.
+
+This improves loop throughput while preserving terminal durability.
 
 ## Effect replay and idempotency
 

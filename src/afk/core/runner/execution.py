@@ -484,7 +484,7 @@ class RunnerExecutionMixin:
                                 "parallel": parallel_mode,
                             },
                         )
-                        records, bridge = await self._run_subagents(
+                        records, bridge, child_tool_execs = await self._run_subagents(
                             agent=agent,
                             targets=r_decision.targets,
                             parallel=parallel_mode,
@@ -536,6 +536,7 @@ class RunnerExecutionMixin:
                             },
                         )
                         sub_execs.extend(records)
+                        tool_execs.extend(child_tool_execs)
                         await self._persist_checkpoint(
                             memory=memory,
                             thread_id=t_id,
@@ -765,6 +766,23 @@ class RunnerExecutionMixin:
                                 handle=handle,
                                 llm=candidate.llm,
                                 req=candidate_req,
+                                on_text_delta=(
+                                    lambda delta: self._emit(
+                                        handle,
+                                        memory,
+                                        AgentRunEvent(
+                                            type="text_delta",
+                                            run_id=run_id,
+                                            thread_id=t_id,
+                                            state=state,
+                                            step=step,
+                                            data={"delta": delta},
+                                        ),
+                                        user_id=self._maybe_str(ctx.get("user_id")),
+                                    )
+                                )
+                                if handle.stream_text_deltas_enabled()
+                                else None,
                             )
                             llm_latency_ms = (time.time() - llm_call_started_s) * 1000.0
                             self._telemetry_histogram(
@@ -942,6 +960,7 @@ class RunnerExecutionMixin:
                         data={
                             "tool_call_count": len(resp.tool_calls),
                             "finish_reason": resp.finish_reason or "",
+                            "text": resp.text or "",
                         },
                     ),
                     user_id=self._maybe_str(ctx.get("user_id")),
@@ -963,7 +982,11 @@ class RunnerExecutionMixin:
                         thread_id=t_id,
                         state=state,
                         step=step,
-                        data={"tool_call_count": len(resp.tool_calls)},
+                        data={
+                            "tool_call_count": len(resp.tool_calls),
+                            "tool_names": [call.tool_name for call in resp.tool_calls],
+                            "tool_call_ids": [call.id for call in resp.tool_calls],
+                        },
                     ),
                     user_id=self._maybe_str(ctx.get("user_id")),
                 )
@@ -1404,6 +1427,9 @@ class RunnerExecutionMixin:
                             call_id,
                             tr,
                             latency_ms=latency_ms,
+                            agent_name=agent.name,
+                            agent_depth=depth,
+                            agent_path=agent.name,
                         )
                         tool_execs.append(rec)
 
@@ -1490,7 +1516,13 @@ class RunnerExecutionMixin:
                                 step=step,
                                 data={
                                     "tool_name": tool_name,
+                                    "tool_call_id": call_id,
                                     "success": tr.success,
+                                    "output": json_value_from_tool_result(tr.output),
+                                    "error": tr.error_message,
+                                    "agent_name": agent.name,
+                                    "agent_depth": depth,
+                                    "agent_path": agent.name,
                                 },
                             ),
                             user_id=self._maybe_str(ctx.get("user_id")),
@@ -1656,6 +1688,22 @@ class RunnerExecutionMixin:
                     "terminal_result": self._serialize_agent_result(result),
                 },
             )
+            try:
+                await self._flush_checkpoint_writes()
+            except Exception as flush_err:
+                await self._emit(
+                    handle,
+                    memory,
+                    AgentRunEvent(
+                        type="warning",
+                        run_id=run_id,
+                        thread_id=t_id,
+                        state=state,
+                        step=step,
+                        message=f"Checkpoint flush failed: {flush_err}",
+                    ),
+                    user_id=self._maybe_str(ctx.get("user_id")),
+                )
             run_span_status = "ok"
             await handle.set_result(result)
 
@@ -1703,6 +1751,22 @@ class RunnerExecutionMixin:
                 started_at_s=started_at_s,
                 replayed_effect_count=replayed_effect_count,
             )
+            try:
+                await self._flush_checkpoint_writes()
+            except Exception as flush_err:
+                await self._emit(
+                    handle,
+                    memory,
+                    AgentRunEvent(
+                        type="warning",
+                        run_id=run_id,
+                        thread_id=t_id,
+                        state=state,
+                        step=step,
+                        message=f"Checkpoint flush failed: {flush_err}",
+                    ),
+                    user_id=self._maybe_str(ctx.get("user_id")),
+                )
             await handle.set_exception(e)
         except asyncio.CancelledError:
             if handle.is_interrupt_requested():
@@ -1750,6 +1814,22 @@ class RunnerExecutionMixin:
                     started_at_s=started_at_s,
                     replayed_effect_count=replayed_effect_count,
                 )
+                try:
+                    await self._flush_checkpoint_writes()
+                except Exception as flush_err:
+                    await self._emit(
+                        handle,
+                        memory,
+                        AgentRunEvent(
+                            type="warning",
+                            run_id=run_id,
+                            thread_id=t_id,
+                            state=state,
+                            step=step,
+                            message=f"Checkpoint flush failed: {flush_err}",
+                        ),
+                        user_id=self._maybe_str(ctx.get("user_id")),
+                    )
                 await handle.set_exception(interrupted)
             else:
                 run_span_status = "cancelled"
@@ -1795,6 +1875,22 @@ class RunnerExecutionMixin:
                     started_at_s=started_at_s,
                     replayed_effect_count=replayed_effect_count,
                 )
+                try:
+                    await self._flush_checkpoint_writes()
+                except Exception as flush_err:
+                    await self._emit(
+                        handle,
+                        memory,
+                        AgentRunEvent(
+                            type="warning",
+                            run_id=run_id,
+                            thread_id=t_id,
+                            state=state,
+                            step=step,
+                            message=f"Checkpoint flush failed: {flush_err}",
+                        ),
+                        user_id=self._maybe_str(ctx.get("user_id")),
+                    )
                 await handle.set_result(None)
         except Exception as e:
             run_span_status = "error"
@@ -1840,6 +1936,22 @@ class RunnerExecutionMixin:
                 started_at_s=started_at_s,
                 replayed_effect_count=replayed_effect_count,
             )
+            try:
+                await self._flush_checkpoint_writes()
+            except Exception as flush_err:
+                await self._emit(
+                    handle,
+                    memory,
+                    AgentRunEvent(
+                        type="warning",
+                        run_id=run_id,
+                        thread_id=t_id,
+                        state=state,
+                        step=step,
+                        message=f"Checkpoint flush failed: {flush_err}",
+                    ),
+                    user_id=self._maybe_str(ctx.get("user_id")),
+                )
             if isinstance(e, AgentError):
                 await handle.set_exception(e)
             else:
@@ -1880,13 +1992,11 @@ class RunnerExecutionMixin:
                 },
             )
             self._active_runs -= 1
-            if (
-                self._owns_memory_store
-                and self._memory_store is not None
-                and self._active_runs <= 0
-            ):
-                try:
-                    await self._memory_store.close()
-                finally:
-                    self._memory_store = None
-                    self._active_runs = 0
+            if self._active_runs <= 0:
+                self._active_runs = 0
+                await self._stop_checkpoint_writer()
+                if self._owns_memory_store and self._memory_store is not None:
+                    try:
+                        await self._memory_store.close()
+                    finally:
+                        self._memory_store = None

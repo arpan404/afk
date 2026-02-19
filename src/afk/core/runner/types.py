@@ -58,6 +58,10 @@ class RunnerConfig:
             overloading one specialist under broad fanout.
         subagent_queue_backpressure_limit: Maximum pending subagent nodes per
             parent run before backpressure is raised.
+        checkpoint_async_writes: Enable asynchronous checkpoint/state writes.
+        checkpoint_queue_maxsize: Maximum queued checkpoint writes.
+        checkpoint_flush_timeout_s: Timeout for terminal checkpoint flush.
+        checkpoint_coalesce_runtime_state: Coalesce runtime-state writes by key.
     """
 
     interaction_mode: InteractionMode = "headless"
@@ -85,6 +89,10 @@ class RunnerConfig:
     max_parallel_subagents_per_parent: int = 8
     max_parallel_subagents_per_target_agent: int = 4
     subagent_queue_backpressure_limit: int = 512
+    checkpoint_async_writes: bool = True
+    checkpoint_queue_maxsize: int = 1024
+    checkpoint_flush_timeout_s: float = 10.0
+    checkpoint_coalesce_runtime_state: bool = True
 
 
 class _RunHandle(AgentRunHandle):
@@ -109,6 +117,7 @@ class _RunHandle(AgentRunHandle):
         self._cancel_requested = False
         self._interrupt_requested = False
         self._interrupt_cb = None
+        self._stream_text_deltas = False
 
     def attach_task(self, task: asyncio.Task[None]) -> None:
         """
@@ -232,6 +241,14 @@ class _RunHandle(AgentRunHandle):
         if not self._result_fut.done():
             self._result_fut.set_result(result)
         await self._queue.put(_RUN_END)
+
+    def enable_stream_text_deltas(self) -> None:
+        """Enable emission of incremental text-delta run events."""
+        self._stream_text_deltas = True
+
+    def stream_text_deltas_enabled(self) -> bool:
+        """Return whether incremental text deltas are enabled for this run."""
+        return self._stream_text_deltas
 
     async def set_exception(self, exc: Exception) -> None:
         """

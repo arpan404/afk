@@ -8,6 +8,7 @@ Subagent and interaction/policy orchestration mixin.
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import json
 import time
@@ -39,6 +40,7 @@ from ...agents.types import (
     RouterDecision,
     RouterInput,
     SubagentExecutionRecord,
+    ToolExecutionRecord,
     UserInputDecision,
     UserInputRequest,
     json_value_from_tool_result,
@@ -69,7 +71,7 @@ class RunnerInteractionMixin:
         handle: _RunHandle,
         memory: MemoryStore,
         user_id: str | None,
-    ) -> tuple[list[SubagentExecutionRecord], str]:
+    ) -> tuple[list[SubagentExecutionRecord], str, list[ToolExecutionRecord]]:
         """
         Execute selected subagents through DAG orchestration and A2A protocol.
 
@@ -90,7 +92,7 @@ class RunnerInteractionMixin:
             user_id: Optional user id propagated to memory events.
 
         Returns:
-            Tuple of execution records and bridge text inserted back into parent
+            Tuple of execution records, bridge text inserted back into parent
             transcript.
         """
         index = {sa.name: sa for sa in agent.subagents}
@@ -106,7 +108,7 @@ class RunnerInteractionMixin:
         if not parallel and selected_names:
             selected_names = selected_names[:1]
         if not selected_names:
-            return [], ""
+            return [], "", []
 
         engine = DelegationEngine(
             max_parallel_subagents_global=self.config.max_parallel_subagents_global,
@@ -225,7 +227,36 @@ class RunnerInteractionMixin:
                     _depth=depth,
                     _lineage=lineage,
                 )
-                out = await sub_handle.await_result()
+                async def _relay_child_events() -> None:
+                    async for child_event in sub_handle.events:
+                        if child_event.type != "tool_completed":
+                            continue
+                        payload = {
+                            **child_event.data,
+                            "subagent_name": sub.name,
+                            "agent_name": child_event.data.get("agent_name", sub.name)
+                            if isinstance(child_event.data, dict)
+                            else sub.name,
+                        }
+                        await self._emit(
+                            handle,
+                            memory,
+                            AgentRunEvent(
+                                type="tool_completed",
+                                run_id=run_id,
+                                thread_id=thread_id,
+                                state="running",
+                                step=step,
+                                data=payload,
+                            ),
+                            user_id=user_id,
+                        )
+
+                relay_task = asyncio.create_task(_relay_child_events())
+                try:
+                    out = await sub_handle.await_result()
+                finally:
+                    await asyncio.gather(relay_task, return_exceptions=True)
                 if out is None:
                     raise SubagentExecutionError(f"Subagent '{sub.name}' cancelled")
 
@@ -260,6 +291,22 @@ class RunnerInteractionMixin:
                         "final_text": out.final_text,
                         "state": out.state,
                         "run_id": out.run_id,
+                        "tool_executions": [
+                            {
+                                "tool_name": row.tool_name,
+                                "tool_call_id": row.tool_call_id,
+                                "success": row.success,
+                                "output": row.output,
+                                "error": row.error,
+                                "latency_ms": row.latency_ms,
+                                "agent_name": row.agent_name or sub.name,
+                                "agent_depth": row.agent_depth
+                                if isinstance(row.agent_depth, int)
+                                else depth,
+                                "agent_path": row.agent_path or sub.name,
+                            }
+                            for row in out.tool_executions
+                        ],
                     },
                     metadata={"latency_ms": latency_ms},
                 )
@@ -385,6 +432,7 @@ class RunnerInteractionMixin:
             )
 
         records: list[SubagentExecutionRecord] = []
+        tool_records: list[ToolExecutionRecord] = []
         bridge_parts: list[str] = []
         for node_output in result.ordered_outputs:
             latency_ms = float(node_output.finished_at_ms - node_output.started_at_ms)
@@ -401,6 +449,42 @@ class RunnerInteractionMixin:
                 final_text = node_output.output.get("final_text")
                 if isinstance(final_text, str):
                     text_output = final_text
+                raw_tool_execs = node_output.output.get("tool_executions")
+                if isinstance(raw_tool_execs, list):
+                    for raw_row in raw_tool_execs:
+                        if not isinstance(raw_row, dict):
+                            continue
+                        tool_name = raw_row.get("tool_name")
+                        if not isinstance(tool_name, str):
+                            continue
+                        tool_records.append(
+                            ToolExecutionRecord(
+                                tool_name=tool_name,
+                                tool_call_id=raw_row.get("tool_call_id")
+                                if isinstance(raw_row.get("tool_call_id"), str)
+                                else None,
+                                success=bool(raw_row.get("success", False)),
+                                output=raw_row.get("output"),
+                                error=raw_row.get("error")
+                                if isinstance(raw_row.get("error"), str)
+                                else None,
+                                latency_ms=raw_row.get("latency_ms")
+                                if isinstance(raw_row.get("latency_ms"), (int, float))
+                                else None,
+                                agent_name=raw_row.get("agent_name")
+                                if isinstance(raw_row.get("agent_name"), str)
+                                else node_output.target_agent,
+                                agent_depth=raw_row.get("agent_depth")
+                                if isinstance(raw_row.get("agent_depth"), int)
+                                else depth,
+                                agent_path=(
+                                    f"{agent.name}>"
+                                    f"{raw_row.get('agent_path')}"
+                                )
+                                if isinstance(raw_row.get("agent_path"), str)
+                                else f"{agent.name}>{node_output.target_agent}",
+                            )
+                        )
             elif isinstance(node_output.output, str):
                 text_output = node_output.output
 
@@ -422,7 +506,7 @@ class RunnerInteractionMixin:
                     f"Subagent '{node_output.target_agent}' failed: {node_output.error}"
                 )
 
-        return records, "\n\n".join(bridge_parts)
+        return records, "\n\n".join(bridge_parts), tool_records
 
     def _delegation_plan_from_metadata(
         self,

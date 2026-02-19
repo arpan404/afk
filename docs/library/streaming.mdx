@@ -3,7 +3,7 @@ title: Streaming
 description: Real-time event streaming for chat UIs and CLI tools.
 ---
 
-AFK supports real-time streaming via `Runner.run_stream()`. Instead of waiting for the full response, you receive events as they happen — incremental text, tool lifecycle updates, and status changes.
+AFK supports real-time streaming via `Runner.run_stream()`. Instead of waiting for the full response, you receive events as they happen: incremental text, tool lifecycle updates, and terminal status.
 
 ## Quick example
 
@@ -22,148 +22,56 @@ async def main():
         match event.type:
             case "text_delta":
                 print(event.text_delta, end="", flush=True)
+            case "tool_completed":
+                if not event.tool_success:
+                    print(f"\n[TOOL ERROR] {event.tool_name}: {event.tool_error}")
             case "completed":
-                print(f"\n[DONE] Done ({event.result.state})")
+                print(f"\n[DONE] {event.result.state}")
 
 asyncio.run(main())
 ```
 
-## Stream lifecycle
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Runner
-    participant LLM
-
-    Client->>Runner: run_stream(agent, message)
-    activate Runner
-    Runner->>LLM: LLM request
-    LLM-->>Runner: text_delta
-    Runner-->>Client: text_delta event
-    LLM-->>Runner: text_delta
-    Runner-->>Client: text_delta event
-    LLM-->>Runner: tool_call
-    Runner-->>Client: tool_started event
-    Runner->>Runner: Execute tool
-    Runner-->>Client: tool_completed event
-    Runner->>LLM: LLM request (with tool result)
-    LLM-->>Runner: text_delta
-    Runner-->>Client: text_delta event
-    LLM-->>Runner: done
-    Runner-->>Client: completed event
-    deactivate Runner
-```
-
 ## Event reference
 
-| Event type           | When it fires                 | Key fields                                             |
-| -------------------- | ----------------------------- | ------------------------------------------------------ |
-| `text_delta`         | Incremental text from the LLM | `event.text_delta`                                     |
-| `step_started`       | New step in the agent loop    | `event.step_index`                                     |
-| `step_completed`     | Step finished                 | `event.step_index`                                     |
-| `tool_started`       | A tool is about to execute    | `event.tool_name`, `event.tool_args`                   |
-| `tool_completed`     | A tool finished               | `event.tool_name`, `event.success`, `event.latency_ms` |
-| `subagent_started`   | Subagent delegation begins    | `event.subagent_name`                                  |
-| `subagent_completed` | Subagent returned             | `event.subagent_name`, `event.success`                 |
-| `error`              | Non-fatal error               | `event.error`, `event.recoverable`                     |
-| `completed`          | Run finished                  | `event.result` (full `AgentResult`)                    |
-| `cancelled`          | Run was cancelled             | —                                                      |
+`run_stream()` emits `AgentStreamEvent` values with these types:
+
+| Event type | When it fires | Key fields |
+| --- | --- | --- |
+| `text_delta` | Incremental text chunks from streaming or fallback path | `event.text_delta`, `event.step` |
+| `step_started` | New step in the agent loop | `event.step`, `event.state` |
+| `tool_started` | A tool call is about to execute | `event.tool_name`, `event.tool_call_id`, `event.step` |
+| `tool_completed` | A tool call finished | `event.tool_name`, `event.tool_call_id`, `event.tool_success`, `event.tool_output`, `event.tool_error` |
+| `completed` | Run finished | `event.result` (full `AgentResult`) |
+| `error` | Stream/runtime bridge error | `event.error` |
+
+## Streaming modes
+
+- If the provider supports streaming, AFK forwards model deltas as `text_delta`.
+- If the provider is non-streaming, AFK emits chunked fallback `text_delta` from final text so UI behavior stays consistent.
 
 ## Stream control
 
-```python
-handle = await runner.run_stream(agent, user_message="Long analysis...")
+`AgentStreamHandle` is read-only. For lifecycle controls (`pause()`, `resume()`, `cancel()`, `interrupt()`), use `run_handle()`.
 
-# Pause the stream (buffers events)
+```python
+stream = await runner.run_stream(agent, user_message="Long analysis...")
+async for event in stream:
+    ...
+result = stream.result
+```
+
+```python
+# Lifecycle control variant
+handle = await runner.run_handle(agent, user_message="Long analysis...")
 await handle.pause()
-
-# Resume the stream (replays buffered events)
 await handle.resume()
-
-# Cancel the entire run
-await handle.cancel()
-
-# Access the final result after streaming finishes
-result = handle.result
+await handle.interrupt()
+result = await handle.await_result()
 ```
 
-## When to stream vs await
+## Error handling
 
-<Tabs>
-  <Tab title="Use streaming when">
-    - Building a **chat UI** that shows text as it arrives - Running a **CLI
-    tool** with live output - Monitoring **tool calls** in real time - Building
-    a **progress indicator** for long-running agents - Need to **cancel**
-    mid-run based on user action
-  </Tab>
-  <Tab title="Use sync/async when">
-    - Running in a **batch pipeline** (process results after completion) -
-    Writing **tests** (assert on final result only) - **API server** that
-    returns a single response - **Simple scripts** where you just need the
-    answer
-  </Tab>
-</Tabs>
-
-## Full pattern: chat UI handler
-
-```python
-import asyncio
-from afk.agents import Agent
-from afk.core import Runner
-
-agent = Agent(
-    name="assistant",
-    model="gpt-5.2-mini",
-    instructions="Be helpful and concise.",
-    tools=[search, calculate],  # hypothetical tools
-)
-
-async def handle_chat(user_message: str):
-    """Stream an agent response, yielding events for the UI."""
-    runner = Runner()
-    handle = await runner.run_stream(agent, user_message=user_message)
-
-    async for event in handle:
-        match event.type:
-            case "text_delta":
-                yield {"type": "text", "content": event.text_delta}
-            case "tool_started":
-                yield {"type": "tool", "status": "running", "name": event.tool_name}
-            case "tool_completed":
-                status = "success" if event.success else "error"
-                yield {"type": "tool", "status": status, "name": event.tool_name}
-            case "error":
-                yield {"type": "error", "message": str(event.error)}
-            case "completed":
-                yield {"type": "done", "state": event.result.state}
-```
-
-## Error handling in streams
-
-Errors during streaming are delivered as events — they don't crash the stream iterator:
-
-```python
-async for event in handle:
-    match event.type:
-        case "error":
-            if event.recoverable:
-                print(f"[WARN] Recoverable: {event.error}")
-                # Stream continues — the runner will retry or degrade
-            else:
-                print(f"[FATAL] Fatal: {event.error}")
-                # Next event will be 'completed' with state='failed'
-        case "completed":
-            if event.result.state == "failed":
-                print(f"Run failed: {event.result.final_text}")
-```
-
-<Tip>
-  **Recoverable errors** (tool failures with `continue` policy, rate limit
-  retries) don't stop the stream. The runner handles recovery automatically and
-  keeps streaming. You get an `error` event for observability, but the final
-  `completed` event may still arrive with `state="completed"`.
-</Tip>
+`error` events indicate stream/runtime bridge failures. Tool failures are reported through `tool_completed` (`tool_success=False`) and do not necessarily fail the run.
 
 ## Next steps
 

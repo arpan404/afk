@@ -233,10 +233,10 @@ from afk.tools import tool
 | `state`               | `str`                           | Terminal state: `completed`, `failed`, `degraded`, `cancelled`, `interrupted` |
 | `run_id`              | `str`                           | Unique run identifier                                                         |
 | `thread_id`           | `str`                           | Thread identifier for memory continuity                                       |
-| `tool_executions`     | `list[ToolExecutionRecord]`     | All tool calls with name, success, output, latency                            |
+| `tool_executions`     | `list[ToolExecutionRecord]`     | All tool calls with name, success, output, latency, and agent provenance       |
 | `subagent_executions` | `list[SubagentExecutionRecord]` | All subagent invocations                                                      |
-| `usage`               | `UsageAggregate`                | Token counts and cost estimates                                               |
-| `events`              | `list[AgentRunEvent]`           | Full event audit trail                                                        |
+| `usage_aggregate`     | `UsageAggregate`                | Token counts and cost estimates                                               |
+| `state_snapshot`      | `dict[str, JSONValue]`          | Final runtime counters/snapshot metadata                                       |
 
 ### AgentStreamEvent
 
@@ -247,7 +247,7 @@ from afk.tools import tool
 | `tool_name`    | `str \| None`  | Tool name for tool events                                            |
 | `tool_call_id` | `str \| None`  | Tool call identifier                                                 |
 | `tool_success` | `bool \| None` | Whether tool succeeded                                               |
-| `tool_output`  | `JSONValue`    | Tool output payload                                                  |
+| `tool_output`  | `JSONValue \| None` | Tool output payload                                             |
 | `tool_error`   | `str \| None`  | Tool error message                                                   |
 | `step`         | `int \| None`  | Current step index                                                   |
 | `state`        | `str \| None`  | Current agent state                                                  |

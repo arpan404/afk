@@ -33,12 +33,13 @@ Every run begins with `run_started` and ends with exactly one terminal event: `r
 | `run_started` | At the beginning of a new or resumed run. | `agent_name`, `resumed` (bool) |
 | `step_started` | At the start of each step iteration. | `step` (int), `state` |
 | `llm_called` | Before sending a request to the LLM provider. | `model`, `provider` |
-| `llm_completed` | After receiving the LLM response. | `tool_call_count`, `finish_reason` |
-| `tool_batch_started` | Before executing a batch of tool calls from one LLM response. | `tool_call_count` |
-| `tool_completed` | After each individual tool finishes executing. | `tool_name`, `success` (bool) |
+| `llm_completed` | After receiving the LLM response. | `tool_call_count`, `finish_reason`, `text` |
+| `tool_batch_started` | Before executing a batch of tool calls from one LLM response. | `tool_call_count`, `tool_names`, `tool_call_ids` |
+| `tool_completed` | After each individual tool finishes executing. | `tool_name`, `tool_call_id`, `success` (bool), `output`, `error`, `agent_name`, `agent_depth`, `agent_path` |
 | `policy_decision` | After the policy engine evaluates a tool, LLM, or subagent event. | `event_type`, `action`, `reason`, `policy_id`, `matched_rules` |
 | `subagent_started` | Before dispatching a subagent invocation. | `subagent_name`, `correlation_id` |
 | `subagent_completed` | After a subagent finishes (success or failure). | `subagent_name`, `success`, `latency_ms`, `error` (if failed) |
+| `text_delta` | During streamed runs when incremental model text arrives. | `delta` |
 | `warning` | When a non-fatal issue occurs (memory fallback, dead letters, etc.). | Varies by warning type |
 | `run_completed` | When the run reaches successful terminal state. | None (terminal) |
 | `run_failed` | When the run terminates due to an unrecoverable error. | `error` message in `event.message` |

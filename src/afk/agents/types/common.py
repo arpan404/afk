@@ -47,6 +47,7 @@ AgentEventType = Literal[
     "step_started",
     "policy_decision",
     "llm_called",
+    "text_delta",
     "llm_completed",
     "tool_batch_started",
     "tool_completed",

@@ -198,8 +198,24 @@ await runner.compact_thread(thread_id="t-123")
 | `thread_id`           | `str`                           | Thread identifier for memory continuity                                       |
 | `tool_executions`     | `list[ToolExecutionRecord]`     | All tool calls with name, success, output, latency                            |
 | `subagent_executions` | `list[SubagentExecutionRecord]` | All subagent invocations                                                      |
-| `usage`               | `UsageAggregate`                | Token counts and cost estimates                                               |
-| `events`              | `list[AgentRunEvent]`           | Full event audit trail                                                        |
+| `usage_aggregate`     | `UsageAggregate`                | Token counts aggregate across LLM calls                                       |
+| `state_snapshot`      | `dict[str, JSONValue]`          | Final runtime counters/snapshot metadata                                       |
+
+### ToolExecutionRecord fields
+
+`AgentResult.tool_executions` entries include:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `tool_name` | `str` | Tool name |
+| `tool_call_id` | `str \| None` | Tool call id from the model/provider |
+| `success` | `bool` | Execution success |
+| `output` | `JSONValue \| None` | Tool output payload |
+| `error` | `str \| None` | Error text (when failed) |
+| `latency_ms` | `float \| None` | Tool latency |
+| `agent_name` | `str \| None` | Agent that executed the tool (parent or subagent) |
+| `agent_depth` | `int \| None` | Nesting depth where tool ran |
+| `agent_path` | `str \| None` | Agent lineage path for nested calls |
 
 ## Next steps
 

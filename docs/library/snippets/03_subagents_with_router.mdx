@@ -63,7 +63,7 @@ print(result.final_text)
 
 2. The **runner** dispatches each subagent invocation as a separate run. Subagents execute independently with their own instructions and model configuration. The runner manages concurrency, timeout, and failure handling for each subagent.
 
-3. **Subagent results** are returned to the lead agent as execution records. Each record contains the subagent's `final_text`, terminal `state`, and optional error information.
+3. **Subagent results** are returned to the lead agent as execution records. Each record contains the subagent's `output_text` and optional error information.
 
 4. The **lead agent** receives all subagent outputs and synthesizes them into a unified response. This final synthesis step is what produces the coordinator's `final_text`.
 
@@ -73,10 +73,9 @@ The `AgentResult` returned by the lead agent includes a `subagent_executions` li
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `agent_name` | `str` | Name of the subagent that was invoked. |
+| `subagent_name` | `str` | Name of the subagent that was invoked. |
 | `success` | `bool` | Whether the subagent completed successfully. |
-| `final_text` | `str or None` | The subagent's response text, if it completed. |
-| `state` | `str` | Terminal state of the subagent run. |
+| `output_text` | `str or None` | The subagent's response text, if it completed. |
 | `latency_ms` | `float` | Wall-clock execution time in milliseconds. |
 | `error` | `str or None` | Error message if the subagent failed. |
 
@@ -87,12 +86,13 @@ result = runner.run_sync(lead, user_message="Investigate API latency spike")
 
 for execution in result.subagent_executions:
     status = "OK" if execution.success else "FAILED"
-    print(f"  [{status}] {execution.agent_name}: {execution.final_text[:80]}...")
+    text = execution.output_text or ""
+    print(f"  [{status}] {execution.subagent_name}: {text[:80]}...")
 ```
 
 ## Subagent failure handling
 
-By default, if a subagent fails, the entire run fails. You can configure more resilient behavior using `FailSafeConfig`:
+By default, subagent failure policy is `continue`. You can configure stricter or more resilient behavior using `FailSafeConfig`:
 
 ```python
 from afk.agents import FailSafeConfig
@@ -103,10 +103,10 @@ lead = Agent(
     instructions="Delegate to specialists. If any specialist fails, work with available results.",
     subagents=[triage, analysis, comms],
     fail_safe=FailSafeConfig(
-        subagent_failure_policy="degrade",  # Continue with partial results
+        subagent_failure_policy="retry_then_degrade",  # Continue with partial results
         max_subagent_depth=3,               # Prevent deep recursion
     ),
 )
 ```
 
-With `subagent_failure_policy="degrade"`, the lead agent receives the error information for failed subagents alongside successful results, and can produce a best-effort synthesis.
+With `subagent_failure_policy="retry_then_degrade"`, the lead agent receives error information for failed subagents alongside successful results and can produce a best-effort synthesis.

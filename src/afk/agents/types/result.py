@@ -59,6 +59,9 @@ class ToolExecutionRecord:
         output: JSON-safe tool output payload.
         error: Error message when execution failed.
         latency_ms: Execution latency in milliseconds.
+        agent_name: Agent that executed the tool.
+        agent_depth: Agent nesting depth where tool executed.
+        agent_path: Agent lineage path for nested/subagent calls.
     """
 
     tool_name: str
@@ -67,6 +70,9 @@ class ToolExecutionRecord:
     output: JSONValue | None = None
     error: str | None = None
     latency_ms: float | None = None
+    agent_name: str | None = None
+    agent_depth: int | None = None
+    agent_path: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,6 +212,9 @@ def tool_record_from_result(
     result: ToolResult[Any],
     *,
     latency_ms: float | None = None,
+    agent_name: str | None = None,
+    agent_depth: int | None = None,
+    agent_path: str | None = None,
 ) -> ToolExecutionRecord:
     """
     Convert a `ToolResult` into a normalized execution record.
@@ -226,4 +235,7 @@ def tool_record_from_result(
         output=json_value_from_tool_result(result.output),
         error=result.error_message,
         latency_ms=latency_ms,
+        agent_name=agent_name,
+        agent_depth=agent_depth,
+        agent_path=agent_path,
     )

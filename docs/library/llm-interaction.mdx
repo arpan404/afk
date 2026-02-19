@@ -132,7 +132,7 @@ result = handle.result
 ```
 
 The stream produces `AgentStreamEvent` instances that include:
-- `text_delta` -- incremental text from the model.
+- `text_delta` -- incremental text (provider stream deltas, or fallback chunking for non-streaming providers).
 - `step_started` -- signals a new step in the agent loop.
 - `tool_started` / `tool_completed` -- tool lifecycle events.
 - `error` -- error notification.

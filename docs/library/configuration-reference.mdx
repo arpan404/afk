@@ -68,6 +68,10 @@ from afk.core import RunnerConfig
 | `max_parallel_subagents_per_parent`       | `int`            | `8`                                        | Per-parent-run cap for concurrent subagent fanout          |
 | `max_parallel_subagents_per_target_agent` | `int`            | `4`                                        | Per-target-agent cap                                       |
 | `subagent_queue_backpressure_limit`       | `int`            | `512`                                      | Max pending subagent nodes before backpressure             |
+| `checkpoint_async_writes`                 | `bool`           | `True`                                     | Enable background checkpoint/state writes                   |
+| `checkpoint_queue_maxsize`                | `int`            | `1024`                                     | Max queued checkpoint write jobs                            |
+| `checkpoint_flush_timeout_s`              | `float`          | `10.0`                                     | Timeout for terminal checkpoint flush                       |
+| `checkpoint_coalesce_runtime_state`       | `bool`           | `True`                                     | Coalesce repeated `runtime_state` checkpoint writes         |
 
 ### Deep Dive: Interaction Models
 

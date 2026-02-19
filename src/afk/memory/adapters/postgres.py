@@ -9,9 +9,12 @@ This module provides a PostgreSQL + pgvector memory backend for production workl
 from __future__ import annotations
 
 
-from typing import Optional, Sequence, cast
+from typing import Any, Optional, Sequence, cast
 
-import asyncpg
+try:
+    import asyncpg
+except Exception:  # pragma: no cover - optional native dependency
+    asyncpg = None  # type: ignore[assignment]
 
 from afk.memory.types import (
     JsonObject,
@@ -46,9 +49,15 @@ class PostgresMemoryStore(MemoryStore):
         self.pool_min = pool_min
         self.pool_max = pool_max
         self.ssl = ssl
-        self._pool: asyncpg.Pool | None = None
+        self._pool: Any | None = None
 
     async def setup(self) -> None:
+        if asyncpg is None:
+            raise RuntimeError(
+                "asyncpg is required for PostgresMemoryStore but is not available"
+            )
+        if self._is_setup and self._pool is not None:
+            return
         self._pool = await asyncpg.create_pool(
             dsn=self.dsn,
             min_size=self.pool_min,
@@ -64,7 +73,7 @@ class PostgresMemoryStore(MemoryStore):
             self._pool = None
         await super().close()
 
-    def _pool_required(self) -> asyncpg.Pool:
+    def _pool_required(self) -> Any:
         if self._pool is None:
             raise RuntimeError(
                 "PostgresMemoryStore is not initialized. Call setup() first."

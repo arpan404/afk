@@ -42,6 +42,8 @@ class RedisMemoryStore(MemoryStore):
         self._redis_client: Redis | None = None
 
     async def setup(self) -> None:
+        if self._is_setup and self._redis_client is not None:
+            return
         self._redis_client = Redis.from_url(self.url, decode_responses=True)
         await self._redis_client.ping()
         await super().setup()

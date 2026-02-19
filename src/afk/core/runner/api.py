@@ -97,6 +97,14 @@ class RunnerAPIMixin:
         )
         self._effect_journal = EffectJournal()
         self._active_runs = 0
+        self._memory_store_lock = asyncio.Lock()
+        self._checkpoint_queue = None
+        self._checkpoint_writer_task = None
+        self._checkpoint_pending_count = 0
+        self._checkpoint_pending_event = asyncio.Event()
+        self._checkpoint_pending_event.set()
+        self._checkpoint_coalesce_buffer = {}
+        self._checkpoint_coalesce_keys = set()
 
     async def compact_thread(
         self,
@@ -313,6 +321,7 @@ class RunnerAPIMixin:
         _lineage: tuple[int, ...] = (),
         _resume_run_id: str | None = None,
         _resume_snapshot: dict[str, Any] | None = None,
+        _stream_text_deltas: bool = False,
     ) -> AgentRunHandle:
         """
         Start execution and return an async run handle.
@@ -331,6 +340,8 @@ class RunnerAPIMixin:
             Handle exposing event stream and run lifecycle controls.
         """
         handle = _RunHandle()
+        if _stream_text_deltas:
+            handle.enable_stream_text_deltas()
         task = asyncio.create_task(
             self._execute(
                 handle,
@@ -380,11 +391,11 @@ class RunnerAPIMixin:
             ``AgentStreamHandle`` for consuming stream events.
         """
         from ..streaming import (
+            AgentStreamEvent,
             AgentStreamHandle,
             stream_completed,
             stream_error,
             text_delta,
-            tool_completed as _tool_completed,
             tool_started as _tool_started,
             step_started as _step_started,
         )
@@ -394,42 +405,85 @@ class RunnerAPIMixin:
             user_message=user_message,
             context=context,
             thread_id=thread_id,
+            _stream_text_deltas=True,
         )
         stream = AgentStreamHandle()
 
         async def _bridge() -> None:
             """Bridge run events → stream events."""
+            saw_text_delta = False
+
+            def _chunk_text(value: str) -> list[str]:
+                chunks: list[str] = []
+                current = ""
+                for line in value.splitlines(keepends=True):
+                    current += line
+                    if line.endswith((".", "!", "?", "\n")) and current.strip():
+                        chunks.append(current)
+                        current = ""
+                if current.strip():
+                    chunks.append(current)
+                return chunks if chunks else [value]
+
             try:
                 async for event in run_handle.events:
                     # Map known event types to stream events
-                    if event.type == "llm_completed" and event.data:
+                    if event.type == "text_delta" and event.data:
+                        delta = event.data.get("delta")
+                        if isinstance(delta, str) and delta:
+                            saw_text_delta = True
+                            await stream.emit(
+                                text_delta(delta, step=event.step)
+                            )
+                    elif event.type == "llm_completed" and event.data:
                         response_text = event.data.get("text", "")
-                        if response_text:
-                            await stream.emit(text_delta(str(response_text)))
+                        if (
+                            isinstance(response_text, str)
+                            and response_text
+                            and not saw_text_delta
+                        ):
+                            saw_text_delta = True
+                            for chunk in _chunk_text(response_text):
+                                await stream.emit(text_delta(chunk, step=event.step))
                     elif event.type == "tool_batch_started" and event.data:
-                        tool_names = event.data.get("tool_names", [])
+                        tool_names = event.data.get("tool_names")
+                        tool_ids = event.data.get("tool_call_ids")
                         if isinstance(tool_names, list):
-                            for tn in tool_names:
-                                await stream.emit(_tool_started(str(tn)))
+                            for idx, tn in enumerate(tool_names):
+                                call_id = None
+                                if isinstance(tool_ids, list) and idx < len(tool_ids):
+                                    maybe_id = tool_ids[idx]
+                                    if isinstance(maybe_id, str):
+                                        call_id = maybe_id
+                                await stream.emit(
+                                    _tool_started(
+                                        str(tn),
+                                        tool_call_id=call_id,
+                                        step=event.step,
+                                    )
+                                )
                     elif event.type == "tool_completed" and event.data:
                         await stream.emit(
-                            _tool_completed(
+                            AgentStreamEvent(
+                                type="tool_completed",
                                 tool_name=str(event.data.get("tool_name", "")),
-                                tool_call_id=event.data.get("tool_call_id"),
-                                success=bool(event.data.get("success", False)),
-                                output=event.data.get("output"),
-                                error=event.data.get("error"),
+                                tool_call_id=event.data.get("tool_call_id")
+                                if isinstance(event.data.get("tool_call_id"), str)
+                                else None,
+                                tool_success=bool(event.data.get("success", False)),
+                                tool_output=event.data.get("output"),
+                                tool_error=event.data.get("error")
+                                if isinstance(event.data.get("error"), str)
+                                else None,
+                                step=event.step,
+                                data=dict(event.data),
                             )
                         )
                     elif event.type == "step_started":
                         await stream.emit(
                             _step_started(
-                                step=int(event.data.get("step", 0))
-                                if event.data
-                                else 0,
-                                state=event.data.get("state", "running")
-                                if event.data
-                                else "running",
+                                step=int(event.step or 0),
+                                state=event.state,
                             )
                         )
                     elif event.type in ("run_failed", "run_interrupted"):
@@ -443,6 +497,9 @@ class RunnerAPIMixin:
                 # Run completed — emit terminal event
                 result = await run_handle.await_result()
                 if result is not None:
+                    if result.final_text and not saw_text_delta:
+                        for chunk in _chunk_text(result.final_text):
+                            await stream.emit(text_delta(chunk))
                     await stream.emit(stream_completed(result))
             except Exception as exc:
                 await stream.emit(stream_error(str(exc)))
