@@ -80,3 +80,27 @@ Flow:
 3. Agent continues with `write_docs` or other tasks.
 4. Runner emits `tool_background_resolved` when build completes.
 5. Agent uses resolved build output in a later step to finalize/fix.
+
+## External worker completion
+
+For out-of-process execution, an external worker can complete a ticket by
+writing background state into memory:
+
+```python
+await memory.put_state(
+    thread_id,
+    f"bgtool:{run_id}:{ticket_id}:state",
+    {
+        "run_id": run_id,
+        "thread_id": thread_id,
+        "ticket_id": ticket_id,
+        "tool_name": "build_project",
+        "status": "completed",  # or "failed"
+        "output": {"status": "ok", "artifact": "dist/app"},
+        "error": None,
+    },
+)
+```
+
+The runner poller detects this update, emits `tool_background_resolved` or
+`tool_background_failed`, and injects a synthetic tool message for the next step.
