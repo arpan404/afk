@@ -159,6 +159,18 @@ runner = Runner(
   Returns a handle exposing an `async iterator` of events. The stream yields events as they happen. You MUST consume the stream to drive execution forward.
   _Use for:_ Chat interfaces, real-time feedback.
 
+- **`await list_background_tools(*, thread_id, run_id, include_resolved=False)`** -> `list[dict]`
+  Lists persisted deferred tool tickets for a run.
+  _Use for:_ Long-running tool monitoring and external worker reconciliation.
+
+- **`await resolve_background_tool(*, thread_id, run_id, ticket_id, output=...)`** -> `None`
+  Marks a deferred ticket as completed and stores output for runner polling.
+  _Use for:_ External worker completion callbacks.
+
+- **`await fail_background_tool(*, thread_id, run_id, ticket_id, error=...)`** -> `None`
+  Marks a deferred ticket as failed with error details.
+  _Use for:_ External worker failure propagation.
+
 - **`await resume(agent, *, run_id, thread_id)`** -> `AgentResult`
   Re-hydrates a run from the database. It loads the full execution snapshot (messages, unexecuted tool calls) and continues exactly where it left off.
   _Use for:_ Human-in-the-loop workflows (resume after approval), recovering from process crashes.

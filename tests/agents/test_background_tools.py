@@ -367,3 +367,113 @@ def test_background_tool_ttl_expiry_emits_background_failed_event():
 
     seen = asyncio.run(_scenario())
     assert seen is True
+
+
+def test_runner_background_ticket_helpers_list_resolve_fail():
+    async def _scenario():
+        memory = InMemoryMemoryStore()
+        runner = Runner(
+            memory_store=memory,
+            config=RunnerConfig(
+                sanitize_tool_output=False,
+                background_tools_enabled=True,
+                background_tool_poll_interval_s=0.01,
+                background_tool_result_ttl_s=5.0,
+            ),
+        )
+        agent = Agent(
+            model=_ResumeAwareLLM(),
+            instructions="x",
+            tools=[build_project_external, write_docs],
+            fail_safe=FailSafeConfig(max_steps=20),
+        )
+        handle = await runner.run_handle(agent, user_message="run external build")
+        run_id: str | None = None
+        thread_id: str | None = None
+        ticket_id: str | None = None
+        async for event in handle.events:
+            if run_id is None:
+                run_id = event.run_id
+                thread_id = event.thread_id
+            if event.type == "tool_deferred":
+                maybe = event.data.get("ticket_id")
+                if isinstance(maybe, str):
+                    ticket_id = maybe
+                await handle.cancel()
+                break
+        _ = await handle.await_result()
+        assert run_id and thread_id and ticket_id
+
+        pending = await runner.list_background_tools(
+            thread_id=thread_id,
+            run_id=run_id,
+        )
+        assert any(row.get("ticket_id") == ticket_id for row in pending)
+
+        await runner.resolve_background_tool(
+            thread_id=thread_id,
+            run_id=run_id,
+            ticket_id=ticket_id,
+            output={"status": "ok"},
+            tool_name="build_project_external",
+        )
+        resolved = await runner.list_background_tools(
+            thread_id=thread_id,
+            run_id=run_id,
+            include_resolved=True,
+        )
+        assert any(
+            row.get("ticket_id") == ticket_id and row.get("status") == "completed"
+            for row in resolved
+        )
+
+        await runner.fail_background_tool(
+            thread_id=thread_id,
+            run_id=run_id,
+            ticket_id=ticket_id,
+            error="manual fail",
+            tool_name="build_project_external",
+        )
+        failed = await runner.list_background_tools(
+            thread_id=thread_id,
+            run_id=run_id,
+            include_resolved=True,
+        )
+        assert any(
+            row.get("ticket_id") == ticket_id
+            and row.get("status") == "failed"
+            and row.get("error") == "manual fail"
+            for row in failed
+        )
+
+    asyncio.run(_scenario())
+
+
+def test_background_grace_can_resolve_before_next_step_when_interrupt_hint_enabled():
+    async def _scenario():
+        runner = Runner(
+            config=RunnerConfig(
+                sanitize_tool_output=False,
+                background_tools_enabled=True,
+                background_tool_default_grace_s=0.02,
+                background_tool_interrupt_on_resolve=True,
+                background_tool_poll_interval_s=0.005,
+                background_tool_result_ttl_s=5.0,
+            )
+        )
+        agent = Agent(
+            model=_BackgroundAwareLLM(),
+            instructions="x",
+            tools=[build_project, write_docs],
+            fail_safe=FailSafeConfig(max_steps=20),
+        )
+        stream = await runner.run_stream(agent, user_message="build and document")
+        sequence: list[str] = []
+        async for event in stream:
+            sequence.append(event.type)
+        return sequence
+
+    sequence = asyncio.run(_scenario())
+    assert "tool_deferred" in sequence
+    assert "tool_background_resolved" in sequence
+    assert sequence.index("tool_background_resolved") < sequence.index("step_started", 1)

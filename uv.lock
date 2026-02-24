@@ -4,20 +4,20 @@ requires-python = ">=3.13"
 
 [manifest]
 members = [
-    "01-greeting-agent",
+    "02-weather-agent",
     "afk-py",
 ]
 
 [[package]]
-name = "01-greeting-agent"
+name = "02-weather-agent"
 version = "0.1.0"
-source = { virtual = "examples/projects/01_Greeting_Agent" }
+source = { virtual = "examples/projects/02_Weather_Agent" }
 dependencies = [
-    { name = "requests" },
+    { name = "pydantic" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "requests", specifier = ">=2.32.5" }]
+requires-dist = [{ name = "pydantic", specifier = ">=2.12.5" }]
 
 [[package]]
 name = "afk-py"

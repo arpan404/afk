@@ -20,7 +20,7 @@ from ...agents.errors import (
 )
 from ...agents.policy.engine import PolicyEngine
 from ...agents.lifecycle.runtime import EffectJournal, checkpoint_latest_key
-from ...agents.types import AgentResult, AgentRunHandle
+from ...agents.types import AgentResult, AgentRunHandle, json_value_from_tool_result
 from ...llms.types import JSONValue
 from ...memory import (
     MemoryCompactionResult,
@@ -28,6 +28,7 @@ from ...memory import (
     RetentionPolicy,
     StateRetentionPolicy,
     compact_thread_memory,
+    now_ms,
 )
 from ...observability.backends import create_telemetry_sink
 from ..interaction import HeadlessInteractionProvider, InteractionProvider
@@ -109,6 +110,7 @@ class RunnerAPIMixin:
         self._background_pending = {}
         self._background_ready = {}
         self._background_poller_task = None
+        self._background_interrupt_hints = set()
 
     async def compact_thread(
         self,
@@ -139,6 +141,130 @@ class RunnerAPIMixin:
             thread_id=thread_id,
             event_policy=event_policy,
             state_policy=state_policy,
+        )
+
+    async def list_background_tools(
+        self,
+        *,
+        thread_id: str,
+        run_id: str,
+        include_resolved: bool = False,
+    ) -> list[dict[str, JSONValue]]:
+        """
+        List persisted background-tool ticket rows for a run.
+
+        Args:
+            thread_id: Thread identifier.
+            run_id: Run identifier.
+            include_resolved: Include completed/failed rows.
+
+        Returns:
+            Sorted list of JSON-safe ticket rows.
+        """
+        if not isinstance(thread_id, str) or not thread_id.strip():
+            raise AgentConfigurationError("thread_id must be a non-empty string")
+        if not isinstance(run_id, str) or not run_id.strip():
+            raise AgentConfigurationError("run_id must be a non-empty string")
+        memory = await self._ensure_memory_store()
+        rows = await memory.list_state(thread_id, prefix=f"bgtool:{run_id}:")
+        out: list[dict[str, JSONValue]] = []
+        for key, value in sorted(rows.items(), key=lambda item: item[0]):
+            if key.endswith(":latest"):
+                continue
+            if not isinstance(value, dict):
+                continue
+            status = value.get("status")
+            if not include_resolved and status in {"completed", "failed"}:
+                continue
+            out.append({str(k): json_value_from_tool_result(v) for k, v in value.items()})
+        return out
+
+    async def resolve_background_tool(
+        self,
+        *,
+        thread_id: str,
+        run_id: str,
+        ticket_id: str,
+        output: JSONValue | None = None,
+        tool_name: str | None = None,
+    ) -> None:
+        """
+        Mark a background ticket as completed.
+        """
+        if not isinstance(thread_id, str) or not thread_id.strip():
+            raise AgentConfigurationError("thread_id must be a non-empty string")
+        if not isinstance(run_id, str) or not run_id.strip():
+            raise AgentConfigurationError("run_id must be a non-empty string")
+        if not isinstance(ticket_id, str) or not ticket_id.strip():
+            raise AgentConfigurationError("ticket_id must be a non-empty string")
+        memory = await self._ensure_memory_store()
+        state_key = self._background_state_key(run_id, ticket_id)
+        prior = await memory.get_state(thread_id, state_key)
+        prior_tool_name = (
+            prior.get("tool_name")
+            if isinstance(prior, dict) and isinstance(prior.get("tool_name"), str)
+            else None
+        )
+        row = {
+            "run_id": run_id,
+            "thread_id": thread_id,
+            "ticket_id": ticket_id,
+            "tool_name": tool_name or prior_tool_name or "",
+            "status": "completed",
+            "output": output,
+            "error": None,
+            "resolved_at_ms": now_ms(),
+        }
+        await memory.put_state(thread_id, state_key, row)  # type: ignore[arg-type]
+        await memory.put_state(
+            thread_id,
+            self._background_latest_key(run_id),
+            row,  # type: ignore[arg-type]
+        )
+
+    async def fail_background_tool(
+        self,
+        *,
+        thread_id: str,
+        run_id: str,
+        ticket_id: str,
+        error: str,
+        tool_name: str | None = None,
+    ) -> None:
+        """
+        Mark a background ticket as failed.
+        """
+        if not isinstance(thread_id, str) or not thread_id.strip():
+            raise AgentConfigurationError("thread_id must be a non-empty string")
+        if not isinstance(run_id, str) or not run_id.strip():
+            raise AgentConfigurationError("run_id must be a non-empty string")
+        if not isinstance(ticket_id, str) or not ticket_id.strip():
+            raise AgentConfigurationError("ticket_id must be a non-empty string")
+        if not isinstance(error, str) or not error.strip():
+            raise AgentConfigurationError("error must be a non-empty string")
+        memory = await self._ensure_memory_store()
+        state_key = self._background_state_key(run_id, ticket_id)
+        prior = await memory.get_state(thread_id, state_key)
+        prior_tool_name = (
+            prior.get("tool_name")
+            if isinstance(prior, dict) and isinstance(prior.get("tool_name"), str)
+            else None
+        )
+        row = {
+            "run_id": run_id,
+            "thread_id": thread_id,
+            "ticket_id": ticket_id,
+            "tool_name": tool_name or prior_tool_name or "",
+            "status": "failed",
+            "output": None,
+            "error": error.strip(),
+            "resolved_at_ms": now_ms(),
+        }
+        await memory.put_state(thread_id, state_key, row)  # type: ignore[arg-type]
+        await memory.put_state(
+            thread_id,
+            self._background_latest_key(run_id),
+            row,  # type: ignore[arg-type]
         )
 
     async def run(

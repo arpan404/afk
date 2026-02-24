@@ -86,11 +86,11 @@ from afk.core import RunnerConfig
 | `debug`                                   | `bool`           | `False`                                    | Enable debug metadata in emitted run events                 |
 | `debug_config`                            | `RunnerDebugConfig \| None` | `None`                          | Advanced debug controls (verbosity/content/redaction)       |
 | `background_tools_enabled`                | `bool`           | `True`                                     | Enable deferred/background tool orchestration               |
-| `background_tool_default_grace_s`         | `float`          | `0.0`                                      | Default grace window before background continuation         |
+| `background_tool_default_grace_s`         | `float`          | `0.0`                                      | Wait this long after defer to allow fast background completion before continuing |
 | `background_tool_max_pending`             | `int`            | `256`                                      | Maximum unresolved background tool tickets per run          |
 | `background_tool_poll_interval_s`         | `float`          | `0.5`                                      | Poll interval for external/persisted ticket resolution      |
-| `background_tool_result_ttl_s`            | `float`          | `3600.0`                                   | TTL before pending ticket is marked failed                  |
-| `background_tool_interrupt_on_resolve`    | `bool`           | `True`                                     | Hint loop wake-up when deferred tool resolves              |
+| `background_tool_result_ttl_s`            | `float`          | `3600.0`                                   | TTL before pending ticket is marked failed (runtime floor is 1.0s) |
+| `background_tool_interrupt_on_resolve`    | `bool`           | `True`                                     | When enabled, resolved tickets can be ingested immediately after defer/grace in the same step |
 
 ### Deep Dive: Interaction Models
 

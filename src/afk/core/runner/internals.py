@@ -682,6 +682,11 @@ class RunnerInternalsMixin:
             self._background_latest_key(run_id),
             state,  # type: ignore[arg-type]
         )
+        self._telemetry_counter(
+            obs_contracts.METRIC_AGENT_BGTOOLS_DEFERRED_TOTAL,
+            value=1,
+            attributes={"tool_name": tool_name},
+        )
         return True
 
     def _extract_background_awaitable(self, result: ToolResult[Any]) -> Awaitable[Any] | None:
@@ -709,6 +714,7 @@ class RunnerInternalsMixin:
                     self._background_pending.pop(run_id, None)
         if pending is None:
             return
+        resolve_latency_ms = max(0.0, (time.time() - pending.created_at_s) * 1000.0)
         resolution = _BackgroundToolResolution(
             run_id=run_id,
             ticket_id=ticket_id,
@@ -745,6 +751,34 @@ class RunnerInternalsMixin:
             self._background_latest_key(run_id),
             state,  # type: ignore[arg-type]
         )
+        if self.config.background_tool_interrupt_on_resolve:
+            self._background_interrupt_hints.add(run_id)
+        self._telemetry_histogram(
+            obs_contracts.METRIC_AGENT_BGTOOLS_RESOLVE_LATENCY_MS,
+            value=resolve_latency_ms,
+            attributes={
+                "tool_name": pending.tool_name,
+                "status": "completed" if success else "failed",
+            },
+        )
+        if success:
+            self._telemetry_counter(
+                obs_contracts.METRIC_AGENT_BGTOOLS_RESOLVED_TOTAL,
+                value=1,
+                attributes={"tool_name": pending.tool_name},
+            )
+        else:
+            self._telemetry_counter(
+                obs_contracts.METRIC_AGENT_BGTOOLS_FAILED_TOTAL,
+                value=1,
+                attributes={"tool_name": pending.tool_name},
+            )
+            if error == "Background tool ticket expired":
+                self._telemetry_counter(
+                    obs_contracts.METRIC_AGENT_BGTOOLS_EXPIRED_TOTAL,
+                    value=1,
+                    attributes={"tool_name": pending.tool_name},
+                )
 
     async def _drain_background_resolutions(
         self,

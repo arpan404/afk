@@ -136,6 +136,84 @@ sequenceDiagram
   </Tab>
 </Tabs>
 
+## Deferred background tool calls
+
+For long-running operations, a tool can return a deferred handle so the run can continue while work completes in the background.
+
+```python
+from pydantic import BaseModel
+from afk.tools import tool, ToolResult, ToolDeferredHandle
+import asyncio
+
+class BuildArgs(BaseModel):
+    path: str
+
+@tool(args_model=BuildArgs, name="build_project", description="Run project build.")
+async def build_project(args: BuildArgs) -> ToolResult[dict]:
+    task = asyncio.create_task(run_long_build(args.path))
+    return ToolResult(
+        success=True,
+        deferred=ToolDeferredHandle(
+            ticket_id="build-123",
+            tool_name="build_project",
+            status="running",
+            summary="Build started",
+            resume_hint="Continue docs while build runs",
+            poll_after_s=1.0,
+        ),
+        metadata={"background_task": task},
+    )
+```
+
+When deferred:
+
+1. Runner emits `tool_deferred`.
+2. Agent continues with other work in the same run.
+3. Runner emits `tool_background_resolved` or `tool_background_failed`.
+4. Resolved tool output is injected back into conversation for next steps.
+
+External workers can resolve tickets by writing:
+
+- `bgtool:{run_id}:{ticket_id}:state`
+- `bgtool:{run_id}:latest`
+
+Status payload example:
+
+```python
+await memory.put_state(
+    thread_id,
+    f"bgtool:{run_id}:{ticket_id}:state",
+    {
+        "run_id": run_id,
+        "thread_id": thread_id,
+        "ticket_id": ticket_id,
+        "tool_name": "build_project",
+        "status": "completed",  # or "failed"
+        "output": {"status": "ok", "artifact": "dist/app"},
+        "error": None,
+    },
+)
+```
+
+This pattern is useful for coding agents that start a long build, continue writing docs, then consume build results once available.
+
+You can also use runner helpers instead of writing raw state keys:
+
+```python
+await runner.resolve_background_tool(
+    thread_id=thread_id,
+    run_id=run_id,
+    ticket_id=ticket_id,
+    output={"status": "ok", "artifact": "dist/app"},
+)
+
+rows = await runner.list_background_tools(
+    thread_id=thread_id,
+    run_id=run_id,
+    include_resolved=True,
+)
+```
+
 ## Policy-gated tools
 
 Use the [PolicyEngine](/library/security-model) to gate sensitive tool calls:

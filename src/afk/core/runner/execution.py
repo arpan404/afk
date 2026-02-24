@@ -371,33 +371,12 @@ class RunnerExecutionMixin:
                 if isinstance(user_message, str) and user_message.strip():
                     messages.append(Message(role="user", content=user_message.strip()))
 
-            while True:
-                await handle.wait_if_paused()
-                if handle.is_cancel_requested():
-                    raise AgentCancelledError("Run cancelled by caller")
-                if handle.is_interrupt_requested():
-                    raise AgentInterruptedError("Run interrupted by caller")
-
-                if reuse_current_step:
-                    reuse_current_step = False
-                else:
-                    step += 1
-                self._enforce_budget(
-                    fail_safe=fail_safe,
-                    step=step,
-                    llm_calls=llm_calls,
-                    tool_calls=tool_calls,
-                    started_at_s=started_at_s,
-                    total_cost_usd=total_cost_usd,
-                )
-                if step > fail_safe.max_steps:
-                    raise AgentLoopLimitError(
-                        f"Exceeded max_steps={fail_safe.max_steps} for run {run_id}"
-                    )
-                if self.config.background_tools_enabled:
-                    await self._poll_background_pending()
-                background_rows = await self._drain_background_resolutions(run_id=run_id)
-                for row in background_rows:
+            async def _ingest_background_rows(
+                rows: list[Any],
+                *,
+                step_value: int,
+            ) -> None:
+                for row in rows:
                     payload = {
                         "success": row.success,
                         "output": row.output,
@@ -442,7 +421,7 @@ class RunnerExecutionMixin:
                             run_id=run_id,
                             thread_id=t_id,
                             state=state,
-                            step=step,
+                            step=step_value,
                             data={
                                 "tool_name": row.tool_name,
                                 "tool_call_id": row.tool_call_id,
@@ -457,6 +436,36 @@ class RunnerExecutionMixin:
                         ),
                         user_id=self._maybe_str(ctx.get("user_id")),
                     )
+
+            while True:
+                await handle.wait_if_paused()
+                if handle.is_cancel_requested():
+                    raise AgentCancelledError("Run cancelled by caller")
+                if handle.is_interrupt_requested():
+                    raise AgentInterruptedError("Run interrupted by caller")
+
+                if reuse_current_step:
+                    reuse_current_step = False
+                else:
+                    step += 1
+                self._enforce_budget(
+                    fail_safe=fail_safe,
+                    step=step,
+                    llm_calls=llm_calls,
+                    tool_calls=tool_calls,
+                    started_at_s=started_at_s,
+                    total_cost_usd=total_cost_usd,
+                )
+                if step > fail_safe.max_steps:
+                    raise AgentLoopLimitError(
+                        f"Exceeded max_steps={fail_safe.max_steps} for run {run_id}"
+                    )
+                if self.config.background_tools_enabled:
+                    await self._poll_background_pending()
+                background_rows = await self._drain_background_resolutions(run_id=run_id)
+                if background_rows:
+                    self._background_interrupt_hints.discard(run_id)
+                    await _ingest_background_rows(background_rows, step_value=step)
 
                 await self._emit(
                     handle,
@@ -1600,6 +1609,28 @@ class RunnerExecutionMixin:
                                     ),
                                     user_id=self._maybe_str(ctx.get("user_id")),
                                 )
+                                grace_s = max(
+                                    0.0,
+                                    float(self.config.background_tool_default_grace_s),
+                                )
+                                if grace_s > 0:
+                                    await asyncio.sleep(grace_s)
+                                    await self._poll_background_pending()
+                                if (
+                                    self.config.background_tool_interrupt_on_resolve
+                                    and run_id in self._background_interrupt_hints
+                                ):
+                                    self._background_interrupt_hints.discard(run_id)
+                                    immediate_rows = (
+                                        await self._drain_background_resolutions(
+                                            run_id=run_id
+                                        )
+                                    )
+                                    if immediate_rows:
+                                        await _ingest_background_rows(
+                                            immediate_rows,
+                                            step_value=step,
+                                        )
                                 continue
 
                         rec = tool_record_from_result(

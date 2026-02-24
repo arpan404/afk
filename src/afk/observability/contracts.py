@@ -36,3 +36,9 @@ METRIC_AGENT_SUBAGENT_DEAD_LETTERS_TOTAL = "agent.subagent.dead_letters.total"
 
 METRIC_AGENT_INTERACTION_WAIT_TOTAL = "agent.interaction.wait.total"
 METRIC_AGENT_INTERACTION_WAIT_MS = "agent.interaction.wait_ms"
+
+METRIC_AGENT_BGTOOLS_DEFERRED_TOTAL = "agent.bgtools.deferred.total"
+METRIC_AGENT_BGTOOLS_RESOLVED_TOTAL = "agent.bgtools.resolved.total"
+METRIC_AGENT_BGTOOLS_FAILED_TOTAL = "agent.bgtools.failed.total"
+METRIC_AGENT_BGTOOLS_EXPIRED_TOTAL = "agent.bgtools.expired.total"
+METRIC_AGENT_BGTOOLS_RESOLVE_LATENCY_MS = "agent.bgtools.resolve_latency_ms"
