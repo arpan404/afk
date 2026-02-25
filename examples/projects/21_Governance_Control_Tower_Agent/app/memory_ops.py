@@ -1,0 +1,15 @@
+"""SQLite memory helpers for tier-5 examples."""
+
+from pathlib import Path
+
+from afk.memory import SQLiteMemoryStore
+
+
+MEMORY_FILE_NAME = "governance_memory.sqlite3"
+
+
+def build_sqlite_store(project_root: Path) -> SQLiteMemoryStore:
+    """Build sqlite memory store under project data directory."""
+    data_dir = project_root / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return SQLiteMemoryStore(path=str(data_dir / MEMORY_FILE_NAME))
