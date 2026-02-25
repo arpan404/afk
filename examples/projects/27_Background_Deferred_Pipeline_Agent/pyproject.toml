@@ -1,0 +1,9 @@
+[project]
+name = "27-background-deferred-pipeline-agent"
+version = "0.1.0"
+description = "Run long tools in the background using ToolDeferredHandle and resume with event-stream visibility."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.12.5",
+]
