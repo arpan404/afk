@@ -1,0 +1,9 @@
+[project]
+name = "24-runtime-sandbox-fileops-agent"
+version = "0.1.0"
+description = "Use runtime filesystem tools with sandbox policy and output limits for governed file analytics."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.12.5",
+]
