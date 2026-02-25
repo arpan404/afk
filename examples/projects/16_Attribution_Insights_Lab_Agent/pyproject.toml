@@ -1,0 +1,9 @@
+[project]
+name = "16-attribution-insights-lab-agent"
+version = "0.1.0"
+description = "Evaluate attribution scenarios in batch with persistent memory and run summaries."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.12.5",
+]
