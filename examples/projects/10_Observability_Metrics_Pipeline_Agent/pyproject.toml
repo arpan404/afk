@@ -1,0 +1,9 @@
+[project]
+name = "10-observability-metrics-pipeline-agent"
+version = "0.1.0"
+description = "Combine policy and telemetry to build metrics-first operational reporting."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.12.5",
+]

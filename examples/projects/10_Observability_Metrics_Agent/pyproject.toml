@@ -1,9 +1,0 @@
-[project]
-name = "10-observability-metrics-agent"
-version = "0.1.0"
-description = "Project run metrics from telemetry and export structured observability artifacts."
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "pydantic>=2.12.5",
-]
