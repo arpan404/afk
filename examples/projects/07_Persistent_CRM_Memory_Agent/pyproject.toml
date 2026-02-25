@@ -1,9 +1,0 @@
-[project]
-name = "07-persistent-crm-memory-agent"
-version = "0.1.0"
-description = "Maintain customer context across turns with SQLite-backed memory and continuity metrics."
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "pydantic>=2.12.5",
-]
