@@ -1,0 +1,9 @@
+[project]
+name = "05-change-control-assistant-agent"
+version = "0.1.0"
+description = "Model governed change workflows with policy-aware operational analysis."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.12.5",
+]
