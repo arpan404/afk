@@ -1,9 +1,0 @@
-[project]
-name = "11-portfolio-risk-analytics-agent"
-version = "0.1.0"
-description = "Run portfolio risk workflows with progressive, aggregate analytics across many runs."
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "pydantic>=2.12.5",
-]

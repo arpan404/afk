@@ -1,0 +1,9 @@
+[project]
+name = "11-portfolio-risk-reporter-agent"
+version = "0.1.0"
+description = "Produce portfolio risk summaries with governed analytics instrumentation."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.12.5",
+]
