@@ -1,0 +1,9 @@
+[project]
+name = "31-skills-runtime-command-policy-agent"
+version = "0.1.0"
+description = "Build skill tools with allowlisted command execution and root-bounded file access."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.12.5",
+]
