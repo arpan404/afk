@@ -1,0 +1,9 @@
+[project]
+name = "33-a2a-service-host-auth-agent"
+version = "0.1.0"
+description = "Host A2A HTTP endpoints with API-key authorization and production-safe auth policy."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.12.5",
+]
