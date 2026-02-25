@@ -1,9 +1,0 @@
-[project]
-name = "25-prompt-template-loader-agent"
-version = "0.1.0"
-description = "Resolve instruction files from prompts_dir, render templates, and run with a deterministic local LLM."
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "pydantic>=2.12.5",
-]

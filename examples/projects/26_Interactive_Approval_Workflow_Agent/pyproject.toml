@@ -1,9 +1,0 @@
-[project]
-name = "26-interactive-approval-workflow-agent"
-version = "0.1.0"
-description = "Use interactive runner mode with InMemoryInteractiveProvider for deferred user input and policy-gated tool execution."
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "pydantic>=2.12.5",
-]

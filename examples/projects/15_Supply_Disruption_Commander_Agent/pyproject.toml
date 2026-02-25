@@ -1,9 +1,0 @@
-[project]
-name = "15-supply-disruption-commander-agent"
-version = "0.1.0"
-description = "Analyze disruption scenarios with multi-run orchestration and memory analytics."
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "pydantic>=2.12.5",
-]

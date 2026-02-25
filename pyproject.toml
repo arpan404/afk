@@ -27,6 +27,6 @@ a2a = [
 
 [tool.uv.workspace]
 members = [
-    "examples/projects/01_Greeting_Agent",
-    "examples/projects/02_Revenue_Lead_Scorer_Agent",
+    "cookbooks/01_greeting_agent",
+    "examples/projects/02_Weather_Agent",
 ]

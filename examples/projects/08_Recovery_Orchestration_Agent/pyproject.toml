@@ -1,9 +1,0 @@
-[project]
-name = "08-recovery-orchestration-agent"
-version = "0.1.0"
-description = "Drive recovery orchestration with streaming and thread continuity analytics."
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "pydantic>=2.12.5",
-]

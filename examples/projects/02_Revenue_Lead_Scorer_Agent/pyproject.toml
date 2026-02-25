@@ -1,9 +1,0 @@
-[project]
-name = "02-revenue-lead-scorer-agent"
-version = "0.1.0"
-description = "Score inbound pipeline opportunities with operationally grounded analytics."
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "pydantic>=2.12.5",
-]

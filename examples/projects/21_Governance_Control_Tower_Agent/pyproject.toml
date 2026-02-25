@@ -1,9 +1,0 @@
-[project]
-name = "21-governance-control-tower-agent"
-version = "0.1.0"
-description = "Operate an enterprise governance control tower with top-tier portfolio analytics."
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "pydantic>=2.12.5",
-]

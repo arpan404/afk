@@ -1,9 +1,0 @@
-[project]
-name = "32-a2a-internal-delegation-protocol-agent"
-version = "0.1.0"
-description = "Use InternalA2AProtocol for deduped invocation, typed stream delivery events, and dead-letter capture."
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "pydantic>=2.12.5",
-]

@@ -1,3 +1,0 @@
-1. Validate customer impact scope.
-2. Assign incident commander.
-3. Commit to ETA and communication cadence.

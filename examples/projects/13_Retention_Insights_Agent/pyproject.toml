@@ -1,9 +1,0 @@
-[project]
-name = "13-retention-insights-agent"
-version = "0.1.0"
-description = "Generate retention action plans with policy-aware analytics and controls."
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "pydantic>=2.12.5",
-]

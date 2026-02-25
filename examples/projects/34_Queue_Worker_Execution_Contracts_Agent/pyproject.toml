@@ -1,9 +1,0 @@
-[project]
-name = "34-queue-worker-execution-contracts-agent"
-version = "0.1.0"
-description = "Process dispatch and custom contract tasks with TaskWorker, retry-aware queue semantics, and contract envelopes."
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "pydantic>=2.12.5",
-]

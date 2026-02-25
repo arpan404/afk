@@ -1,9 +1,0 @@
-[project]
-name = "19-sre-capacity-planner-agent"
-version = "0.1.0"
-description = "Plan SRE capacity under governance controls and aggregate portfolio metrics."
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "pydantic>=2.12.5",
-]

@@ -1,9 +1,0 @@
-[project]
-name = "20-executive-briefing-studio-agent"
-version = "0.1.0"
-description = "Produce executive-ready strategy briefings with governed analytics outputs."
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "pydantic>=2.12.5",
-]

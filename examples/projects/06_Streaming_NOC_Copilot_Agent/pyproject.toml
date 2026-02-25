@@ -1,9 +1,0 @@
-[project]
-name = "06-streaming-noc-copilot-agent"
-version = "0.1.0"
-description = "Stream network operations guidance with real-time event analytics."
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "pydantic>=2.12.5",
-]

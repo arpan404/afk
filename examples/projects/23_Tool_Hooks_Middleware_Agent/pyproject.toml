@@ -1,9 +1,0 @@
-[project]
-name = "23-tool-hooks-middleware-agent"
-version = "0.1.0"
-description = "Normalize, enrich, and audit tool outputs using prehooks, posthooks, and registry middleware."
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "pydantic>=2.12.5",
-]
