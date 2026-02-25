@@ -1,0 +1,9 @@
+[project]
+name = "30-mcp-remote-tools-exchange-agent"
+version = "0.1.0"
+description = "Materialize remote MCP tools and execute them through AFK runner + Agent mcp_servers integration."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.12.5",
+]
