@@ -1,0 +1,9 @@
+[project]
+name = "04-incident-triage-desk-agent"
+version = "0.1.0"
+description = "Coordinate incident triage and mitigation recommendations with measurable runtime analytics."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.12.5",
+]

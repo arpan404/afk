@@ -1,9 +1,0 @@
-[project]
-name = "04-incident-command-center-agent"
-version = "0.1.0"
-description = "Coordinate incident response with specialist subagents and delegation analytics."
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "pydantic>=2.12.5",
-]
