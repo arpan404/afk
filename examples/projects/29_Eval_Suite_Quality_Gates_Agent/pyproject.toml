@@ -1,0 +1,9 @@
+[project]
+name = "29-eval-suite-quality-gates-agent"
+version = "0.1.0"
+description = "Run repeatable eval suites with assertions, dataset loading, and JSON reporting artifacts."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.12.5",
+]

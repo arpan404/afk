@@ -1,0 +1,16 @@
+[
+  {
+    "name": "sla-health-summary",
+    "agent": "ops_eval",
+    "user_message": "Give me SLA summary",
+    "context": {"service": "billing"},
+    "tags": ["smoke", "sla"]
+  },
+  {
+    "name": "incident-posture",
+    "agent": "ops_eval",
+    "user_message": "Give me incident posture",
+    "context": {"service": "checkout"},
+    "tags": ["smoke", "incident"]
+  }
+]
