@@ -1,0 +1,9 @@
+[project]
+name = "28-fallback-reasoning-control-agent"
+version = "0.1.0"
+description = "Apply fail-safe fallback models and per-run reasoning overrides for resilient analytics runs."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.12.5",
+]
