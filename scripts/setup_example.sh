@@ -152,7 +152,8 @@ else
   fi
 fi
 
-# Primary strategy when `uv` is available: use `uv sync` (if supported), then ensure repository is installed into the example env via `uv run -m pip install -e`.
+# Primary strategy when `uv` is available: use `uv sync` (if supported), then ensure
+# repository is installed into the example env via `uv pip install`.
 USE_UV=false
 if [ -n "$UV_CMD" ]; then
   # check if 'sync' is supported by this uv installation
@@ -180,7 +181,11 @@ fi
 if [ "$USE_UV" = true ]; then
   log "using uv to prepare environment for project: $PROJECT_DIR"
   pushd "$PROJECT_DIR" >/dev/null
-  # try uv sync if available, otherwise rely on uv run
+  if [ -n "${VIRTUAL_ENV:-}" ] && [ "$VIRTUAL_ENV" != "$VENV_DIR" ]; then
+    log "active virtualenv differs from target; unsetting VIRTUAL_ENV for uv commands"
+    unset VIRTUAL_ENV
+  fi
+  # try uv sync if available
   if uv --help 2>&1 | grep -qi "\bsync\b"; then
     log "running: uv sync"
     if ! uv sync; then
@@ -191,21 +196,16 @@ if [ "$USE_UV" = true ]; then
 
   if [ "$USE_UV" = true ]; then
     # ensure the repository package is installed into the project's environment
-    log "installing repository into the example project's environment using 'uv run -m pip install -e'"
-    if uv --help 2>&1 | grep -qi "\brun\b"; then
-      if [ "$SKIP_INSTALL" = true ]; then
-        log "skipping repo install into uv environment (--skip-install)"
-      else
-        REPO_INSTALL_ARG="$REPO_ROOT"
-        if [ -n "$EXTRAS" ]; then REPO_INSTALL_ARG="$REPO_ROOT[$EXTRAS]"; fi
-        if ! uv run -m pip install -e "$REPO_INSTALL_ARG"; then
-          err "failed to install repository into uv environment — continuing to fallback path"
-          USE_UV=false
-        fi
-      fi
+    log "installing repository into the example project's environment using 'uv pip install -e'"
+    if [ "$SKIP_INSTALL" = true ]; then
+      log "skipping repo install into uv environment (--skip-install)"
     else
-      log "'uv run' not available — skipping repo install step and falling back"
-      USE_UV=false
+      REPO_INSTALL_ARG="$REPO_ROOT"
+      if [ -n "$EXTRAS" ]; then REPO_INSTALL_ARG="$REPO_ROOT[$EXTRAS]"; fi
+      if ! uv pip install --python "$VENV_DIR/bin/python" -e "$REPO_INSTALL_ARG"; then
+        err "failed to install repository into uv environment — continuing to fallback path"
+        USE_UV=false
+      fi
     fi
   fi
   popd >/dev/null
@@ -227,12 +227,23 @@ if [ "$USE_UV" != true ]; then
     log "reusing existing venv: $VENV_DIR"
   fi
 
-  PIP_BIN="$VENV_DIR/bin/pip"
   PY_BIN="$VENV_DIR/bin/python"
+
+  # uv-created venvs may exist without pip; recreate to recover a standard layout.
+  if [ ! -x "$VENV_DIR/bin/pip" ]; then
+    log "venv exists but pip is missing; recreating virtualenv"
+    rm -rf "$VENV_DIR"
+    run_check "$PYTHON_EXEC" -m venv "$VENV_DIR"
+  fi
+
+  if ! "$PY_BIN" -m pip --version >/dev/null 2>&1; then
+    log "pip module missing inside venv; bootstrapping with ensurepip"
+    run_check "$PY_BIN" -m ensurepip --upgrade
+  fi
 
   # upgrade pip and tooling
   log "upgrading pip and build tools inside venv"
-  run_check "$PIP_BIN" install --upgrade pip setuptools wheel
+  run_check "$PY_BIN" -m pip install --upgrade pip setuptools wheel
 
   # install repo in editable mode (unless --skip-install)
   if [ "$SKIP_INSTALL" = true ]; then
@@ -241,13 +252,13 @@ if [ "$USE_UV" != true ]; then
     REPO_INSTALL_ARG="$REPO_ROOT"
     if [ -n "$EXTRAS" ]; then REPO_INSTALL_ARG="$REPO_ROOT[$EXTRAS]"; fi
     log "installing repository into the example venv (editable${EXTRAS:+ with extras [$EXTRAS]})"
-    run_check "$PIP_BIN" install -e "$REPO_INSTALL_ARG"
+    run_check "$PY_BIN" -m pip install -e "$REPO_INSTALL_ARG"
   fi
 
   # if example has requirements, install them (unless --skip-deps)
   if [ "$SKIP_DEPS" != true ] && [ -f "$PROJECT_DIR/requirements.txt" ]; then
     log "installing project requirements.txt"
-    run_check "$PIP_BIN" install -r "$PROJECT_DIR/requirements.txt"
+    run_check "$PY_BIN" -m pip install -r "$PROJECT_DIR/requirements.txt"
   elif [ "$SKIP_DEPS" = true ]; then
     log "skipping project requirements (--skip-deps)"
   fi

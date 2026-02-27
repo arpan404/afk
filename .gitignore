@@ -23,3 +23,5 @@ agent-skill/*/scripts/search_afk_docs.py
 
 .ruff_cache/ # Ruff's cache directory, we use it for linting and formatting
 afk_memory.sqlite3
+adk_memory.sqlite3-shm
+adk_memory.sqlite3-wal
