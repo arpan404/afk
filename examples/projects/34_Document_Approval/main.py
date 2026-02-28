@@ -1,163 +1,54 @@
 """
 ---
 name: Document Approval
-description: A document processing agent that uses InteractionProvider for human-in-the-loop approval before finalizing documents.
-tags: [agent, runner, interaction, approval, human-in-the-loop]
+description: A document processing agent demonstrating AgentRunHandle lifecycle controls (pause/resume/cancel/interrupt) and RunnerConfig interaction settings.
+tags: [agent, runner, run-handle, lifecycle, pause, resume, cancel, interrupt, interaction, approval]
 ---
 ---
-This example demonstrates how to build agents that require human approval before performing
-sensitive actions. Using AFK's InteractionProvider protocol and RunnerConfig's interaction_mode,
-you can create workflows where the agent pauses, asks the user for approval, and only proceeds
-if granted. This pattern is critical for production systems where certain actions (publishing,
-deleting, spending money) must have a human checkpoint.
+This example demonstrates two key AFK features:
+
+1. **AgentRunHandle** lifecycle controls: Instead of calling runner.run() (which blocks until
+   completion), use runner.run_handle() to get a live handle with lifecycle methods:
+   - handle.pause(): Pause cooperative execution at safe boundaries
+   - handle.resume(): Resume a paused run
+   - handle.cancel(): Cancel the run and terminate with no result
+   - handle.interrupt(): Interrupt in-flight operations immediately
+   - handle.await_result(): Await the terminal result (AgentResult or None if cancelled)
+   - handle.events: AsyncIterator of AgentRunEvent for real-time lifecycle monitoring
+
+   This is essential for production systems where you need to control long-running agent
+   operations — pause for user input, cancel abandoned requests, or interrupt stuck operations.
+
+2. **RunnerConfig** interaction settings: Configure how the Runner handles approval requests
+   and user input with interaction_mode, approval_timeout_s, approval_fallback, etc.
 ---
 """
 
-import asyncio  # <- Async required for interaction provider.
-from pydantic import BaseModel, Field  # <- Pydantic for typed tool argument schemas.
-from afk.core import Runner, RunnerConfig  # <- Runner executes agents; RunnerConfig configures interaction mode.
-from afk.agents import Agent  # <- Agent defines the agent's model, instructions, and tools.
-from afk.tools import tool, ToolContext  # <- @tool decorator and ToolContext for execution context.
+import asyncio  # <- Async required for run_handle() and lifecycle control.
+from afk.core import Runner, RunnerConfig  # <- Runner executes agents; RunnerConfig configures interaction and approval behavior.
+from afk.agents import Agent  # <- Agent defines the document processing agent.
+
+from tools import draft_document, review_document, finalize_document, list_documents, get_document, documents  # <- Import tools and document store.
 
 
 # ===========================================================================
-# Simulated document storage
+# RunnerConfig — interaction and approval settings
 # ===========================================================================
 
-documents: dict[str, dict] = {}  # <- In-memory document store. Maps doc_id to document data.
-_doc_counter: int = 0  # <- Auto-incrementing document counter.
-
-
-# ===========================================================================
-# Tool argument schemas
-# ===========================================================================
-
-class DraftDocumentArgs(BaseModel):
-    title: str = Field(description="Document title")
-    content: str = Field(description="Document content/body text")
-    doc_type: str = Field(description="Type of document: memo, report, proposal, letter")
-
-
-class DocIdArgs(BaseModel):
-    doc_id: str = Field(description="The document ID to operate on")
-
-
-class EmptyArgs(BaseModel):
-    pass
-
-
-# ===========================================================================
-# Tool definitions
-# ===========================================================================
-
-@tool(args_model=DraftDocumentArgs, name="draft_document", description="Create a new document draft")
-def draft_document(args: DraftDocumentArgs) -> str:  # <- Creates a draft document. This is safe and doesn't require approval.
-    global _doc_counter
-    _doc_counter += 1
-    doc_id = f"DOC-{_doc_counter:03d}"
-
-    documents[doc_id] = {
-        "id": doc_id,
-        "title": args.title,
-        "content": args.content,
-        "doc_type": args.doc_type,
-        "status": "draft",  # <- Documents start as drafts. They need review and approval before finalizing.
-        "revisions": 0,
-    }
-
-    return (
-        f"Document created: {doc_id}\n"
-        f"  Title: {args.title}\n"
-        f"  Type: {args.doc_type}\n"
-        f"  Status: draft\n"
-        f"  Content preview: {args.content[:100]}..."
-    )
-
-
-@tool(args_model=DocIdArgs, name="review_document", description="Review a document and provide feedback on its content")
-def review_document(args: DocIdArgs) -> str:  # <- Reviews a document. Returns analysis but doesn't change status.
-    doc = documents.get(args.doc_id)
-    if doc is None:
-        return f"Document {args.doc_id} not found."
-
-    content = doc["content"]
-    word_count = len(content.split())
-    has_title = bool(doc["title"])
-    is_long_enough = word_count >= 10
-
-    issues = []
-    if not has_title:
-        issues.append("Missing title")
-    if not is_long_enough:
-        issues.append(f"Content too short ({word_count} words, recommend 10+)")
-
-    if issues:
-        return f"Review of {args.doc_id} — Issues found:\n" + "\n".join(f"  - {i}" for i in issues) + "\nStatus: needs revision"
-    return f"Review of {args.doc_id} — Looks good!\n  Word count: {word_count}\n  Type: {doc['doc_type']}\n  Ready for finalization."
-
-
-@tool(args_model=DocIdArgs, name="finalize_document", description="Finalize a document for publishing — this is a sensitive action that changes document status permanently")
-def finalize_document(args: DocIdArgs) -> str:  # <- SENSITIVE action: finalizes a document. In a real system with InteractionProvider configured, the runner would pause for approval before executing this tool.
-    doc = documents.get(args.doc_id)
-    if doc is None:
-        return f"Document {args.doc_id} not found."
-
-    if doc["status"] == "finalized":
-        return f"Document {args.doc_id} is already finalized."
-
-    # --- This is where approval matters ---
-    # When RunnerConfig has interaction_mode="interactive", the PolicyEngine or
-    # policy_roles can trigger approval requests before this tool runs. For this
-    # demo, we show the finalization proceeding (since we're running headless).
-    doc["status"] = "finalized"  # <- In a production system, this would only happen after human approval via InteractionProvider.
-
-    return (
-        f"Document {args.doc_id} FINALIZED.\n"
-        f"  Title: {doc['title']}\n"
-        f"  Type: {doc['doc_type']}\n"
-        f"  Status: finalized (permanent)\n\n"
-        f"NOTE: In production with interaction_mode='interactive', this action would\n"
-        f"pause and request human approval before proceeding."
-    )
-
-
-@tool(args_model=EmptyArgs, name="list_documents", description="List all documents with their current status")
-def list_documents(args: EmptyArgs) -> str:
-    if not documents:
-        return "No documents yet. Use draft_document to create one."
-    lines = ["Documents:"]
-    for doc_id, doc in documents.items():
-        lines.append(f"  [{doc_id}] {doc['title']} ({doc['doc_type']}) — {doc['status']}")
-    return "\n".join(lines)
-
-
-@tool(args_model=DocIdArgs, name="get_document", description="Get the full content of a document")
-def get_document(args: DocIdArgs) -> str:
-    doc = documents.get(args.doc_id)
-    if doc is None:
-        return f"Document {args.doc_id} not found."
-    return (
-        f"--- {doc['title']} ---\n"
-        f"ID: {doc['id']} | Type: {doc['doc_type']} | Status: {doc['status']}\n"
-        f"Revisions: {doc['revisions']}\n\n"
-        f"{doc['content']}"
-    )
-
-
-# ===========================================================================
-# Agent and runner setup
-# ===========================================================================
-
-# --- RunnerConfig demonstrates interaction settings ---
-config = RunnerConfig(  # <- RunnerConfig controls how the runner handles interactions like approval requests.
-    interaction_mode="headless",  # <- "headless" means no approval prompts (auto-decides). Set to "interactive" for human-in-the-loop. Options: "headless", "interactive", "external".
-    approval_timeout_s=60.0,  # <- How long to wait for approval before timing out (when in interactive mode).
-    approval_fallback="deny",  # <- What to do if approval times out: "allow" or "deny". "deny" is safer for sensitive operations.
-    input_timeout_s=60.0,  # <- How long to wait for user input requests.
-    input_fallback="deny",  # <- What to do if input times out.
+config = RunnerConfig(
+    interaction_mode="headless",  # <- "headless" means auto-decide (no manual prompts). Options: "headless", "interactive", "external". In production, use "interactive" with an InteractionProvider for human-in-the-loop approval.
+    approval_timeout_s=60.0,  # <- How long to wait for approval when in interactive mode.
+    approval_fallback="deny",  # <- What to do if approval times out: "allow" or "deny". "deny" is safer for sensitive actions.
+    input_timeout_s=60.0,  # <- How long to wait for user input.
+    input_fallback="deny",  # <- Timeout fallback for input requests.
     sanitize_tool_output=True,  # <- Sanitize tool output for safety.
-    tool_output_max_chars=12_000,  # <- Maximum characters in tool output shown to the agent.
+    tool_output_max_chars=12_000,  # <- Maximum tool output characters.
 )
+
+
+# ===========================================================================
+# Agent definition
+# ===========================================================================
 
 doc_agent = Agent(
     name="document-processor",
@@ -172,56 +63,167 @@ doc_agent = Agent(
 
     Always review a document before finalizing it. Warn the user that finalization is
     permanent. If there are issues in the review, suggest fixes before finalizing.
-
-    **IMPORTANT**: finalize_document is a sensitive action. In production with
-    interaction_mode='interactive', this would require human approval. For this demo
-    we're running in 'headless' mode, but the pattern is the same.
     """,
     tools=[draft_document, review_document, finalize_document, list_documents, get_document],
 )
 
-runner = Runner(config=config)  # <- Pass the RunnerConfig to the runner. The config controls interaction behavior.
+runner = Runner(config=config)
+
+
+# ===========================================================================
+# AgentRunHandle lifecycle demonstration
+# ===========================================================================
+
+async def demonstrate_run_handle():
+    """Demonstrate AgentRunHandle lifecycle controls.
+
+    This function shows how to use run_handle() to get a live handle with
+    pause/resume/cancel controls, instead of the blocking run() method.
+    """
+    print("\n--- AgentRunHandle Lifecycle Demo ---")
+    print("Starting a document processing run with lifecycle controls...\n")
+
+    # --- Start the run via run_handle (non-blocking) ---
+    handle = await runner.run_handle(  # <- run_handle() returns immediately with a live AgentRunHandle. The agent starts executing in the background.
+        doc_agent,
+        user_message="Create a memo titled 'Team Update' about the Q4 planning meeting. Then review it and finalize it.",
+    )
+
+    print("Run started. Handle lifecycle methods available:")
+    print("  handle.pause()       — pause at next safe boundary")
+    print("  handle.resume()      — resume paused run")
+    print("  handle.cancel()      — cancel and terminate")
+    print("  handle.interrupt()   — interrupt immediately")
+    print("  handle.await_result() — wait for final result")
+    print()
+
+    # --- Monitor events from the handle ---
+    print("[events]")
+    event_count = 0
+    async for event in handle.events:  # <- handle.events is an AsyncIterator[AgentRunEvent]. Each event represents a lifecycle change (step started, tool called, state change, etc.).
+        event_count += 1
+        # Format the event for display
+        event_info = f"  [{event_count}] type={event.type}"
+        if hasattr(event, "step") and event.step:
+            event_info += f" step={event.step}"
+        if hasattr(event, "state") and event.state:
+            event_info += f" state={event.state}"
+        if hasattr(event, "tool_name") and event.tool_name:
+            event_info += f" tool={event.tool_name}"
+        print(event_info)
+
+        # --- Demonstrate pause/resume after 2 events ---
+        if event_count == 2:
+            print("\n  >> Pausing run...")
+            await handle.pause()  # <- Pauses cooperative execution at the next safe boundary. The agent won't start new steps until resumed.
+            print("  >> Run paused. Simulating review delay...")
+            await asyncio.sleep(0.5)  # <- Simulate a review/approval delay.
+            print("  >> Resuming run...")
+            await handle.resume()  # <- Resume the paused run. Execution continues from where it was paused.
+            print("  >> Run resumed.\n")
+
+    # --- Await the final result ---
+    result = await handle.await_result()  # <- Blocks until the run completes (or was cancelled). Returns AgentResult or None.
+
+    if result is None:
+        print("\nRun was cancelled (result is None).")
+    else:
+        print(f"\n[document-processor] > {result.final_text}")
+        print(f"  [tokens: {result.usage.input_tokens} in / {result.usage.output_tokens} out]")
+
+    print(f"\nTotal lifecycle events: {event_count}")
+
+
+async def demonstrate_cancel():
+    """Demonstrate cancelling a run via AgentRunHandle.cancel()."""
+    print("\n--- Cancel Demo ---")
+    print("Starting a run that will be cancelled after 1 event...\n")
+
+    handle = await runner.run_handle(
+        doc_agent,
+        user_message="Create 10 different documents about various topics.",
+    )
+
+    event_count = 0
+    async for event in handle.events:
+        event_count += 1
+        print(f"  [{event_count}] type={event.type}")
+        if event_count >= 1:
+            print("\n  >> Cancelling run...")
+            await handle.cancel()  # <- Cancel terminates the run. await_result() will return None.
+            print("  >> Run cancelled.\n")
+            break
+
+    result = await handle.await_result()
+    print(f"Result after cancel: {result}")  # <- None, because the run was cancelled.
+    print("Cancel demonstration complete.")
+
+
+# ===========================================================================
+# Interactive session with lifecycle option
+# ===========================================================================
+
+async def interactive_session():
+    """Standard interactive loop with basic run_sync calls."""
+    while True:
+        user_input = input("[] > ")
+        if user_input.strip().lower() in ("quit", "exit", "q"):
+            finalized = sum(1 for d in documents.values() if d["status"] == "finalized")
+            print(f"Session: {len(documents)} docs ({finalized} finalized). Goodbye!")
+            break
+        response = runner.run_sync(doc_agent, user_message=user_input)
+        print(f"[document-processor] > {response.final_text}\n")
+
+
+async def main():
+    print("Document Approval Agent")
+    print("=" * 55)
+    print()
+    print("Modes:")
+    print("  1. Interactive session (run_sync conversation loop)")
+    print("  2. AgentRunHandle lifecycle demo (pause/resume)")
+    print("  3. AgentRunHandle cancel demo")
+    print()
+
+    choice = input("Choose mode (1-3): ").strip()
+
+    if choice == "2":
+        await demonstrate_run_handle()
+    elif choice == "3":
+        await demonstrate_cancel()
+    else:
+        print()
+        print(f"Interaction mode: {config.interaction_mode}")
+        print(f"Approval fallback: {config.approval_fallback}")
+        print()
+        print("Try: 'Create a memo about the team offsite', 'Review DOC-001', 'Finalize DOC-001'")
+        print()
+        await interactive_session()
 
 
 if __name__ == "__main__":
-    print("Document Approval Agent (type 'quit' to exit)")
-    print("=" * 50)
-    print("Interaction mode:", config.interaction_mode)
-    print("Approval fallback:", config.approval_fallback)
-    print()
-    print("Try: 'Create a memo about the team offsite'")
-    print("     'Review DOC-001'")
-    print("     'Finalize DOC-001'\n")
-
-    while True:
-        user_input = input("[] > ")
-
-        if user_input.strip().lower() in ("quit", "exit", "q"):
-            finalized = sum(1 for d in documents.values() if d["status"] == "finalized")
-            print(f"Session complete: {len(documents)} documents ({finalized} finalized). Goodbye!")
-            break
-
-        response = runner.run_sync(doc_agent, user_message=user_input)
-        print(f"[document-processor] > {response.final_text}\n")
+    asyncio.run(main())
 
 
 
 """
 ---
-Tl;dr: This example creates a document processing agent with a draft-review-finalize workflow,
-configured with RunnerConfig for interaction behavior. The config demonstrates interaction_mode
-("headless" vs "interactive"), approval_timeout_s, approval_fallback ("allow"/"deny"), and
-tool output sanitization. In production with interaction_mode="interactive", sensitive actions
-like finalize_document would pause and request human approval via an InteractionProvider before
-proceeding. This pattern is critical for systems where certain actions require a human checkpoint.
+Tl;dr: This example demonstrates AgentRunHandle lifecycle controls and RunnerConfig interaction
+settings. runner.run_handle() returns a live handle with methods: pause() pauses at safe boundaries,
+resume() continues execution, cancel() terminates with no result, interrupt() stops immediately,
+and await_result() waits for the terminal AgentResult (or None if cancelled). handle.events is an
+AsyncIterator of AgentRunEvent for real-time lifecycle monitoring. The demo shows pause/resume after
+2 events (simulating a review delay) and a separate cancel demonstration. RunnerConfig sets
+interaction_mode ("headless"/"interactive"/"external"), approval_timeout_s, approval_fallback, and
+tool output sanitization.
 ---
 ---
 What's next?
-- Switch interaction_mode to "interactive" and implement a custom InteractionProvider to see approval prompts.
-- Add a PolicyRole that triggers defer/request_approval for finalize_document specifically.
-- Combine with PolicyEngine rules to automatically deny finalization for documents with review issues.
-- Implement version history by tracking revisions in the document store.
-- Add a "publish_document" tool with even stricter approval requirements.
-- Check out the Content Moderator example for PolicyEngine-based tool gating!
+- Try mode 2 to see pause/resume in action, and mode 3 to see cancel.
+- Switch interaction_mode to "interactive" and implement an InteractionProvider for real approval prompts.
+- Use handle.interrupt() for cases where the agent is stuck or the user abandons the request.
+- Combine AgentRunHandle with the Debugger facade — use debugger.attach(handle) for event formatting.
+- Add a PolicyRole that triggers "defer" for finalize_document, then resolve the deferral via handle.
+- Check out the Chat History Manager example for Runner.resume() checkpoint restoration!
 ---
 """
