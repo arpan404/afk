@@ -1,0 +1,7 @@
+[project]
+name = "17-news-digest"
+version = "0.1.0"
+description = "A news digest agent demonstrating real-time streaming with run_stream"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
