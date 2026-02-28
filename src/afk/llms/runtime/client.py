@@ -393,10 +393,16 @@ class LLMClient:
         await self._breaker.ensure_available(provider_id, self._breaker_policy)
 
         timeout_policy = self._timeout_policy
-        return await await_with_timeout(
-            transport.embed(req),
-            timeout_policy.request_timeout_s,
-        )
+        try:
+            result = await await_with_timeout(
+                transport.embed(req),
+                timeout_policy.request_timeout_s,
+            )
+            await self._breaker.record_success(provider_id)
+            return result
+        except Exception:
+            await self._breaker.record_failure(provider_id, self._breaker_policy)
+            raise
 
     def embed_sync(self, req: EmbeddingRequest) -> EmbeddingResponse:
         """Synchronous wrapper around `embed`."""
