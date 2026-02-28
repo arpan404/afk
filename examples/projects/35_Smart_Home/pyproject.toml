@@ -1,0 +1,7 @@
+[project]
+name = "35-smart-home"
+version = "0.1.0"
+description = "A smart home controller agent demonstrating ToolPolicy for tool access control"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
