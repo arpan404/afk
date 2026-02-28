@@ -1,7 +1,24 @@
 
 # Meeting Notes
 
-A meeting notes agent that uses a dynamic InstructionProvider to adapt its behavior based on runtime context such as meeting type (standup, brainstorm, review, planning) and formality level.
+A meeting notes agent demonstrating two approaches to dynamic agent instructions in AFK: Jinja2 prompt templates via `instruction_file` + `prompts_dir`, and callable InstructionProvider via `instructions=`.
+
+## Project Structure
+
+```
+19_Meeting_Notes/
+  main.py                  # Entry point — two agents (template vs callable)
+  tools.py                 # Tool definitions (add_note, action items, etc.)
+  prompts/
+    meeting_notes.md       # Jinja2 template with conditionals and filters
+```
+
+## Key Concepts
+
+- **instruction_file**: Path to a Jinja2 Markdown template resolved relative to `prompts_dir`
+- **prompts_dir**: Directory containing prompt templates (also settable via `AFK_AGENT_PROMPTS_DIR` env var)
+- **Jinja2 rendering**: Templates receive runtime `context` as variables — use `{{ meeting_type }}`, `{% if %}`, `{{ attendees | join(', ') }}`
+- **InstructionProvider**: Callable `(context: dict) -> str` alternative for logic-heavy instruction generation
 
 Prerequisites
 - Run this from the repository root.
@@ -12,19 +29,15 @@ Usage
   ./scripts/setup_example.sh --project-dir=examples/projects/19_Meeting_Notes
 
 - Run (absolute):
-  ./scripts/setup_example.sh --project-dir=/Users/username/pathtoafk/examples/projects/19_Meeting_Notes
-
-Tip: build the absolute path dynamically from the repo root:
   ./scripts/setup_example.sh --project-dir=$(pwd)/examples/projects/19_Meeting_Notes
 
 Expected interaction
+Choose approach: 1 (Jinja2 template)
 Choose meeting type: 2 (brainstorm)
 Formality: casual
 User: idea - we could use websockets for real-time updates
 Agent: Note #1 added: "Idea: Use WebSockets for real-time updates"
-User: idea - or server-sent events might be simpler
-Agent: Note #2 added: "Idea: Server-Sent Events as simpler alternative"
 User: summarize
 Agent: Brainstorm Summary: 2 ideas captured...
 
-The agent dynamically generates instructions based on the meeting context, adapting its note-taking strategy per meeting type.
+Both agents produce equivalent behavior — the template approach loads prompts/meeting_notes.md as a Jinja2 template, while the callable approach builds the same instructions in Python.
