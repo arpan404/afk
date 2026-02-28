@@ -1,0 +1,7 @@
+[project]
+name = "36-hiring-pipeline"
+version = "0.1.0"
+description = "A hiring pipeline demonstrating subagent_parallelism_mode for concurrent multi-agent evaluation"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
