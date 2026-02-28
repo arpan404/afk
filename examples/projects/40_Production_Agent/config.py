@@ -1,17 +1,24 @@
 """
 ---
 name: Production Agent — Configuration
-description: Configuration module for the production task management agent with RunnerConfig, FailSafeConfig, and SQLiteMemoryStore.
-tags: [config, runner, failsafe, memory, sqlite]
+description: Configuration module with RunnerConfig, FailSafeConfig, and environment-based memory store factory.
+tags: [config, runner, failsafe, memory, env-factory]
 ---
 ---
-This module centralizes all configuration for the production agent: RunnerConfig for runtime security, FailSafeConfig for execution safety, SQLiteMemoryStore for persistent storage, and constants used across the project. Keeping configuration in a dedicated module makes it easy to swap backends, adjust limits, and manage environment-specific settings.
+This module centralizes all configuration for the production agent: RunnerConfig for runtime
+security, FailSafeConfig for execution safety, and environment-based memory store factory via
+create_memory_store_from_env(). Using the factory function lets you switch backends (inmemory,
+sqlite, redis, postgres) by setting AFK_MEMORY_BACKEND — zero code changes needed for
+different deployment environments.
 ---
 """
 
+import os
+from pathlib import Path
+
 from afk.core.runner.types import RunnerConfig  # <- RunnerConfig controls runtime security: output sanitization, character limits, command allowlists, debug settings.
 from afk.agents.types import FailSafeConfig  # <- FailSafeConfig controls execution safety: step limits, tool call limits, wall-clock timeouts, failure policies.
-from afk.memory import SQLiteMemoryStore  # <- SQLiteMemoryStore provides persistent local storage. Data survives program restarts, unlike InMemoryMemoryStore.
+from afk.memory import create_memory_store_from_env  # <- Factory function that reads AFK_MEMORY_BACKEND env var and returns the appropriate MemoryStore. Supports: "inmemory", "sqlite", "redis", "postgres".
 
 
 # ===========================================================================
@@ -20,14 +27,25 @@ from afk.memory import SQLiteMemoryStore  # <- SQLiteMemoryStore provides persis
 
 THREAD_ID = "production-tasks-v1"  # <- Thread ID scopes all memory to this session. All tasks, events, and state for this application live under this thread. Different applications or users would use different thread IDs.
 
-DB_PATH = "production_agent.sqlite3"  # <- SQLite database file path. This file is created automatically on first run. For production, use an absolute path or configure via environment variable.
+SKILLS_DIR = Path(__file__).parent / "skills"  # <- Directory containing agent skills. Each skill is a subdirectory with a SKILL.md file.
 
 
 # ===========================================================================
-# Memory store (SQLite for persistence)
+# Memory store (environment-based factory)
 # ===========================================================================
+# Set AFK_MEMORY_BACKEND to switch backends without code changes:
+#   "inmemory"  -> InMemoryMemoryStore (default for development)
+#   "sqlite"    -> SQLiteMemoryStore (set AFK_SQLITE_PATH for database file)
+#   "redis"     -> RedisMemoryStore (set AFK_REDIS_URL for connection)
+#   "postgres"  -> PostgresMemoryStore (set AFK_PG_DSN for connection)
 
-memory = SQLiteMemoryStore(path=DB_PATH)  # <- SQLiteMemoryStore persists data to a local SQLite file. Unlike InMemoryMemoryStore, data survives program restarts. The API is identical -- you can swap between them with zero code changes. For distributed systems, use RedisMemoryStore or PostgresMemoryStore instead.
+if not os.environ.get("AFK_MEMORY_BACKEND"):
+    os.environ["AFK_MEMORY_BACKEND"] = "sqlite"  # <- Default to sqlite for this production example. Change to "inmemory" for quick testing.
+
+if not os.environ.get("AFK_SQLITE_PATH"):
+    os.environ["AFK_SQLITE_PATH"] = "production_agent.sqlite3"  # <- Default SQLite file path. For production, use an absolute path or configure via deployment config.
+
+memory = create_memory_store_from_env()  # <- Reads AFK_MEMORY_BACKEND and returns the matching MemoryStore instance. The API is identical across all backends — you can swap between them with zero code changes. For distributed systems, set AFK_MEMORY_BACKEND=redis or postgres.
 
 
 # ===========================================================================

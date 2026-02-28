@@ -1,18 +1,33 @@
 """
 ---
 name: Production Agent — Agents
-description: Agent definitions with the coordinator, specialist subagents, and dynamic InstructionProvider.
-tags: [agent, subagents, delegation, instructions]
+description: Agent definitions with coordinator, specialist subagents, dynamic InstructionProvider, InstructionRoles, Skills, and MCP server integration.
+tags: [agent, subagents, delegation, instructions, instruction-role, skills, mcp]
 ---
 ---
-This module defines the agent hierarchy for the production task manager. The coordinator agent handles task operations directly and delegates analytical and planning queries to specialist subagents. A dynamic InstructionProvider personalizes the coordinator's instructions based on runtime context (like time of day). This pattern shows how to build modular, specialized agent systems.
+This module defines the agent hierarchy for the production task manager. The coordinator agent
+handles task operations directly and delegates analytical and planning queries to specialist
+subagents. It demonstrates four instruction mechanisms working together:
+
+1. InstructionProvider (callable): Generates base instructions from runtime context
+2. InstructionRoles: Append cross-cutting concerns (workload alerts, time context)
+3. Skills: Load domain knowledge from SKILL.md files (task-ops best practices)
+4. MCP Servers: Discover and use tools from external MCP-compatible servers
+
+The instruction stacking order is: base instructions (from InstructionProvider) -> InstructionRole
+outputs (appended in order) -> skill context (loaded from SKILL.md). This gives you fine-grained
+control over what the agent knows at runtime.
 ---
 """
 
+from pathlib import Path
+
 from afk.agents import Agent  # <- Agent is the main building block. We create multiple agents that work together.
 
-from config import fail_safe_config  # <- Import the shared FailSafeConfig from config.py.
+from config import fail_safe_config, SKILLS_DIR  # <- Import shared FailSafeConfig and skills directory path from config.py.
 from tools import registry  # <- Import the ToolRegistry with all tools registered, plus policy and middleware.
+from roles import workload_awareness_role, time_context_role  # <- Import InstructionRole callbacks from roles.py. These append dynamic instructions on top of the base.
+# from mcp_config import mcp_servers  # <- Uncomment when MCP servers are running. See mcp_config.py for server definitions.
 
 
 # ===========================================================================
@@ -25,6 +40,10 @@ def task_manager_instructions(context: dict) -> str:  # <- InstructionProvider i
     The runner passes the run context to this function, which can include
     user preferences, time of day, feature flags, or any other runtime data.
     This makes the agent's behavior configurable without changing code.
+
+    NOTE: This produces the BASE instructions. InstructionRoles (workload_awareness_role,
+    time_context_role) append ADDITIONAL instructions on top of these. The agent sees the
+    concatenation of: base instructions + all InstructionRole outputs.
     """
     base_instructions = """
     You are a production-ready task management assistant. You help users manage
@@ -105,7 +124,14 @@ coordinator = Agent(
     name="task-manager",  # <- The top-level agent the user interacts with directly.
     model="ollama_chat/gpt-oss:20b",  # <- The llm model the agent will use.
     instructions=task_manager_instructions,  # <- Dynamic InstructionProvider! Instead of a static string, we pass a callable that generates instructions based on runtime context. The runner calls this function at the start of each run.
-    tools=registry.list(),  # <- Pull tools from the ToolRegistry. The registry manages all tools centrally -- policy and middleware are applied automatically.
+    tools=registry.list(),  # <- Pull tools from the ToolRegistry. The registry manages all tools centrally — policy and middleware are applied automatically.
     subagents=[analyst_agent, planner_agent],  # <- Enable delegation! The coordinator can route queries to the analyst or planner subagents. The Runner handles the routing automatically based on the coordinator's instructions.
     fail_safe=fail_safe_config,  # <- Attach the FailSafeConfig for execution safety limits.
+    instruction_roles=[  # <- InstructionRoles append dynamic text AFTER base instructions. Unlike InstructionProvider (which replaces), these ADD to whatever instructions= produces. Multiple roles stack — their outputs are concatenated in order.
+        workload_awareness_role,  # <- Checks task counts and adds overload warnings. See roles.py.
+        time_context_role,  # <- Adds time-of-day context for adapted communication. See roles.py.
+    ],
+    skills=["task-ops"],  # <- Load the "task-ops" skill from skills_dir. The skill's SKILL.md content becomes part of the agent's context, providing domain knowledge about task management best practices.
+    skills_dir=SKILLS_DIR,  # <- Directory where skill subdirectories live. Each skill is a folder with a SKILL.md file. resolve_skills() reads them at agent initialization.
+    # mcp_servers=mcp_servers,  # <- Uncomment to connect to MCP tool servers. See mcp_config.py. The agent discovers and can call tools from these servers alongside its local ToolRegistry tools.
 )
