@@ -1,0 +1,7 @@
+[project]
+name = "25-content-moderator"
+version = "0.1.0"
+description = "A content moderation agent demonstrating PolicyEngine and PolicyRule for tool gating"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
