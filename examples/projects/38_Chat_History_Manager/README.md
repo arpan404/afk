@@ -1,31 +1,35 @@
 
 # Chat History Manager
 
-A chat agent that manages multiple conversation threads using AFK's InMemoryMemoryStore. Demonstrates thread lifecycle, MemoryEvent logging, put_state/get_state for metadata, list_state for viewing keys, and thread isolation for separate conversations.
+A multi-thread chat manager demonstrating `create_memory_store_from_env()` factory, `Runner.resume()` checkpoint restoration, and the full memory lifecycle API.
+
+## Project Structure
+
+```
+38_Chat_History_Manager/
+  main.py       # Entry point — interactive chat + Runner.resume() demo
+  tools.py      # Thread management tools (list, switch, history, clear, info)
+  config.py     # Memory store via create_memory_store_from_env()
+```
+
+## Key Concepts
+
+- **create_memory_store_from_env()**: Set `AFK_MEMORY_BACKEND` env var to switch backends (inmemory, sqlite, redis, postgres) with zero code changes
+- **Runner.resume()**: `resume(agent, run_id=..., thread_id=...)` restores a checkpointed run after interruption
+- **Full memory API**: append_event, get_recent_events, put_state/get_state, list_state, replace_thread_events
 
 Prerequisites
 - Run this from the repository root.
 - Ensure scripts/setup_example.sh is executable: chmod +x scripts/setup_example.sh
 
 Usage
-- Run (relative):
-  ./scripts/setup_example.sh --project-dir=examples/projects/38_Chat_History_Manager
-
-- Run (absolute):
-  ./scripts/setup_example.sh --project-dir=/Users/username/pathtoafk/examples/projects/38_Chat_History_Manager
-
-Tip: build the absolute path dynamically from the repo root:
+- Run:
   ./scripts/setup_example.sh --project-dir=$(pwd)/examples/projects/38_Chat_History_Manager
 
-Expected interaction
-Agent: Welcome! You can manage multiple conversation threads.
-User: Create a new thread called "work"
-Agent: Created thread "work" and switched to it.
-User: Hello, let's discuss the project deadline.
-Agent: (responds and logs the message to the "work" thread)
-User: Switch to thread "personal"
-Agent: Switched to thread "personal". No history yet.
-User: Show all threads
-Agent: Active threads: work, personal
+Environment Variables
+- AFK_MEMORY_BACKEND: "inmemory" (default for this example), "sqlite", "redis", "postgres"
+- AFK_SQLITE_PATH: SQLite database path (when using sqlite backend)
 
-The agent maintains separate conversation histories per thread, all powered by AFK's memory system.
+Modes
+1. Interactive chat session (multi-thread conversation)
+2. Runner.resume() demonstration (checkpoint restoration)
