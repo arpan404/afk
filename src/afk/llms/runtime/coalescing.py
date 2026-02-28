@@ -26,13 +26,16 @@ class RequestCoalescer:
         async with self._lock:
             existing = self._tasks.get(key)
             if existing is not None:
-                return await existing
-
-            task: asyncio.Task[T] = asyncio.create_task(factory())
-            self._tasks[key] = task
+                task = existing
+                is_owner = False
+            else:
+                task = asyncio.create_task(factory())
+                self._tasks[key] = task
+                is_owner = True
 
         try:
             return await task
         finally:
-            async with self._lock:
-                self._tasks.pop(key, None)
+            if is_owner:
+                async with self._lock:
+                    self._tasks.pop(key, None)
