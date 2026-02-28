@@ -1,0 +1,7 @@
+[project]
+name = "31-travel-planner"
+version = "0.1.0"
+description = "A travel planner demonstrating DelegationPlan with quorum and allow_optional_failures join policies"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
