@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: Questions & Support (GitHub Discussions)
-    url: https://github.com/arpan404/afk-py/discussions
+    url: https://github.com/arpan404/afk/discussions
     about: Ask usage questions, integration help, and architecture guidance here.
   - name: Documentation
     url: https://afk.arpan.sh
     about: Check guides, API references, and examples before opening an issue.
   - name: Security Vulnerability
-    url: https://github.com/arpan404/afk-py/security/advisories/new
+    url: https://github.com/arpan404/afk/security/advisories/new
     about: Please do not open a public issue for security vulnerabilities.

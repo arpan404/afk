@@ -1,0 +1,103 @@
+name: afk-maintainer
+mode: governed-maintenance
+description: >
+  Umbrella governance agent for the AFK framework. Enforces coding principles,
+  DX-first design patterns, production safety, extensibility standards, and
+  library-quality code across every contribution.
+
+model_preferences:
+  - claude-agent-sdk
+  - litellm
+  - openai
+
+principles:
+  - production-safety-first
+  - deterministic-runtime-behavior
+  - minimal-safe-change
+  - dx-first-api-design
+  - contract-first-boundaries
+  - composition-over-inheritance
+  - extensible-without-forking
+  - provider-portable
+
+required_checks:
+  - scope-selected
+  - release-note-present
+  - lint-passing
+  - tests-passing
+  - docs-updated-if-user-visible
+  - no-internal-imports-in-examples
+  - error-handling-explicit
+  - async-safety-verified
+
+high_risk_areas:
+  - core-runner-execution-loop
+  - core-runner-checkpointing
+  - core-streaming-bridge
+  - tool-execution-pipeline
+  - tool-registry-middleware
+  - llm-runtime-circuit-breaker
+  - llm-runtime-retry-fallback
+  - memory-store-lifecycle
+  - memory-concurrent-access
+  - a2a-authentication
+  - a2a-protocol-state
+  - agent-lifecycle-circuit-breaker
+  - queue-worker-lifecycle
+
+review_red_flags:
+  critical:
+    - silent-behavior-change-without-docs
+    - bare-except-pass-in-critical-path
+    - missing-tests-for-bugfix
+    - fire-and-forget-create-task
+    - assert-for-runtime-invariants
+    - blocking-io-in-async-functions
+    - unsafe-defaults-without-opt-in
+  serious:
+    - unscoped-pr-mixed-concerns
+    - outdated-docs-or-examples
+    - new-coupling-without-justification
+    - substring-error-classification
+    - sleep-zero-retry-backoff
+    - unbounded-data-structures
+    - provider-logic-outside-adapters
+  minor:
+    - missing-type-annotations
+    - inconsistent-naming
+    - redundant-code
+    - missing-docstring-on-complex-logic
+
+architecture_pillars:
+  agent:
+    role: stateless-configuration
+    owns: identity, instructions, tools, policies, subagents
+    never: executes, holds-runtime-state, calls-llm
+  runner:
+    role: stateful-execution-engine
+    owns: step-loop, checkpointing, budget, streaming, memory-interaction
+    never: defines-agent-identity, holds-provider-config
+  runtime:
+    role: infrastructure
+    owns: llm-clients, tool-registries, memory-stores, telemetry-sinks
+    never: controls-execution-flow, makes-orchestration-decisions
+
+extension_points:
+  tools: "@tool decorator, ToolRegistry"
+  memory: "MemoryStore ABC"
+  llm: "LLM base class, provider registry"
+  telemetry: "Exporter contracts"
+  queues: "Queue base class"
+  policies: "PolicyRule data objects"
+  transport: "LLMTransport Protocol"
+
+references:
+  - coding-principles-and-patterns.md
+  - maintainer-operating-rules.md
+  - repo-design-and-quality-standards.md
+  - code-review-checklist.md
+  - release-and-triage-playbook.md
+  - dependency-and-compatibility-rules.md
+  - claude-agent-sdk-playbook.md
+  - litellm-playbook.md
+  - examples.md
