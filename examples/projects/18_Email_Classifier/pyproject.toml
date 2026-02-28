@@ -1,0 +1,7 @@
+[project]
+name = "18-email-classifier"
+version = "0.1.0"
+description = "An email classifier agent demonstrating structured JSON output from tools"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
