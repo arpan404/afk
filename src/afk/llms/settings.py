@@ -35,21 +35,44 @@ class LLMSettings:
 
     @staticmethod
     def from_env() -> LLMSettings:
-        """Load settings from environment variables."""
+        """Load settings from environment variables.
+
+        Invalid numeric values fall back to field defaults.
+        """
+        defaults = LLMSettings()
+
+        def _float(key: str, default: float) -> float:
+            raw = os.getenv(key)
+            if raw is None:
+                return default
+            try:
+                return float(raw)
+            except (ValueError, TypeError):
+                return default
+
+        def _int(key: str, default: int) -> int:
+            raw = os.getenv(key)
+            if raw is None:
+                return default
+            try:
+                return int(raw)
+            except (ValueError, TypeError):
+                return default
+
         return LLMSettings(
-            default_provider=os.getenv("AFK_LLM_PROVIDER", "litellm"),
-            default_model=os.getenv("AFK_LLM_MODEL", "gpt-4.1-mini"),
+            default_provider=os.getenv("AFK_LLM_PROVIDER", defaults.default_provider),
+            default_model=os.getenv("AFK_LLM_MODEL", defaults.default_model),
             embedding_model=os.getenv("AFK_EMBED_MODEL"),
             api_base_url=os.getenv("AFK_LLM_API_BASE_URL"),
             api_key=os.getenv("AFK_LLM_API_KEY"),
-            timeout_s=float(os.getenv("AFK_LLM_TIMEOUT_S", "30")),
-            max_retries=int(os.getenv("AFK_LLM_MAX_RETRIES", "3")),
-            backoff_base_s=float(os.getenv("AFK_LLM_BACKOFF_BASE_S", "0.5")),
-            backoff_jitter_s=float(os.getenv("AFK_LLM_BACKOFF_JITTER_S", "0.15")),
-            json_max_retries=int(os.getenv("AFK_LLM_JSON_MAX_RETRIES", "2")),
-            max_input_chars=int(os.getenv("AFK_LLM_MAX_INPUT_CHARS", "200000")),
-            stream_idle_timeout_s=float(
-                os.getenv("AFK_LLM_STREAM_IDLE_TIMEOUT_S", "45")
+            timeout_s=_float("AFK_LLM_TIMEOUT_S", defaults.timeout_s),
+            max_retries=_int("AFK_LLM_MAX_RETRIES", defaults.max_retries),
+            backoff_base_s=_float("AFK_LLM_BACKOFF_BASE_S", defaults.backoff_base_s),
+            backoff_jitter_s=_float("AFK_LLM_BACKOFF_JITTER_S", defaults.backoff_jitter_s),
+            json_max_retries=_int("AFK_LLM_JSON_MAX_RETRIES", defaults.json_max_retries),
+            max_input_chars=_int("AFK_LLM_MAX_INPUT_CHARS", defaults.max_input_chars),
+            stream_idle_timeout_s=_float(
+                "AFK_LLM_STREAM_IDLE_TIMEOUT_S", defaults.stream_idle_timeout_s
             ),
         )
 
