@@ -38,7 +38,26 @@ async def run_with_hedge(
     )
 
     winner = done.pop()
-    for task in pending:
-        task.cancel()
-    await asyncio.gather(*pending, return_exceptions=True)
+
+    # If the first-completed task raised an exception and the other is still
+    # running, give the other task a chance to succeed instead of immediately
+    # propagating the error.
+    if winner.exception() is not None and pending:
+        try:
+            done2, _ = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+            fallback = done2.pop()
+            if fallback.exception() is None:
+                winner = fallback
+        except Exception:
+            pass
+        # Cancel anything still pending after the fallback attempt.
+        for task in pending:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+    else:
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+
     return await winner
