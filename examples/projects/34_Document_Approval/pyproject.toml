@@ -1,0 +1,7 @@
+[project]
+name = "34-document-approval"
+version = "0.1.0"
+description = "A document approval agent demonstrating InteractionProvider for human-in-the-loop workflows"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
