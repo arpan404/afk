@@ -230,12 +230,12 @@ class TestLLMSettingsFromEnvOverrides:
 
 
 class TestLLMSettingsFromEnvInvalidValues:
-    """from_env() should fall back to defaults when env vars are invalid."""
+    """from_env() falls back to defaults on invalid env var values (forgiving DX)."""
 
     def test_invalid_float_timeout_s(self):
         os.environ["AFK_LLM_TIMEOUT_S"] = "not_a_float"
         s = LLMSettings.from_env()
-        assert s.timeout_s == LLMSettings().timeout_s
+        assert s.timeout_s == LLMSettings().timeout_s  # falls back to default
 
     def test_invalid_float_backoff_base_s(self):
         os.environ["AFK_LLM_BACKOFF_BASE_S"] = "abc"

@@ -503,9 +503,9 @@ class TestProfilesKeys:
 
 
 class TestProfilesStructure:
-    """Every profile must have all 7 required policy keys with correct types."""
+    """Every LLMProfile must have all 7 required policy attributes with correct types."""
 
-    _REQUIRED_KEYS = ("retry", "timeout", "rate_limit", "breaker", "hedging", "cache", "coalescing")
+    _REQUIRED_ATTRS = ("retry", "timeout", "rate_limit", "breaker", "hedging", "cache", "coalescing")
     _EXPECTED_TYPES = {
         "retry": RetryPolicy,
         "timeout": TimeoutPolicy,
@@ -517,139 +517,139 @@ class TestProfilesStructure:
     }
 
     @pytest.mark.parametrize("profile_name", ["development", "production", "high_throughput", "low_latency"])
-    def test_has_all_required_keys(self, profile_name):
+    def test_has_all_required_attrs(self, profile_name):
         profile = PROFILES[profile_name]
-        for key in self._REQUIRED_KEYS:
-            assert key in profile, f"Profile '{profile_name}' missing key '{key}'"
+        for attr in self._REQUIRED_ATTRS:
+            assert hasattr(profile, attr), f"Profile '{profile_name}' missing attr '{attr}'"
 
     @pytest.mark.parametrize("profile_name", ["development", "production", "high_throughput", "low_latency"])
     def test_correct_policy_types(self, profile_name):
         profile = PROFILES[profile_name]
-        for key, expected_type in self._EXPECTED_TYPES.items():
-            assert isinstance(profile[key], expected_type), (
-                f"Profile '{profile_name}' key '{key}' expected {expected_type.__name__}, "
-                f"got {type(profile[key]).__name__}"
+        for attr, expected_type in self._EXPECTED_TYPES.items():
+            assert isinstance(getattr(profile, attr), expected_type), (
+                f"Profile '{profile_name}' attr '{attr}' expected {expected_type.__name__}, "
+                f"got {type(getattr(profile, attr)).__name__}"
             )
 
     @pytest.mark.parametrize("profile_name", ["development", "production", "high_throughput", "low_latency"])
-    def test_no_extra_keys(self, profile_name):
+    def test_has_name(self, profile_name):
         profile = PROFILES[profile_name]
-        assert set(profile.keys()) == set(self._REQUIRED_KEYS)
+        assert profile.name == profile_name
 
 
 class TestProductionProfileValues:
     """Verify specific values in the production profile."""
 
     def test_retry_max_retries(self):
-        assert PROFILES["production"]["retry"].max_retries == 3
+        assert PROFILES["production"].retry.max_retries == 3
 
     def test_retry_backoff_base(self):
-        assert PROFILES["production"]["retry"].backoff_base_s == 0.5
+        assert PROFILES["production"].retry.backoff_base_s == 0.5
 
     def test_retry_backoff_jitter(self):
-        assert PROFILES["production"]["retry"].backoff_jitter_s == 0.15
+        assert PROFILES["production"].retry.backoff_jitter_s == 0.15
 
     def test_timeout_request(self):
-        assert PROFILES["production"]["timeout"].request_timeout_s == 30.0
+        assert PROFILES["production"].timeout.request_timeout_s == 30.0
 
     def test_timeout_stream_idle(self):
-        assert PROFILES["production"]["timeout"].stream_idle_timeout_s == 45.0
+        assert PROFILES["production"].timeout.stream_idle_timeout_s == 45.0
 
     def test_rate_limit_rps(self):
-        assert PROFILES["production"]["rate_limit"].requests_per_second == 20.0
+        assert PROFILES["production"].rate_limit.requests_per_second == 20.0
 
     def test_rate_limit_burst(self):
-        assert PROFILES["production"]["rate_limit"].burst == 40
+        assert PROFILES["production"].rate_limit.burst == 40
 
     def test_breaker_failure_threshold(self):
-        assert PROFILES["production"]["breaker"].failure_threshold == 5
+        assert PROFILES["production"].breaker.failure_threshold == 5
 
     def test_breaker_cooldown(self):
-        assert PROFILES["production"]["breaker"].cooldown_s == 30.0
+        assert PROFILES["production"].breaker.cooldown_s == 30.0
 
     def test_breaker_half_open_max(self):
-        assert PROFILES["production"]["breaker"].half_open_max_calls == 1
+        assert PROFILES["production"].breaker.half_open_max_calls == 1
 
     def test_hedging_disabled(self):
-        assert PROFILES["production"]["hedging"].enabled is False
+        assert PROFILES["production"].hedging.enabled is False
 
     def test_cache_disabled(self):
-        assert PROFILES["production"]["cache"].enabled is False
+        assert PROFILES["production"].cache.enabled is False
 
     def test_cache_ttl(self):
-        assert PROFILES["production"]["cache"].ttl_s == 30.0
+        assert PROFILES["production"].cache.ttl_s == 30.0
 
     def test_coalescing_enabled(self):
-        assert PROFILES["production"]["coalescing"].enabled is True
+        assert PROFILES["production"].coalescing.enabled is True
 
 
 class TestLowLatencyProfileValues:
     """Low latency profile has hedging enabled and aggressive timeouts."""
 
     def test_hedging_enabled(self):
-        assert PROFILES["low_latency"]["hedging"].enabled is True
+        assert PROFILES["low_latency"].hedging.enabled is True
 
     def test_hedging_delay(self):
-        assert PROFILES["low_latency"]["hedging"].delay_s == 0.08
+        assert PROFILES["low_latency"].hedging.delay_s == 0.08
 
     def test_request_timeout(self):
-        assert PROFILES["low_latency"]["timeout"].request_timeout_s == 10.0
+        assert PROFILES["low_latency"].timeout.request_timeout_s == 10.0
 
     def test_stream_idle_timeout(self):
-        assert PROFILES["low_latency"]["timeout"].stream_idle_timeout_s == 20.0
+        assert PROFILES["low_latency"].timeout.stream_idle_timeout_s == 20.0
 
     def test_cache_enabled(self):
-        assert PROFILES["low_latency"]["cache"].enabled is True
+        assert PROFILES["low_latency"].cache.enabled is True
 
     def test_breaker_failure_threshold(self):
-        assert PROFILES["low_latency"]["breaker"].failure_threshold == 3
+        assert PROFILES["low_latency"].breaker.failure_threshold == 3
 
     def test_retry_max_retries(self):
-        assert PROFILES["low_latency"]["retry"].max_retries == 1
+        assert PROFILES["low_latency"].retry.max_retries == 1
 
 
 class TestHighThroughputProfileValues:
     """High throughput profile has high RPS and cache enabled."""
 
     def test_rate_limit_rps(self):
-        assert PROFILES["high_throughput"]["rate_limit"].requests_per_second == 120.0
+        assert PROFILES["high_throughput"].rate_limit.requests_per_second == 120.0
 
     def test_rate_limit_burst(self):
-        assert PROFILES["high_throughput"]["rate_limit"].burst == 200
+        assert PROFILES["high_throughput"].rate_limit.burst == 200
 
     def test_cache_enabled(self):
-        assert PROFILES["high_throughput"]["cache"].enabled is True
+        assert PROFILES["high_throughput"].cache.enabled is True
 
     def test_cache_ttl(self):
-        assert PROFILES["high_throughput"]["cache"].ttl_s == 20.0
+        assert PROFILES["high_throughput"].cache.ttl_s == 20.0
 
     def test_breaker_failure_threshold(self):
-        assert PROFILES["high_throughput"]["breaker"].failure_threshold == 10
+        assert PROFILES["high_throughput"].breaker.failure_threshold == 10
 
 
 class TestDevelopmentProfileValues:
     """Development profile has relaxed settings."""
 
     def test_retry_max_retries(self):
-        assert PROFILES["development"]["retry"].max_retries == 1
+        assert PROFILES["development"].retry.max_retries == 1
 
     def test_rate_limit_rps(self):
-        assert PROFILES["development"]["rate_limit"].requests_per_second == 50.0
+        assert PROFILES["development"].rate_limit.requests_per_second == 50.0
 
     def test_rate_limit_burst(self):
-        assert PROFILES["development"]["rate_limit"].burst == 100
+        assert PROFILES["development"].rate_limit.burst == 100
 
     def test_breaker_failure_threshold(self):
-        assert PROFILES["development"]["breaker"].failure_threshold == 8
+        assert PROFILES["development"].breaker.failure_threshold == 8
 
     def test_hedging_disabled(self):
-        assert PROFILES["development"]["hedging"].enabled is False
+        assert PROFILES["development"].hedging.enabled is False
 
     def test_cache_disabled(self):
-        assert PROFILES["development"]["cache"].enabled is False
+        assert PROFILES["development"].cache.enabled is False
 
     def test_coalescing_enabled(self):
-        assert PROFILES["development"]["coalescing"].enabled is True
+        assert PROFILES["development"].coalescing.enabled is True
 
 
 # ============================== Structured Output ==============================
