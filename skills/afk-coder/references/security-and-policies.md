@@ -217,6 +217,9 @@ profile = SandboxProfile(
 | `deny_shell_operators` | `bool` | `True` | Block `&&`, `\|\|`, `;`, `\|`, backticks, `$(`, redirects |
 | `allowed_paths` | `list[str]` | `[]` | Allowed filesystem paths (empty = no restriction) |
 | `denied_paths` | `list[str]` | `[]` | Denied filesystem paths (checked before allowlist) |
+| `file_allowed_extensions` | `list[str]` | `[]` | Allowed file extensions (empty = no restriction) |
+| `file_max_size_mb` | `int \| None` | `None` | Maximum file size in MB for file operations |
+| `network_allowed_domains` | `list[str]` | `[]` | Allowed domains for network access (empty = no restriction) |
 | `command_timeout_s` | `float \| None` | `None` | Command execution timeout |
 | `max_output_chars` | `int` | `20_000` | Maximum output characters (truncated beyond this) |
 

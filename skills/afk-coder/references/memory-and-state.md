@@ -273,9 +273,14 @@ Standalone cosine utility: `cosine_similarity([1.0, 0.0], [0.0, 1.0])  # 0.0`
 ```python
 from afk.memory import (
     MemoryStore, InMemoryMemoryStore,       # ABC + default backend
+    SQLiteMemoryStore,                      # SQLite backend
+    RedisMemoryStore,                      # Redis backend (optional)
+    PostgresMemoryStore,                   # Postgres backend (optional)
     MemoryEvent, LongTermMemory,            # Data models
-    RetentionPolicy, compact_thread_memory, # Lifecycle
+    RetentionPolicy, StateRetentionPolicy,  # Retention policies
+    MemoryCompactionResult,                # Compaction result
+    compact_thread_memory, apply_event_retention, apply_state_retention,  # Lifecycle
     create_memory_store_from_env,           # Factory
-    cosine_similarity,                      # Vector utility
+    cosine_similarity,                    # Vector utility
 )
 ```

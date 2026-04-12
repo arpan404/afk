@@ -177,11 +177,28 @@ defaults. Pass it to `Runner(config=RunnerConfig(...))`.
 | `sanitize_tool_output` | `bool` | `True` | Sanitize tool output before forwarding to the model |
 | `untrusted_tool_preamble` | `bool` | `True` | Inject untrusted-data warning preamble into tool results |
 | `tool_output_max_chars` | `int` | `12_000` | Max characters of tool output forwarded to model |
-| `checkpoint_async_writes` | `bool` | `True` | Enable asynchronous checkpoint/state writes |
-| `debug` | `bool` | `False` | Enable debug instrumentation for run events |
-| `background_tools_enabled` | `bool` | `True` | Allow tools to be deferred into background execution |
+| `default_sandbox_profile` | `SandboxProfile \| None` | `None` | Default sandbox profile for tool execution |
+| `sandbox_profile_provider` | `SandboxProfileProvider \| None` | `None` | Runtime sandbox profile resolver |
+| `secret_scope_provider` | `SecretScopeProvider \| None` | `None` | Secret injector per tool call |
+| `default_allowlisted_commands` | `tuple[str, ...]` | `(ls, cat, head, tail, rg, pwd, echo)` | Allowed shell commands |
 | `max_parallel_subagents_global` | `int` | `64` | Global cap for concurrently executing subagent tasks |
 | `max_parallel_subagents_per_parent` | `int` | `8` | Per-parent-run cap for concurrent subagent fanout |
+| `max_parallel_subagents_per_target_agent` | `int` | `4` | Per-target-agent cap under broad fanout |
+| `subagent_queue_backpressure_limit` | `int` | `512` | Max pending subagent nodes before backpressure |
+| `checkpoint_async_writes` | `bool` | `True` | Enable asynchronous checkpoint/state writes |
+| `checkpoint_queue_maxsize` | `int` | `1024` | Maximum queued checkpoint writes |
+| `checkpoint_flush_timeout_s` | `float` | `10.0` | Timeout for terminal checkpoint flush |
+| `checkpoint_coalesce_runtime_state` | `bool` | `True` | Coalesce runtime-state writes by key |
+| `debug` | `bool` | `False` | Enable debug instrumentation for run events |
+| `debug_config` | `RunnerDebugConfig \| None` | `None` | Advanced debug settings |
+| `background_tools_enabled` | `bool` | `True` | Allow tools to be deferred into background execution |
+| `background_tool_default_grace_s` | `float` | `0.0` | Grace window before backgrounding |
+| `background_tool_max_pending` | `int` | `256` | Max unresolved background tools per run |
+| `background_tool_poll_interval_s` | `float` | `0.5` | Poll interval for persisted tool state |
+| `background_tool_result_ttl_s` | `float` | `3600.0` | TTL for pending background tool tickets |
+| `background_tool_interrupt_on_resolve` | `bool` | `True` | Hint loop wake-up on resolution |
+
+`RunnerConfig` also has a `from_env()` class method that loads configuration from environment variables.
 
 ---
 

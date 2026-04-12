@@ -33,7 +33,10 @@ Read these files for detailed API references. Recommended order:
 | 6 | [security-and-policies.md](./references/security-and-policies.md) | PolicyEngine, SandboxProfile, SkillToolPolicy, fail-safe |
 | 7 | [multi-agent-and-delegation.md](./references/multi-agent-and-delegation.md) | Subagents, DelegationPlan, A2A protocol, MCP |
 | 8 | [evals-and-testing.md](./references/evals-and-testing.md) | EvalCase, EvalSuite, assertions, budgets, testing patterns |
-| 9 | [cookbook-examples.md](./references/cookbook-examples.md) | 11 complete runnable examples |
+| 9 | [debugger.md](./references/debugger.md) | Debugger, DebuggerConfig, debug instrumentation |
+| 10 | [queues.md](./references/queues.md) | TaskQueue, TaskWorker, retry policies |
+| 11 | [environment-variables.md](./references/environment-variables.md) | All AFK_* env vars, loading from .env |
+| 12 | [cookbook-examples.md](./references/cookbook-examples.md) | 11 complete runnable examples |
 
 ## Architecture
 
@@ -180,11 +183,14 @@ Key source files for implementation details:
 | Memory store | `src/afk/memory/store.py` |
 | Memory factory | `src/afk/memory/factory.py` |
 | Memory backends | `src/afk/memory/adapters/` |
+| Memory lifecycle | `src/afk/memory/lifecycle.py` |
 | Streaming | `src/afk/core/streaming.py` |
 | Interaction | `src/afk/core/interaction.py` |
 | Policy engine | `src/afk/agents/policy/engine.py` |
 | Delegation | `src/afk/core/runtime/dispatcher.py` |
 | Evals | `src/afk/evals/` |
+| Debugger | `src/afk/debugger/` |
+| Queues | `src/afk/queues/` |
 | MCP server | `src/afk/mcp/server/` |
 | A2A protocol | `src/afk/agents/a2a/` |
 

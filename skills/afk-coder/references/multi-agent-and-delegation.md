@@ -410,6 +410,65 @@ agent = Agent(model="gpt-4.1-mini", mcp_servers=[ref])
 | Dict | `{"name": "x", "url": "..."}` | Mapped to `MCPServerRef` fields |
 | `MCPServerRef` | `MCPServerRef(name="x", url="...")` | Used directly |
 
+### MCP Server Hosting
+
+Expose tools as an MCP server using `MCPServer`:
+
+```python
+from afk.tools import ToolRegistry, tool
+from afk.mcp.server import MCPServer, MCPServerConfig
+
+registry = ToolRegistry()
+
+@tool(name="greet", description="Greet someone")
+def greet(name: str) -> str:
+    return f"Hello, {name}!"
+
+registry.register(greet)
+
+server = MCPServer(
+    registry,
+    config=MCPServerConfig(
+        host="0.0.0.0",
+        port=8080,
+    ),
+)
+
+server.run()
+```
+
+### MCPServerConfig
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `host` | `str` | `"0.0.0.0"` | Server host |
+| `port` | `int` | `8000` | Server port |
+| `title` | `str` | `"AFK MCP Server"` | Server title |
+| `version` | `str` | `"1.0.0"` | Server version |
+
+### create_mcp_server
+
+Create an MCP server from a pre-built registry:
+
+```python
+from afk.tools import ToolRegistry, tool
+from afk.mcp.server import create_mcp_server
+
+registry = ToolRegistry()
+
+@tool(name="greet", description="Greet someone")
+def greet(name: str) -> str:
+    return f"Hello, {name}!"
+
+registry.register(greet)
+
+server = create_mcp_server(
+    registry,
+    config=MCPServerConfig(host="0.0.0.0", port=8080),
+)
+server.run()
+```
+
 ---
 
 ## 7. Agent Skills

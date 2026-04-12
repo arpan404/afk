@@ -197,9 +197,8 @@ print(result2.final_text)  # "Your name is Alice and you love Python."
 Sandbox profiles, tool output limits, and fail-safe settings.
 
 ```python
-from afk.agents import Agent, Runner
-from afk.agents.types import FailSafeConfig
-from afk.core.runner import RunnerConfig
+from afk.agents import Agent, Runner, FailSafeConfig
+from afk.core import RunnerConfig
 from afk.tools.security import SandboxProfile
 
 sandbox = SandboxProfile(
@@ -230,9 +229,9 @@ agent = Agent(
     tools=[...],
     max_steps=10,
     fail_safe=FailSafeConfig(
-        max_consecutive_errors=3,
-        max_total_errors=5,
-        max_empty_responses=2,
+        max_steps=10,
+        max_wall_time_s=60.0,
+        max_total_cost_usd=0.50,
     ),
 )
 
@@ -287,11 +286,9 @@ See [llm-configuration.md](./llm-configuration.md) for profiles, routing, and en
 Interactive approval flow for sensitive operations.
 
 ```python
-from afk.agents import Agent, Runner
-from afk.agents.policy import PolicyRule, PolicyRuleCondition, PolicyEngine
+from afk.agents import Agent, Runner, PolicyRule, PolicyRuleCondition, PolicyEngine
 from afk.agents.types import ApprovalDecision
-from afk.core.interaction import InteractionProvider
-from afk.core.runner import RunnerConfig
+from afk.core import InteractionProvider, RunnerConfig
 
 class TerminalApprovalProvider:
     """Simple terminal-based approval provider."""
@@ -345,43 +342,42 @@ result = runner.run_sync(agent, user_message="Clean up old records")
 Automated evaluation of agent behavior.
 
 ```python
-from afk.evals import EvalCase, EvalSuite, BudgetConfig
+from afk.agents import Agent
+from afk.evals import (
+    EvalCase,
+    EvalSuiteConfig,
+    EvalBudget,
+    StateCompletedAssertion,
+    FinalTextContainsAssertion,
+    arun_suite,
+)
 
 cases = [
     EvalCase(
-        case_id="greeting",
-        input="Hello!",
-        expected_output="friendly greeting",
-        assertions=[
-            {"type": "contains", "value": "hello", "case_insensitive": True},
-        ],
-        tags=["basic"],
+        name="greeting",
+        agent=Agent(model="gpt-4.1-mini", instructions="Greet the user."),
+        user_message="Say hello",
     ),
     EvalCase(
-        case_id="math",
-        input="What is 15 * 7?",
-        expected_output="105",
-        assertions=[
-            {"type": "contains", "value": "105"},
-        ],
-        tags=["tools"],
+        name="math",
+        agent=Agent(model="gpt-4.1-mini", instructions="Answer math questions."),
+        user_message="What is 15 * 7?",
     ),
 ]
 
-suite = EvalSuite(
-    suite_id="agent-v1",
+result = await arun_suite(
+    runner_factory=None,  # or pass Runner class
     cases=cases,
-    budget=BudgetConfig(
-        max_steps=5,
-        timeout_s=30.0,
-        max_cost_usd=0.10,
+    config=EvalSuiteConfig(
+        assertions=(
+            StateCompletedAssertion(),
+            FinalTextContainsAssertion("hello", name="contains_greeting"),
+        ),
     ),
 )
-
-# Run evaluation (pseudo code -- see evals reference for full API)
-results = await suite.run(agent=agent, runner=runner)
-for r in results:
-    print(f"{r.case_id}: {'PASS' if r.passed else 'FAIL'}")
+print(f"Passed: {result.passed}/{result.total}")
+for row in result.results:
+    print(f"  {row.case}: {'PASS' if row.passed else 'FAIL'}")
 ```
 
 See [evals-and-testing.md](./evals-and-testing.md) for assertions, scorers, and datasets.
@@ -395,8 +391,8 @@ Long-running tools that execute in the background.
 ```python
 import uuid
 from pydantic import BaseModel
-from afk.agents import Agent, Runner
-from afk.core.runner import RunnerConfig
+from afk.agents import Agent
+from afk.core import Runner, RunnerConfig
 from afk.tools import tool, ToolResult, ToolDeferredHandle
 
 class ReportArgs(BaseModel):
