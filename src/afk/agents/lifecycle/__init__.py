@@ -23,6 +23,20 @@ from .versioning import (
     migrate_checkpoint_record,
     migrate_event_record,
 )
+from .replay import (
+    CheckpointInfo,
+    CheckpointReplayHandle,
+    CheckpointReplayManager,
+)
+from .replay_api import (
+    ReplayAPI,
+    ReplayDecisionPoint,
+    ReplaySession,
+    ReplayTimeline,
+    ReplayTimelineEvent,
+    InteractiveReplayHandler,
+    create_replay_api,
+)
 
 __all__ = [
     "CircuitBreaker",
@@ -46,4 +60,14 @@ __all__ = [
     "check_event_schema_version",
     "migrate_checkpoint_record",
     "migrate_event_record",
+    "CheckpointInfo",
+    "CheckpointReplayHandle",
+    "CheckpointReplayManager",
+    "ReplayAPI",
+    "ReplayDecisionPoint",
+    "ReplaySession",
+    "ReplayTimeline",
+    "ReplayTimelineEvent",
+    "InteractiveReplayHandler",
+    "create_replay_api",
 ]

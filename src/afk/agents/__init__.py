@@ -114,6 +114,21 @@ from .types import (
     UserInputDecision,
     UserInputRequest,
 )
+from .workflow.state_machine import (
+    WorkflowBuilder,
+    WorkflowEdge,
+    WorkflowEvent,
+    WorkflowNode,
+    WorkflowSpec,
+    WorkflowState,
+    WorkflowTransition,
+)
+from .workflow.executor import (
+    WorkflowExecutionContext,
+    WorkflowExecutionResult,
+    WorkflowExecutor,
+    create_workflow_executor,
+)
 
 __all__ = [
     "BaseAgent",
@@ -209,4 +224,15 @@ __all__ = [
     "get_prompt_store",
     "derive_auto_prompt_filename",
     "reset_prompt_store",
+    "WorkflowBuilder",
+    "WorkflowEdge",
+    "WorkflowEvent",
+    "WorkflowNode",
+    "WorkflowSpec",
+    "WorkflowState",
+    "WorkflowTransition",
+    "WorkflowExecutionContext",
+    "WorkflowExecutionResult",
+    "WorkflowExecutor",
+    "create_workflow_executor",
 ]

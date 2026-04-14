@@ -30,6 +30,9 @@ flowchart LR
 - **Observability First**: Built-in OpenTelemetry tracing and structured metrics.
 - **Deep Tooling**: Secure tool execution with policy hooks and sandbox profiles.
 - **Scalable Memory**: Pluggable backends (SQLite, Redis, Postgres) with auto-compaction.
+- **Workflow State Machine**: Build complex multi-step workflows with DAG-like state machines.
+- **Policy Audit Logging**: SOC2/GDPR compliant audit trails for all policy decisions.
+- **Checkpoint Replay API**: First-class human-in-loop review and rollback support.
 
 ## Why AFK
 
@@ -183,6 +186,99 @@ await run_suite(
 ```
 
 [Read the Evals Guide →](https://afk.arpan.sh/library/evals)
+
+### Workflow State Machine
+
+Build complex multi-step workflows with a fluent state machine API:
+
+```python
+from afk.agents import WorkflowBuilder, WorkflowExecutor, WorkflowExecutionContext
+
+workflow = WorkflowBuilder("deploy", "Deploy Service")
+workflow.add_node("build", "Build image", timeout_s=300)
+workflow.add_node("test", "Run tests", timeout_s=120)
+workflow.add_node("deploy", "Deploy to K8s", timeout_s=60)
+workflow.add_edge("build", "test").add_edge("test", "deploy")
+workflow.set_initial("build")
+
+spec = workflow.build()
+executor = WorkflowExecutor()
+context = WorkflowExecutionContext(
+    workflow_id="deploy",
+    run_id="run-1",
+    thread_id="thread-1",
+)
+result = await executor.execute(spec, context)
+```
+
+### Policy Audit Logging
+
+Compliance-ready audit logging for all policy decisions:
+
+```python
+from afk.agents import create_policy_audit_logger, AuditConfig
+
+audit = create_policy_audit_logger(
+    file_path="./audit.log",
+    min_level="info",
+)
+
+# Log policy decisions
+await audit.log_policy_decision(event, decision, run_id=run_id)
+
+# Log tool executions
+await audit.log_tool_execution("webfetch", allowed=True, run_id=run_id)
+
+# Log approvals
+await audit.log_approval(approved=True, run_id=run_id)
+```
+
+### Checkpoint Replay
+
+Human-in-loop review with rollback support:
+
+```python
+from afk.agents import create_replay_api
+
+api = create_replay_api(memory_store)
+
+# Open review session
+session = await api.open_session(run_id, thread_id)
+
+# Get timeline
+timeline = await api.get_timeline(run_id, thread_id)
+for event in timeline.events:
+    print(f"Step {event.step}: {event.summary}")
+
+# Get snapshot at step
+snapshot = await api.get_step_snapshot(run_id, thread_id, step=5)
+
+# Rollback to earlier step
+session = await api.rollback(session, target_step=3)
+```
+
+### Memory Auto-Compaction
+
+Automatic memory management based on importance scoring:
+
+```python
+from afk.memory import MemoryCompactor, CompactionConfig
+
+compactor = MemoryCompactor(
+    CompactionConfig(
+        enabled=True,
+        trigger_threshold_bytes=5_000_000,  # 5MB
+        target_size_bytes=2_000_000,   # 2MB
+        pressure_threshold=0.7,      # 70%
+        compaction_interval_s=60.0,    # Check every minute
+    )
+)
+
+# Run compaction manually
+result = await compactor.compact(events, thread_id)
+print(f"Compacted {result.events_compacted} events, "
+      f"saved {result.memory_saved_bytes} bytes")
+```
 
 ## Documentation
 

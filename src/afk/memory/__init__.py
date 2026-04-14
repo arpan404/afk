@@ -27,6 +27,12 @@ from .store import MemoryCapabilities, MemoryStore
 from .types import JsonObject, JsonValue, LongTermMemory, MemoryEvent
 from .utils import new_id, now_ms
 from .vector import cosine_similarity
+from .compaction import (
+    BackgroundCompactor,
+    CompactionConfig,
+    CompactionStats,
+    MemoryCompactor,
+)
 
 RedisMemoryStore = None  # type: ignore[assignment]
 PostgresMemoryStore = None  # type: ignore[assignment]
@@ -53,6 +59,10 @@ __all__ = [
     "compact_thread_memory",
     "RedisMemoryStore",
     "PostgresMemoryStore",
+    "MemoryCompactor",
+    "BackgroundCompactor",
+    "CompactionConfig",
+    "CompactionStats",
 ]
 
 try:
