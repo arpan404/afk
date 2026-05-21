@@ -8,6 +8,7 @@ FastAPI A2A service host for exposing AFK agents over protocol endpoints.
 
 from __future__ import annotations
 
+import json
 from dataclasses import asdict
 from typing import Any
 
@@ -51,12 +52,30 @@ class A2AServiceHost:
         """Create and return FastAPI app exposing A2A endpoints."""
         try:
             from fastapi import FastAPI, HTTPException
+            from fastapi.responses import StreamingResponse
         except Exception as exc:  # pragma: no cover - optional runtime path
             raise A2AServiceHostError(
                 "FastAPI is required to host A2A service endpoints"
             ) from exc
 
-        app = FastAPI(title=self.service_name)
+        app = FastAPI(
+            title=self.service_name,
+            docs_url=None if self.production_mode else "/docs",
+            redoc_url=None if self.production_mode else "/redoc",
+            openapi_url=None if self.production_mode else "/openapi.json",
+        )
+
+        def _auth_detail(default: str, exc: Exception | None = None) -> str:
+            if self.production_mode:
+                return default
+            if exc is None:
+                return default
+            return str(exc)
+
+        def _validation_detail(operation: str, exc: Exception) -> str:
+            if self.production_mode:
+                return f"Invalid {operation} payload"
+            return f"Invalid {operation} payload: {exc}"
 
         async def _authorize(
             request: Request,
@@ -72,7 +91,10 @@ class A2AServiceHost:
             try:
                 principal = await self.auth_provider.authenticate(auth_context)
             except A2AAuthError as exc:
-                raise HTTPException(status_code=401, detail=str(exc)) from exc
+                raise HTTPException(
+                    status_code=401,
+                    detail=_auth_detail("Authentication failed", exc),
+                ) from exc
 
             decision = await self.auth_provider.authorize(
                 principal,
@@ -83,7 +105,11 @@ class A2AServiceHost:
             if not decision.allowed:
                 raise HTTPException(
                     status_code=403,
-                    detail=decision.reason or "Forbidden",
+                    detail=(
+                        "Forbidden"
+                        if self.production_mode
+                        else decision.reason or "Forbidden"
+                    ),
                 )
 
         @app.get("/.well-known/agent-card")
@@ -106,7 +132,7 @@ class A2AServiceHost:
                 invocation = AgentInvocationRequest(**payload)
             except Exception as exc:
                 raise HTTPException(
-                    status_code=422, detail=f"Invalid invoke payload: {exc}"
+                    status_code=422, detail=_validation_detail("invoke", exc)
                 ) from exc
             response = await self.protocol.invoke(invocation)
             return asdict(response)
@@ -125,13 +151,18 @@ class A2AServiceHost:
                 invocation = AgentInvocationRequest(**payload)
             except Exception as exc:
                 raise HTTPException(
-                    status_code=422, detail=f"Invalid invoke payload: {exc}"
+                    status_code=422, detail=_validation_detail("invoke", exc)
                 ) from exc
 
-            events: list[dict[str, Any]] = []
-            async for event in self.protocol.invoke_stream(invocation):
-                events.append(asdict(event))
-            return {"events": events}
+            async def _iter_events():
+                async for event in self.protocol.invoke_stream(invocation):
+                    yield json.dumps(asdict(event), ensure_ascii=True, default=str)
+                    yield "\n"
+
+            return StreamingResponse(
+                _iter_events(),
+                media_type="application/x-ndjson",
+            )
 
         @app.get("/a2a/tasks/{task_id}")
         async def get_task(task_id: str, request: Request) -> dict[str, Any]:

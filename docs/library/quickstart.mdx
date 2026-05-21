@@ -52,6 +52,8 @@ print(result.state)        # "completed"
 Give your agent a capability by defining a typed tool function.
 
 ```python
+import operator
+
 from pydantic import BaseModel
 from afk.agents import Agent
 from afk.tools import tool
@@ -62,9 +64,18 @@ class CalcArgs(BaseModel):
     expression: str
 
 # 2. Create the tool
+_OPS = {
+    "+": operator.add,
+    "-": operator.sub,
+    "*": operator.mul,
+    "/": operator.truediv,
+}
+
+
 @tool(args_model=CalcArgs, name="calculate", description="Evaluate a math expression.")
 def calculate(args: CalcArgs) -> dict:
-    return {"result": eval(args.expression)}  # ← simplified for demo
+    left, op, right = args.expression.split()
+    return {"result": _OPS[op](float(left), float(right))}
 
 # 3. Attach it to an agent
 agent = Agent(

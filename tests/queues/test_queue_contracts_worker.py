@@ -12,6 +12,7 @@ from afk.queues import (
     JobDispatchExecutionContract,
     RunnerChatExecutionContract,
 )
+from afk.queues.contracts import EXECUTION_CONTRACT_KEY
 from afk.queues.types import (
     NEXT_ATTEMPT_AT_KEY,
     RETRY_BACKOFF_BASE_KEY,
@@ -20,7 +21,6 @@ from afk.queues.types import (
     RetryPolicy,
     TaskItem,
 )
-from afk.queues.contracts import EXECUTION_CONTRACT_KEY
 
 
 def run_async(coro):

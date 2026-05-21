@@ -8,12 +8,9 @@ Property-based testing for agent components.
 
 from __future__ import annotations
 
-import asyncio
-import random
 from dataclasses import dataclass, field
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
-from hypothesis import given, settings, example, Phase
 from hypothesis import strategies as st
 
 T = TypeVar("T")

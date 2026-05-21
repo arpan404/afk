@@ -236,7 +236,7 @@ a frozen dataclass imported from `afk.llms`.
 | Rate Limit | `RateLimitPolicy` | `requests_per_second`, `burst` | Token bucket per provider and operation |
 | Circuit Breaker | `CircuitBreakerPolicy` | `failure_threshold`, `cooldown_s`, `half_open_max_calls` | Consecutive failure detection with half-open probes |
 | Hedging | `HedgingPolicy` | `enabled`, `delay_s` | Speculative secondary call to reduce tail latency |
-| Cache | `CachePolicy` | `enabled`, `ttl_s` | Response cache with configurable TTL |
+| Cache | `CachePolicy` | `enabled`, `ttl_s`, `namespace` | Response cache with configurable TTL and optional tenant/user namespace |
 | Coalescing | `CoalescingPolicy` | `enabled` | In-flight request deduplication for identical payloads |
 
 Policies are set via profiles or individually through the builder:

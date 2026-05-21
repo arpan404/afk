@@ -1,0 +1,231 @@
+---
+title: "14: Production Client with Timeout and Connection Pooling"
+description: Configure production-ready LLM clients with timeout middleware and Redis connection pooling.
+---
+
+## What this snippet demonstrates
+
+This snippet shows how to build production-ready LLM clients with:
+1. **Timeout middleware** for preventing runaway requests
+2. **Redis connection pooling** for efficient database access
+3. **Proper shutdown handling** for graceful cleanup
+
+## Timeout middleware
+
+Apply per-request timeouts to prevent runaway LLM calls:
+
+```python
+import asyncio
+from afk.llms import LLMBuilder, LLMRequest
+from afk.llms.middleware import MiddlewareStack
+from afk.llms.middleware.timeout import (
+    TimeoutMiddleware,
+    EmbedTimeoutMiddleware,
+    StreamTimeoutMiddleware,
+    TimeoutConfig,
+)
+
+config = TimeoutConfig(
+    default_timeout_s=30.0,
+    chat_timeout_s=60.0,
+    embed_timeout_s=15.0,
+    stream_timeout_s=45.0,
+)
+
+stack = MiddlewareStack(
+    chat=[TimeoutMiddleware(config)],
+    embed=[EmbedTimeoutMiddleware(config)],
+    stream=[StreamTimeoutMiddleware(config)],
+)
+
+production_client = (
+    LLMBuilder()
+    .provider("openai")
+    .model("gpt-5.2-mini")
+    .profile("production")
+    .with_middlewares(stack)
+    .build()
+)
+```
+
+### Per-request timeout override
+
+```python
+from afk.llms.policies import TimeoutPolicy
+
+req = LLMRequest(
+    model="gpt-5.2-mini",
+    messages=[...],
+    timeout_policy=TimeoutPolicy(request_timeout_s=120.0),  # Override default
+)
+
+response = await production_client.chat(req)
+```
+
+## Redis connection pooling
+
+For production Redis deployments, use connection pooling:
+
+```python
+from afk.llms.cache.redis_pool import (
+    get_redis_pool,
+    PoolConfig,
+    close_all_pools,
+)
+
+async def setup_redis_pool():
+    pool = await get_redis_pool(
+        "redis://localhost:6379/0",
+        config=PoolConfig(
+            max_connections=50,
+            max_idle_connections=10,
+            socket_timeout=5.0,
+            socket_connect_timeout=5.0,
+            socket_keepalive=True,
+            health_check_interval_s=30.0,
+        ),
+    )
+    
+    if await pool.health_check():
+        print("Redis connection pool healthy")
+    
+    return pool
+```
+
+### Using with memory store
+
+```python
+import asyncio
+from afk.memory.adapters.redis import RedisMemoryStore
+from afk.core import Runner
+
+async def main():
+    pool = await get_redis_pool(
+        "redis://localhost:6379/0",
+        config=PoolConfig(max_connections=50),
+    )
+    
+    runner = Runner(
+        memory_store=RedisMemoryStore(url="redis://localhost:6379/0"),
+    )
+    
+    result = await runner.run(agent, user_message="Hello")
+    print(result.final_text)
+    
+    await runner.close()
+    await close_all_pools()
+
+asyncio.run(main())
+```
+
+## Full production example
+
+```python
+import asyncio
+from afk.llms import LLMBuilder
+from afk.llms.middleware import MiddlewareStack
+from afk.llms.middleware.timeout import (
+    TimeoutMiddleware,
+    TimeoutConfig,
+)
+from afk.llms.cache.redis_pool import (
+    get_redis_pool,
+    PoolConfig,
+    close_all_pools,
+)
+from afk.memory.adapters.redis import RedisMemoryStore
+from afk.core import Runner
+from afk.agents import Agent
+
+class ProductionSetup:
+    def __init__(self):
+        self.llm_client = None
+        self.runner = None
+        self.pool = None
+    
+    async def __aenter__(self):
+        pool_config = PoolConfig(
+            max_connections=50,
+            max_idle_connections=10,
+            socket_timeout=5.0,
+            socket_connect_timeout=5.0,
+        )
+        self.pool = await get_redis_pool(
+            "redis://localhost:6379/0",
+            config=pool_config,
+        )
+        
+        timeout_config = TimeoutConfig(
+            default_timeout_s=30.0,
+            chat_timeout_s=60.0,
+        )
+        stack = MiddlewareStack(
+            chat=[TimeoutMiddleware(timeout_config)],
+        )
+        
+        self.llm_client = (
+            LLMBuilder()
+            .provider("openai")
+            .model("gpt-5.2-mini")
+            .profile("production")
+            .with_middlewares(stack)
+            .build()
+        )
+        
+        self.runner = Runner(
+            memory_store=RedisMemoryStore(url="redis://localhost:6379/0"),
+        )
+        
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.runner:
+            await self.runner.close()
+        await close_all_pools()
+        return False
+
+
+async def main():
+    agent = Agent(
+        name="assistant",
+        model="gpt-5.2-mini",
+        instructions="You are a helpful assistant.",
+    )
+    
+    async with ProductionSetup() as setup:
+        result = await setup.runner.run(
+            agent,
+            user_message="Hello, world!",
+        )
+        print(result.final_text)
+
+asyncio.run(main())
+```
+
+## Configuration reference
+
+### TimeoutConfig
+
+| Parameter | Default | Description |
+| --- | --- | --- |
+| `default_timeout_s` | 30.0 | Default timeout for all operations |
+| `chat_timeout_s` | None | Specific timeout for chat requests |
+| `embed_timeout_s` | None | Specific timeout for embeddings |
+| `stream_timeout_s` | None | Specific timeout for streaming |
+
+### PoolConfig
+
+| Parameter | Default | Description |
+| --- | --- | --- |
+| `max_connections` | 50 | Maximum total connections |
+| `max_idle_connections` | 10 | Maximum idle connections |
+| `socket_timeout` | 5.0 | Socket read/write timeout |
+| `socket_connect_timeout` | 5.0 | Connection establishment timeout |
+| `socket_keepalive` | False | Enable TCP keepalive |
+| `health_check_interval_s` | 30.0 | Interval for health checks |
+
+## What to read next
+
+- [LLM Control & Session](/llms/control-and-session) -- Retry, caching, and circuit breaker policies
+- [Deployment Guide](/library/deployment) -- Production deployment with Docker and Kubernetes
+- [Performance Guide](/library/performance) -- Optimize latency and throughput

@@ -4,26 +4,25 @@ from __future__ import annotations
 
 import pytest
 
+from afk.llms.errors import (
+    LLMCancelledError,
+    LLMCapabilityError,
+    LLMConfigurationError,
+    LLMError,
+    LLMInterruptedError,
+    LLMInvalidResponseError,
+    LLMRetryableError,
+    LLMSessionError,
+    LLMSessionPausedError,
+    LLMTimeoutError,
+)
 from afk.llms.factory import (
-    register_llm_adapter,
     available_llm_adapters,
     create_llm,
     create_llm_from_env,
+    register_llm_adapter,
 )
-from afk.llms.errors import (
-    LLMError,
-    LLMTimeoutError,
-    LLMRetryableError,
-    LLMInvalidResponseError,
-    LLMConfigurationError,
-    LLMCapabilityError,
-    LLMCancelledError,
-    LLMInterruptedError,
-    LLMSessionError,
-    LLMSessionPausedError,
-)
-from afk.llms.types import Usage, LLMResponse, LLMRequest, ToolCall
-
+from afk.llms.types import LLMRequest, LLMResponse, ToolCall, Usage
 
 # ---------------------------------------------------------------------------
 # Factory legacy shims -- all must raise LLMConfigurationError

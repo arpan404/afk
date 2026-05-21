@@ -12,7 +12,7 @@ import time
 from dataclasses import dataclass
 
 from ..types import LLMResponse
-from .base import CacheEntry, LLMCacheBackend
+from .base import CacheEntry, LLMCacheBackend, cache_safe_response
 
 
 @dataclass(slots=True)
@@ -46,7 +46,10 @@ class InMemoryLLMCache(LLMCacheBackend):
             to_remove = len(self._rows) - self.max_size + 1
             for k, _ in by_expiry[:to_remove]:
                 del self._rows[k]
-        self._rows[key] = CacheEntry(value=value, expires_at_s=now + ttl_s)
+        self._rows[key] = CacheEntry(
+            value=cache_safe_response(value),
+            expires_at_s=now + ttl_s,
+        )
 
     async def delete(self, key: str) -> None:
         self._rows.pop(key, None)

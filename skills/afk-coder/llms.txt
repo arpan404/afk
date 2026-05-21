@@ -21,26 +21,24 @@ Three tiers:
 
 ```python
 # Agents
-from afk.agents import Agent, Runner
-from afk.agents.types import AgentResult, AgentState, AgentRunEvent, FailSafeConfig
-from afk.agents.types import ApprovalRequest, ApprovalDecision, UserInputRequest, UserInputDecision, DeferredDecision
-from afk.agents.types import AgentRunHandle, DecisionKind, InteractionMode
+from afk.agents import Agent, AgentResult, AgentState, AgentRunEvent, FailSafeConfig
+from afk.agents import ApprovalRequest, ApprovalDecision, UserInputRequest, UserInputDecision
+from afk.agents import AgentRunHandle
 
 # Runner
-from afk.core.runner import RunnerConfig
-from afk.core.streaming import AgentStreamEvent, AgentStreamHandle
+from afk.core import Runner, RunnerConfig, AgentStreamEvent, AgentStreamHandle
 
 # Tools
 from afk.tools import tool, prehook, posthook, middleware, registry_middleware
 from afk.tools import ToolResult, ToolContext, ToolSpec, ToolDeferredHandle, ToolRegistry
-from afk.tools.core.errors import AFKToolError, ToolValidationError, ToolExecutionError, ToolTimeoutError, ToolPolicyError, ToolNotFoundError, ToolPermissionError
+from afk.tools import ToolValidationError, ToolExecutionError, ToolTimeoutError, ToolPolicyError, ToolNotFoundError
 
 # LLM
 from afk.llms import LLMBuilder
 from afk.llms.settings import LLMSettings
 
 # Memory
-from afk.memory import create_memory_store, MemoryStore
+from afk.memory import create_memory_store_from_env, MemoryStore
 
 # Interaction
 from afk.core.interaction import InteractionProvider, HeadlessInteractionProvider, InMemoryInteractiveProvider
@@ -52,7 +50,7 @@ from afk.agents.policy import PolicyEngine, PolicyRule, PolicyRuleCondition, Pol
 from afk.tools.security import SandboxProfile, SandboxProfileProvider, SecretScopeProvider
 
 # Evals
-from afk.evals import EvalCase, EvalSuite, BudgetConfig
+from afk.evals import EvalCase, EvalSuiteConfig, EvalBudget
 ```
 
 ---
@@ -369,19 +367,21 @@ Pass models as strings to Agent(model=...):
 ### Factory
 
 ```python
-from afk.memory import create_memory_store
+import os
+from afk.memory import InMemoryMemoryStore, SQLiteMemoryStore, create_memory_store_from_env
 
 # In-memory (testing)
-store = create_memory_store("memory")
+store = InMemoryMemoryStore()
 
 # SQLite (local persistence)
-store = create_memory_store("sqlite", database_path="./memory.db")
+store = SQLiteMemoryStore(path="./memory.db")
 
-# PostgreSQL (production)
-store = create_memory_store("postgres", connection_string="postgresql://...")
+# Environment-based selection
+os.environ["AFK_MEMORY_BACKEND"] = "sqlite"
+os.environ["AFK_SQLITE_PATH"] = "./memory.db"
+store = create_memory_store_from_env()
 
-# Redis (distributed)
-store = create_memory_store("redis", redis_url="redis://localhost:6379")
+# Redis/Postgres are available when optional dependencies and env vars are configured.
 
 await store.setup()  # Initialize (idempotent)
 ```
@@ -403,9 +403,10 @@ await store.teardown()
 ### Environment Variables
 
 - AFK_MEMORY_BACKEND: memory | sqlite | postgres | redis
-- AFK_MEMORY_SQLITE_PATH: SQLite file path
-- AFK_MEMORY_POSTGRES_URL: PostgreSQL connection string
-- AFK_MEMORY_REDIS_URL: Redis URL
+- AFK_SQLITE_PATH: SQLite file path
+- AFK_PG_DSN: PostgreSQL connection string
+- AFK_REDIS_URL: Redis URL
+- AFK_VECTOR_DIM: Vector dimension required by Postgres
 
 ---
 
@@ -507,7 +508,7 @@ event_type, tool_name, tool_name_pattern, subagent_name, context_equals, context
 SandboxProfile(
     profile_id: str = "default",
     allow_network: bool = False,
-    allow_command_execution: bool = True,
+    allow_command_execution: bool = False,
     allowed_command_prefixes: list[str] = [],
     deny_shell_operators: bool = True,
     allowed_paths: list[str] = [],
@@ -581,10 +582,11 @@ BudgetConfig(max_steps=10, timeout_s=60.0, max_cost_usd=1.0)
 | AFK_LLM_JSON_MAX_RETRIES | 2 | JSON parse retries |
 | AFK_LLM_MAX_INPUT_CHARS | 200000 | Input char limit |
 | AFK_LLM_STREAM_IDLE_TIMEOUT_S | 45 | Stream idle timeout |
-| AFK_MEMORY_BACKEND | memory | Memory backend |
-| AFK_MEMORY_SQLITE_PATH | (none) | SQLite path |
-| AFK_MEMORY_POSTGRES_URL | (none) | Postgres URL |
-| AFK_MEMORY_REDIS_URL | (none) | Redis URL |
+| AFK_MEMORY_BACKEND | sqlite | Memory backend |
+| AFK_SQLITE_PATH | afk_memory.sqlite3 | SQLite path |
+| AFK_PG_DSN | (none) | Postgres DSN |
+| AFK_REDIS_URL | (none) | Redis URL |
+| AFK_VECTOR_DIM | required for Postgres | Vector dimension |
 
 ---
 
@@ -592,20 +594,26 @@ BudgetConfig(max_steps=10, timeout_s=60.0, max_cost_usd=1.0)
 
 ### Minimal Agent
 ```python
-from afk.agents import Agent, Runner
-result = Runner().run_sync(Agent(model="gpt-4.1-mini", instructions="Help."), user_message="Hi")
+from afk.agents import Agent
+from afk.core import Runner
+result = Runner().run_sync(Agent(model="gpt-5.2-mini", instructions="Help."), user_message="Hi")
 ```
 
 ### Tool + Agent
 ```python
 @tool(args_model=Args)
 async def my_tool(args): return "result"
-agent = Agent(model="gpt-4.1-mini", tools=[my_tool])
+agent = Agent(model="gpt-5.2-mini", tools=[my_tool])
 ```
 
 ### Memory
 ```python
-store = create_memory_store("sqlite", database_path="./db.sqlite")
+import os
+from afk.memory import create_memory_store_from_env
+
+os.environ["AFK_MEMORY_BACKEND"] = "sqlite"
+os.environ["AFK_SQLITE_PATH"] = "./db.sqlite"
+store = create_memory_store_from_env()
 await store.setup()
 runner = Runner(memory_store=store)
 result = await runner.run(agent, user_message="Hi", thread_id="t1")

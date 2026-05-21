@@ -144,7 +144,7 @@ You are a {{ language }} code reviewer following {{ style_guide }}.
 
 | Error                   | Cause                                 | Resolution                                                                                   |
 | ----------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `PromptResolutionError` | `instruction_file` path doesn't exist | Check the file path. Make sure it's relative to the working directory or absolute.           |
+| `PromptResolutionError` | `instruction_file` path doesn't exist | Check that the file exists under the configured `prompts_dir`.                              |
 | `PromptTemplateError`   | Jinja2 template syntax error          | Check for unclosed `{{ }}` or `{% %}` blocks.                                                |
 | `PromptTemplateError`   | Missing template variable             | Add the variable to `Agent.context` or provide a default: `{{ var \| default("fallback") }}` |
 

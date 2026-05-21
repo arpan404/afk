@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from afk.observability.models import RunMetrics
 
-
 # -----------------------------------------------------------------------
 # RunMetrics default values
 # -----------------------------------------------------------------------

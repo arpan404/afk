@@ -1,4 +1,4 @@
-# Agent Forge Kit (AFK) Python SDK (v1.0.0)
+# Agent Forge Kit (AFK) Python SDK
 
 **A production-grade framework for building robust, deterministic agent systems.**
 
@@ -47,8 +47,16 @@ Choose a raw SDK when you only need simple chat/completions and minimal runtime 
 
 ## Installation
 
+Install from the published package when available:
+
 ```bash
-pip install the-afk==1.0.0
+pip install afk-py
+```
+
+For repository development, use an editable install:
+
+```bash
+python -m pip install -e . pytest
 ```
 
 ## Quick Start
@@ -63,7 +71,7 @@ from afk.core import Runner
 # 1. Define your agent (stateless)
 agent = Agent(
     name="ops-bot",
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="You are a helpful SRE assistant.",
 )
 
@@ -282,9 +290,14 @@ print(f"Compacted {result.events_compacted} events, "
 
 ## Documentation
 
-- **[Configuration Reference](https://afk.arpan.sh/library/configuration-reference)**: Full list of options.
-- **[API Reference](https://afk.arpan.sh/library/api-reference)**: Classes and methods.
-- **[Architecture & Modules](https://afk.arpan.sh/library/full-module-reference)**: Inner workings.
+- **[Quickstart](https://afk.arpan.sh/library/quickstart)**: Build and run a first agent.
+- **[Developer Guide](https://afk.arpan.sh/library/developer-guide)**: Contribute to AFK itself.
+- **[Building with AI](https://afk.arpan.sh/library/building-with-ai)**: Production patterns for app developers.
+- **[API Reference](https://afk.arpan.sh/library/api-reference)**: Public import contracts.
+- **[Full Module Reference](https://afk.arpan.sh/library/full-module-reference)**: Source-level module map.
+- **[Environment Variables](./ENV_VARS.md)**: Local runtime configuration reference.
+
+For agentic coding work, start with [`AGENTS.md`](./AGENTS.md), then use the bundled skill docs under `skills/`.
 
 ## License
 

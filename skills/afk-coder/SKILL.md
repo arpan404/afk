@@ -66,9 +66,10 @@ Agent (stateless config)  -->  Runner (stateful execution)  -->  Runtime (LLM, t
 ### Minimal Agent
 
 ```python
-from afk.agents import Agent, Runner
+from afk.agents import Agent
+from afk.core import Runner
 
-agent = Agent(model="gpt-4.1-mini", instructions="You are helpful.")
+agent = Agent(model="gpt-5.2-mini", instructions="You are helpful.")
 result = Runner().run_sync(agent, user_message="Hello")
 print(result.final_text)
 ```
@@ -77,7 +78,8 @@ print(result.final_text)
 
 ```python
 from pydantic import BaseModel
-from afk.agents import Agent, Runner
+from afk.agents import Agent
+from afk.core import Runner
 from afk.tools import tool
 
 class SearchArgs(BaseModel):
@@ -88,7 +90,7 @@ async def search(args: SearchArgs):
     """Search the web."""
     return {"results": [f"Result for {args.query}"]}
 
-agent = Agent(model="gpt-4.1-mini", tools=[search])
+agent = Agent(model="gpt-5.2-mini", tools=[search])
 result = Runner().run_sync(agent, user_message="Search for AFK docs")
 ```
 
@@ -104,18 +106,22 @@ async for event in handle:
 ### Multi-Agent
 
 ```python
-researcher = Agent(model="gpt-4.1-mini", name="researcher", instructions="Research topics.")
-writer = Agent(model="gpt-4.1-mini", name="writer", instructions="Write articles.")
-lead = Agent(model="gpt-4.1", subagents=[researcher, writer], instructions="Coordinate.")
+researcher = Agent(model="gpt-5.2-mini", name="researcher", instructions="Research topics.")
+writer = Agent(model="gpt-5.2-mini", name="writer", instructions="Write articles.")
+lead = Agent(model="gpt-5.2", subagents=[researcher, writer], instructions="Coordinate.")
 result = Runner().run_sync(lead, user_message="Write about AI agents")
 ```
 
 ### Memory
 
 ```python
-from afk.memory import create_memory_store
+from afk.memory import create_memory_store_from_env
 
-store = create_memory_store("sqlite", database_path="./memory.db")
+import os
+os.environ["AFK_MEMORY_BACKEND"] = "sqlite"
+os.environ["AFK_SQLITE_PATH"] = "./memory.db"
+
+store = create_memory_store_from_env()
 await store.setup()
 runner = Runner(memory_store=store)
 result = await runner.run(agent, user_message="Hi", thread_id="thread-1")
@@ -141,7 +147,7 @@ When building an AFK agent, follow this sequence:
 1. **Define the agent's purpose** -- What instructions and capabilities does it need?
 2. **Choose tools** -- Define `@tool` functions or use prebuilts
 3. **Pick a model** -- Model string or `LLMBuilder` for advanced config
-4. **Add memory** (if needed) -- Select backend, call `create_memory_store()`
+4. **Add memory** (if needed) -- Select backend directly or call `create_memory_store_from_env()`
 5. **Configure safety** -- `FailSafeConfig`, `SandboxProfile`, `PolicyEngine`
 6. **Set up interaction** (if HITL needed) -- Implement `InteractionProvider`
 7. **Add subagents** (if multi-agent) -- Define specialists, attach to parent
@@ -158,7 +164,7 @@ When building an AFK agent, follow this sequence:
   - `docs/library/tools.mdx` -- Tools system
   - `docs/library/memory.mdx` -- Memory stores
   - `docs/library/a2a.mdx` -- Agent-to-Agent protocol
-  - `docs/library/mcp.mdx` -- MCP integration
+  - `docs/library/mcp-server.mdx` -- MCP integration
   - `docs/library/full-module-reference.mdx` -- Complete module reference
 
 ## Source Paths
@@ -196,6 +202,6 @@ Key source files for implementation details:
 
 ## Utilities
 
-- **Search docs**: `python agent-skill/coder/scripts/search_afk_docs.py "query"`
-- **LLM reference**: `agent-skill/coder/llms.txt` (self-contained API reference)
-- **Config**: `agent-skill/coder/assets/coder-config.yaml`
+- **Search docs**: `python skills/afk-coder/scripts/search_afk_docs.py "query"`
+- **LLM reference**: `skills/afk-coder/llms.txt` (self-contained API reference)
+- **Config**: `skills/afk-coder/assets/coder-config.yaml`

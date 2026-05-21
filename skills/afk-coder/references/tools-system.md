@@ -66,14 +66,22 @@ class CalculateArgs(BaseModel):
 
 @tool(args_model=CalculateArgs)
 async def calculate(args: CalculateArgs):
-    return eval(args.expression)  # simplified for brevity
+    left, op, right = args.expression.split()
+    operations = {
+        "+": lambda a, b: a + b,
+        "-": lambda a, b: a - b,
+        "*": lambda a, b: a * b,
+        "/": lambda a, b: a / b,
+    }
+    return operations[op](float(left), float(right))
 ```
 
 ```python
 # WRONG - raw dict, no model
 @tool()
 async def calculate(expression: str):
-    return eval(expression)
+    left, op, right = expression.split()
+    return {"+": lambda a, b: a + b}[op](float(left), float(right))
 ```
 
 ---

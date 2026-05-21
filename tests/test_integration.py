@@ -16,41 +16,40 @@ import pytest
 from pydantic import BaseModel
 
 # ---------------------------------------------------------------------------
-# Tools
+# LLMs
 # ---------------------------------------------------------------------------
-from afk.tools.registry import ToolRegistry
-from afk.tools.security import SandboxProfile, build_registry_sandbox_policy
-from afk.tools.core.base import ToolContext, ToolResult, ToolSpec
-from afk.tools.core.decorator import tool, prehook, posthook, middleware
-from afk.tools.core.errors import ToolPolicyError
+from afk.llms.cache.inmemory import InMemoryLLMCache
+from afk.llms.errors import LLMRetryableError
+from afk.llms.routing.defaults import OrderedFallbackRouter
+from afk.llms.runtime.circuit_breaker import CircuitBreaker
+from afk.llms.runtime.contracts import CircuitBreakerPolicy, RoutePolicy
+from afk.llms.runtime.contracts import RetryPolicy as LLMRetryPolicy
+from afk.llms.runtime.retry import call_with_retry
+from afk.llms.types import LLMRequest, LLMResponse
+from afk.llms.utils import clamp_str, extract_json_object, safe_json_loads
 
 # ---------------------------------------------------------------------------
 # Memory
 # ---------------------------------------------------------------------------
 from afk.memory.adapters.in_memory import InMemoryMemoryStore
-from afk.memory.lifecycle import compact_thread_memory, RetentionPolicy
+from afk.memory.lifecycle import RetentionPolicy, compact_thread_memory
 from afk.memory.types import MemoryEvent
-from afk.memory.utils import now_ms, new_id
-
-# ---------------------------------------------------------------------------
-# LLMs
-# ---------------------------------------------------------------------------
-from afk.llms.cache.inmemory import InMemoryLLMCache
-from afk.llms.runtime.circuit_breaker import CircuitBreaker
-from afk.llms.runtime.contracts import CircuitBreakerPolicy, RetryPolicy as LLMRetryPolicy
-from afk.llms.runtime.retry import call_with_retry
-from afk.llms.errors import LLMRetryableError
-from afk.llms.types import LLMResponse, LLMRequest
-from afk.llms.runtime.contracts import RoutePolicy
-from afk.llms.routing.defaults import OrderedFallbackRouter
-from afk.llms.utils import extract_json_object, safe_json_loads, clamp_str
+from afk.memory.utils import new_id, now_ms
+from afk.queues.contracts import RUNNER_CHAT_CONTRACT
 
 # ---------------------------------------------------------------------------
 # Queues
 # ---------------------------------------------------------------------------
 from afk.queues.memory import InMemoryTaskQueue
-from afk.queues.types import TaskItem
-from afk.queues.contracts import RUNNER_CHAT_CONTRACT
+from afk.tools.core.base import ToolContext
+from afk.tools.core.decorator import middleware, posthook, prehook, tool
+from afk.tools.core.errors import ToolPolicyError
+
+# ---------------------------------------------------------------------------
+# Tools
+# ---------------------------------------------------------------------------
+from afk.tools.registry import ToolRegistry
+from afk.tools.security import SandboxProfile, build_registry_sandbox_policy
 
 
 def run_async(coro):

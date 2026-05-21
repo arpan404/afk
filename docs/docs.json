@@ -16,6 +16,26 @@
     "type": "github",
     "url": "https://github.com/arpan404/afk"
   },
+  "topbarLinks": [
+    {
+      "type": "link",
+      "name": "Quickstart",
+      "url": "/library/quickstart",
+      "arrow": false
+    },
+    {
+      "type": "link",
+      "name": "Examples",
+      "url": "/library/examples/",
+      "arrow": false
+    },
+    {
+      "type": "link",
+      "name": "API",
+      "url": "/library/api-reference",
+      "arrow": false
+    }
+  ],
   "sidebar": {
     "items": "undecorated"
   },
@@ -72,7 +92,11 @@
               "library/agentic-levels",
               "library/architecture",
               "library/building-with-ai",
-              "library/developer-guide"
+              "library/developer-guide",
+              "library/deployment",
+              "library/performance",
+              "library/troubleshooting",
+              "library/migration"
             ]
           },
           {
@@ -138,7 +162,8 @@
           "library/snippets/10_streaming_chat_with_memory",
           "library/snippets/11_cost_monitoring",
           "library/snippets/12_mcp_client_integration",
-          "library/snippets/13_multi_model_fallback"
+          "library/snippets/13_multi_model_fallback",
+          "library/snippets/14_production_client"
         ]
       }
     ]

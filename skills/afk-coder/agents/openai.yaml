@@ -1,0 +1,4 @@
+interface:
+  display_name: "Afk Coder"
+  short_description: "AFK skill for Afk Coder workflows."
+  default_prompt: "Use $afk-coder to complete this AFK task with the packaged guidance."

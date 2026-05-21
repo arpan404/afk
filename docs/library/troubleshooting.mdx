@@ -1,0 +1,444 @@
+---
+title: Troubleshooting
+description: Common issues and solutions when building with AFK.
+---
+
+This guide covers common issues encountered when building and deploying AFK agents, with solutions and debugging tips.
+
+## Agent behavior issues
+
+### Agent keeps calling the same tool repeatedly
+
+**Symptoms:** Agent enters a loop, calling the same tool multiple times without making progress.
+
+**Causes:**
+- Tool output doesn't provide the information the agent needs
+- Agent instructions don't clarify when to stop
+- Missing a tool that would help the agent determine completion
+
+**Solutions:**
+
+```python
+from afk.agents import FailSafeConfig
+
+# Add hard limits to prevent runaway loops
+agent = Agent(
+    name="safe-agent",
+    model="gpt-5.2-mini",
+    instructions="Complete the task in at most 3 tool calls. If you can't solve it, say so.",
+    fail_safe=FailSafeConfig(
+        max_tool_calls=5,  # Stop after 5 calls
+    ),
+)
+```
+
+**Debug:** Enable verbose logging to see tool call inputs/outputs:
+
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
+runner = Runner(telemetry="console")
+```
+
+---
+
+### Agent ignores tools and doesn't call them
+
+**Symptoms:** Agent responds with text but doesn't use available tools.
+
+**Causes:**
+- Instructions don't mention the tools or when to use them
+- Tool descriptions are unclear
+- Model being used doesn't support function calling well
+
+**Solutions:**
+
+```python
+agent = Agent(
+    name="helpful",
+    model="gpt-5.2-mini",
+    instructions="""
+    You have access to the following tools:
+    - search_docs: Use this to find information in the knowledge base
+    - calculator: Use this for any math calculations
+    
+    Always use tools when the user asks questions that require specific information or calculations.
+    """,
+    tools=[search_docs, calculator],
+)
+```
+
+---
+
+### Agent produces inconsistent outputs
+
+**Symptoms:** Same input produces different outputs on different runs.
+
+**Causes:**
+- Temperature is set too high
+- Missing structured output configuration
+- Non-deterministic system prompt
+
+**Solutions:**
+
+```python
+# Use structured output for deterministic responses
+from afk.llms import LLMBuilder
+
+client = (
+    LLMBuilder()
+    .provider("openai")
+    .model("gpt-5.2-mini")
+    .temperature(0.0)  # Deterministic
+    .build()
+)
+
+agent = Agent(
+    name="deterministic",
+    model=client,
+    instructions="Always respond in JSON format as specified.",
+)
+```
+
+## Memory issues
+
+### Conversation doesn't persist between runs
+
+**Symptoms:** Agent doesn't remember previous messages.
+
+**Causes:**
+- Not using `thread_id` to link conversations
+- Memory store not configured correctly
+- Using in-memory store (loses state on restart)
+
+**Solution:**
+
+```python
+# Always use thread_id for multi-turn conversations
+thread_id = "user-123-session-1"  # Consistent per user/conversation
+
+r1 = await runner.run(agent, user_message="Hi", thread_id=thread_id)
+r2 = await runner.run(agent, user_message="What did I just say?", thread_id=thread_id)
+# r2 will remember r1's context
+```
+
+**Check memory backend:**
+
+```python
+# Verify memory is configured
+print(runner._memory_store)  # Should not be None
+
+# For production, use persistent storage
+runner = Runner(
+    memory_store=SQLiteMemoryStore(path="./memory.sqlite3")
+)
+```
+
+---
+
+### Resume doesn't work
+
+**Symptoms:** Calling `runner.resume()` doesn't continue from where the run stopped.
+
+**Solutions:**
+
+```python
+# Check run_id and thread_id are correct
+print(result.run_id)      # Use this for resume
+print(result.thread_id)    # Use this for thread
+
+# Resume correctly
+resumed = await runner.resume(
+    agent,
+    run_id=result.run_id,
+    thread_id=result.thread_id,
+)
+```
+
+**Debug checkpoints:**
+
+```python
+# List checkpoints for a run
+from afk.memory import list_checkpoints
+
+checkpoints = await list_checkpoints(run_id=result.run_id)
+print(f"Found {len(checkpoints)} checkpoints")
+```
+
+## LLM issues
+
+### Rate limit errors
+
+**Symptoms:** `RateLimitError` or `429` responses from LLM provider.
+
+**Solutions:**
+
+```python
+# Configure rate limiting in the LLM client
+client = (
+    LLMBuilder()
+    .provider("openai")
+    .model("gpt-5.2-mini")
+    .rate_limit(requests_per_minute=30)  # Conservative limit
+    .build()
+)
+
+# Or use exponential backoff for retries
+client = (
+    LLMBuilder()
+    .provider("openai")
+    .model("gpt-5.2-mini")
+    .retry(max_attempts=5, backoff_base=2.0, backoff_max=60.0)
+    .build()
+)
+```
+
+---
+
+### Timeout errors
+
+**Symptoms:** Requests hang or timeout before completing.
+
+**Solutions:**
+
+```python
+# Set appropriate timeouts
+client = (
+    LLMBuilder()
+    .provider("openai")
+    .model("gpt-5.2-mini")
+    .timeout(connect_s=10.0, read_s=120.0)  # 2 min for complex tasks
+    .build()
+)
+
+# Or per-request timeout via middleware
+from afk.llms.middleware.timeout import TimeoutMiddleware, TimeoutConfig
+
+config = TimeoutConfig(
+    default_timeout_s=60.0,
+    chat_timeout_s=120.0,  # Longer for complex reasoning
+)
+```
+
+---
+
+### Model not found errors
+
+**Symptoms:** `ModelNotFoundError` or `InvalidRequestError`.
+
+**Solutions:**
+
+```python
+# Verify model name is correct
+client = (
+    LLMBuilder()
+    .provider("openai")
+    .model("gpt-5.2-mini")  # Check exact model name
+    .build()
+)
+
+# Use fallback for resilience
+agent = Agent(
+    name="resilient",
+    model="gpt-5.2",  # Primary model
+    fail_safe=FailSafeConfig(
+        fallback_model_chain=["gpt-5.2-mini", "gpt-5.2-nano"],
+    ),
+)
+```
+
+## Streaming issues
+
+### Streaming doesn't work
+
+**Symptoms:** `run_stream()` doesn't return events or returns them all at once.
+
+**Solutions:**
+
+```python
+# Make sure you're iterating correctly
+handle = await runner.run_stream(agent, user_message="Tell me a story")
+
+async for event in handle:
+    if event.type == "text_delta":
+        print(event.text_delta, end="")
+    elif event.type == "completed":
+        print(f"\n\nDone: {event.result.state}")
+
+# Don't mix sync and async
+# WRONG:
+result = runner.run_sync(agent, ...)  # Sync
+handle = await runner.run_stream(...)  # Async on same runner
+
+# RIGHT:
+handle = await runner.run_stream(agent, ...)
+```
+
+---
+
+### Streaming disconnects early
+
+**Symptoms:** Stream ends before completion.
+
+**Solutions:**
+
+```python
+# Use timeout middleware for streaming
+from afk.llms.middleware.timeout import TimeoutMiddleware, TimeoutConfig
+
+config = TimeoutConfig(stream_timeout_s=180.0)  # 3 min for long streams
+
+handle = await runner.run_stream(agent, user_message="Write a long essay...")
+try:
+    async for event in handle:
+        # process events
+        pass
+except asyncio.TimeoutError:
+    print("Stream timed out")
+```
+
+## Cost issues
+
+### Unexpected high costs
+
+**Symptoms:** API costs much higher than expected.
+
+**Causes:**
+- Agent in a loop making many LLM calls
+- No cost limits configured
+- Expensive model being used unnecessarily
+
+**Solutions:**
+
+```python
+# ALWAYS set cost limits
+agent = Agent(
+    name="safe",
+    model="gpt-5.2-mini",
+    fail_safe=FailSafeConfig(
+        max_total_cost_usd=0.50,  # Stop at $0.50
+    ),
+)
+
+# Monitor costs in real-time
+from afk.observability import CostMonitor
+
+monitor = CostMonitor()
+runner = Runner(telemetry=monitor)
+
+# Check accumulated costs
+print(monitor.total_cost_usd)
+```
+
+---
+
+### Token limit errors
+
+**Symptoms:** `ContextLengthExceeded` or similar errors.
+
+**Solutions:**
+
+```python
+# Compact memory to reduce context
+await runner.compact_thread(
+    thread_id=thread_id,
+    event_policy=RetentionPolicy(max_events_per_thread=100),
+)
+
+# Or use a model with larger context
+client = (
+    LLMBuilder()
+    .provider("openai")
+    .model("gpt-5.2")  # Larger context than gpt-5.2-mini
+    .build()
+)
+```
+
+## Tool issues
+
+### Tool validation errors
+
+**Symptoms:** `ToolValidationError` when tools are called.
+
+**Solutions:**
+
+```python
+# Ensure Pydantic model matches tool implementation
+class SearchArgs(BaseModel):
+    query: str
+    limit: int = Field(default=10, ge=1, le=100)  # Add constraints
+
+@tool(args_model=SearchArgs, name="search", description="Search for documents.")
+def search(args: SearchArgs) -> dict:
+    # Implementation
+    return {"results": []}
+```
+
+---
+
+### Tool not found errors
+
+**Symptoms:** Agent can't find or call a tool.
+
+**Solutions:**
+
+```python
+# Verify tool is attached to agent
+print(agent.tools)  # Should include your tool
+
+# Verify tool name matches
+@tool(name="my_tool", ...)  # Use this exact name
+def my_tool(args): ...
+
+# Call with exact name
+agent = Agent(
+    name="demo",
+    tools=[my_tool],  # Tool function, not name string
+)
+```
+
+## Debug mode
+
+Enable debug mode for detailed logging:
+
+```python
+from afk.core import Runner, RunnerConfig
+
+runner = Runner(
+    config=RunnerConfig(
+        debug=True,
+        sanitize_tool_output=True,
+    ),
+)
+```
+
+## Getting help
+
+If you can't resolve an issue:
+
+1. Check the [GitHub Issues](https://github.com/your-org/afk/issues) for known issues
+2. Enable debug logging and capture the full traceback
+3. Include these details when reporting:
+   - AFK version (`pip show afk`)
+   - Python version
+   - LLM provider and model
+   - Minimal reproduction code
+   - Full error traceback
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Core Concepts" icon="book" href="/library/overview">
+    Understand how AFK components work together.
+  </Card>
+  <Card title="Evals" icon="check-circle" href="/library/evals">
+    Test agent behavior before shipping.
+  </Card>
+  <Card title="Building with AI" icon="hammer" href="/library/building-with-ai">
+    Common patterns and anti-patterns.
+  </Card>
+  <Card title="API Reference" icon="book" href="/library/api-reference">
+    Detailed API documentation.
+  </Card>
+</CardGroup>

@@ -9,7 +9,6 @@ import pytest
 from afk.queues.factory import _env_first, create_task_queue_from_env
 from afk.queues.memory import InMemoryTaskQueue
 
-
 # ── _env_first ───────────────────────────────────────────────────────────────
 
 

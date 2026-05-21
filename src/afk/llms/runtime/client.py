@@ -142,11 +142,36 @@ class LLMClient:
             default_provider=self._default_provider,
         )
 
-    def _cache_key(self, provider: str, req: LLMRequest) -> str:
+    def _cache_key(
+        self,
+        provider: str,
+        req: LLMRequest,
+        *,
+        response_model=None,
+        cache_policy: CachePolicy | None = None,
+    ) -> str:
         """Build deterministic cache key for request payload + provider id."""
+        response_model_name = None
+        if response_model is not None:
+            response_model_name = (
+                f"{getattr(response_model, '__module__', '')}."
+                f"{getattr(response_model, '__qualname__', repr(response_model))}"
+            )
         payload = {
             "provider": provider,
             "model": req.model,
+            "request_scope": {
+                "session_token": req.session_token,
+                "checkpoint_token": req.checkpoint_token,
+                "cache_namespace": (
+                    cache_policy.namespace
+                    if cache_policy is not None
+                    else None
+                )
+                or req.metadata.get("cache_namespace")
+                or req.metadata.get("tenant_id")
+                or req.metadata.get("user_id"),
+            },
             "messages": [
                 {"role": m.role, "name": m.name, "content": m.content}
                 for m in req.messages
@@ -155,9 +180,13 @@ class LLMClient:
             "tool_choice": req.tool_choice,
             "temperature": req.temperature,
             "top_p": req.top_p,
+            "stop": req.stop,
             "max_tokens": req.max_tokens,
             "thinking": req.thinking,
             "thinking_effort": req.thinking_effort,
+            "max_thinking_tokens": req.max_thinking_tokens,
+            "response_model": response_model_name,
+            "extra": req.extra,
         }
         normalized = json.dumps(payload, ensure_ascii=True, sort_keys=True, default=str)
         return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
@@ -219,7 +248,12 @@ class LLMClient:
             raise LLMError("No providers available for request")
 
         cache_policy = req.cache_policy or self._cache_policy
-        primary_cache_key = self._cache_key(providers[0], req)
+        primary_cache_key = self._cache_key(
+            providers[0],
+            req,
+            response_model=response_model,
+            cache_policy=cache_policy,
+        )
         if cache_policy.enabled:
             cached = await self._cache.get(primary_cache_key)
             if cached is not None:
@@ -271,7 +305,12 @@ class LLMClient:
                 raise
 
         if cache_policy.enabled:
-            cache_key = self._cache_key(result_provider, req)
+            cache_key = self._cache_key(
+                result_provider,
+                req,
+                response_model=response_model,
+                cache_policy=cache_policy,
+            )
             await self._cache.set(cache_key, result, ttl_s=cache_policy.ttl_s)
         return result
 

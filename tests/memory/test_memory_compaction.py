@@ -7,12 +7,12 @@ Tests for memory compaction.
 """
 
 import pytest
+
 from afk.memory import (
     CompactionConfig,
     CompactionStats,
     MemoryCompactor,
 )
-from afk.memory.types import MemoryEvent
 
 
 class TestCompactionConfig:

@@ -6,23 +6,20 @@ See LICENSE file for full license text.
 Tests for workflow state machine.
 """
 
-import asyncio
 
 import pytest
+
+from afk.agents.workflow.executor import (
+    WorkflowExecutionContext,
+    WorkflowExecutor,
+    create_workflow_executor,
+)
 from afk.agents.workflow.state_machine import (
     WorkflowBuilder,
     WorkflowEdge,
-    WorkflowEvent,
     WorkflowNode,
     WorkflowSpec,
     WorkflowState,
-    WorkflowTransition,
-)
-from afk.agents.workflow.executor import (
-    WorkflowExecutionContext,
-    WorkflowExecutionResult,
-    WorkflowExecutor,
-    create_workflow_executor,
 )
 
 

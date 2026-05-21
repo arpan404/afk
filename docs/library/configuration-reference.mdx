@@ -18,7 +18,7 @@ from afk.agents import Agent
 | `model`                     | `str \| LLM`      | **required**     | LLM model name or pre-built client instance                    |
 | `name`                      | `str`             | class name       | Agent identity for logs, telemetry, and subagent routing       |
 | `instructions`              | `str \| callable` | `None`           | System prompt — static string or callable provider             |
-| `instruction_file`          | `str \| Path`     | `None`           | Path to a prompt file (resolved under `prompts_dir`)           |
+| `instruction_file`          | `str \| Path`     | `None`           | Path to a prompt file that must resolve under `prompts_dir`    |
 | `prompts_dir`               | `str \| Path`     | `None`           | Root directory for prompt files (env: `AFK_AGENT_PROMPTS_DIR`) |
 | `tools`                     | `list`            | `[]`             | Typed functions the agent can call                             |
 | `subagents`                 | `list[Agent]`     | `[]`             | Specialist agents this agent can delegate to                   |
@@ -184,8 +184,8 @@ from afk.tools import SandboxProfile
 | -------------------------- | --------------- | --------- | ---------------------------------------------- |
 | `profile_id`               | `str`           | `default` | Profile identifier for logs and policy         |
 | `allow_network`            | `bool`          | `False`   | Whether tools can make network requests        |
-| `allow_command_execution`  | `bool`          | `True`    | Whether tools can execute shell commands       |
-| `allowed_command_prefixes` | `list[str]`     | `[]`      | Allowed command prefixes (empty = all allowed) |
+| `allow_command_execution`  | `bool`          | `False`   | Whether tools can execute shell commands       |
+| `allowed_command_prefixes` | `list[str]`     | `[]`      | Allowed command prefixes (empty = none)        |
 | `deny_shell_operators`     | `bool`          | `True`    | Block pipes, redirects, semicolons             |
 | `allowed_paths`            | `list[str]`     | `[]`      | Restrict file access to these paths            |
 | `denied_paths`             | `list[str]`     | `[]`      | Explicitly deny access to these paths          |

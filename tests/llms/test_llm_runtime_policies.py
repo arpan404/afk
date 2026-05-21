@@ -11,7 +11,6 @@ Comprehensive tests for the LLM runtime policy layer:
 from __future__ import annotations
 
 import asyncio
-import socket
 import time
 
 import pytest
@@ -153,7 +152,7 @@ class TestClassifyError:
         assert classify_error(err) is err
 
     def test_timeout_error_becomes_llm_timeout(self):
-        result = classify_error(asyncio.TimeoutError("timed out"))
+        result = classify_error(TimeoutError("timed out"))
         assert isinstance(result, LLMTimeoutError)
 
     def test_builtin_timeout_becomes_llm_timeout(self):
@@ -161,7 +160,7 @@ class TestClassifyError:
         assert isinstance(result, LLMTimeoutError)
 
     def test_socket_timeout_becomes_llm_timeout(self):
-        result = classify_error(socket.timeout("socket timed out"))
+        result = classify_error(TimeoutError("socket timed out"))
         assert isinstance(result, LLMTimeoutError)
 
     def test_connection_error_becomes_retryable(self):

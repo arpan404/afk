@@ -24,9 +24,7 @@ from afk.memory.lifecycle import (
     apply_state_retention,
     compact_thread_memory,
 )
-from afk.memory.store import MemoryStore
 from afk.memory.types import MemoryEvent
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -401,9 +399,6 @@ class TestCompactThreadMemoryReplaceNotImplemented:
             await store.setup()
             for i in range(10):
                 await store.append_event(_event(i, "message"))
-
-            # Monkey-patch to raise NotImplementedError
-            original_replace = store.replace_thread_events
 
             async def _raise_not_impl(thread_id, events):
                 raise NotImplementedError("not supported")

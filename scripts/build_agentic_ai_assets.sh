@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DOCS_DIR="${AFK_DOCS_DIR:-$ROOT_DIR/docs}"
-SKILLS_DIR="${AFK_AGENT_SKILLS_DIR:-$ROOT_DIR/agent-skill}"
+SKILLS_DIR="${AFK_AGENT_SKILLS_DIR:-$ROOT_DIR/skills}"
 OUT_DIR="${AFK_AI_INDEX_DIR:-$ROOT_DIR/ai-index}"
 BUNDLE_SKILL_DOCS=true
 
@@ -11,7 +11,7 @@ usage() {
   cat <<'EOF'
 Build AFK AI assets:
 1) creates searchable index files from docs/
-2) creates/refreshes skill metadata index in agent-skill/
+2) creates/refreshes skill metadata index in skills/
 3) bundles docs assets into each skill folder (optional)
 
 Usage:
@@ -268,8 +268,8 @@ for skill_md in sorted(skills_dir.glob("*/SKILL.md")):
             "id": skill_id,
             "name": name,
             "description": description,
-            "path": f"agent-skill/{rel_path}",
-            "github_url": f"https://github.com/socioy/afk/tree/main/agent-skill/{skill_md.parent.name}",
+            "path": f"skills/{rel_path}",
+            "github_url": f"https://github.com/arpan404/afk/tree/main/skills/{skill_md.parent.name}",
         }
     )
 
@@ -299,7 +299,7 @@ manifest = {
         "examples.md",
         "records/",
         "text/",
-        "../agent-skill/index.json",
+        "../skills/index.json",
     ],
 }
 (out_dir / "manifest.json").write_text(
@@ -453,7 +453,7 @@ bundle_docs_into_skills() {
     cp "$OUT_DIR/id-to-path.json" "$refs_dir/id-to-path.json"
     cp "$OUT_DIR/path-to-id.json" "$refs_dir/path-to-id.json"
     cp "$OUT_DIR/manifest.json" "$refs_dir/manifest.json"
-    cp "$OUT_DIR/examples.md" "$skill_dir/references/examples.md"
+    cp "$OUT_DIR/examples.md" "$skill_dir/references/afk-examples.md"
 
     cat > "$skill_dir/references/README.md" <<EOF
 # Bundled AFK Docs Index
@@ -470,7 +470,7 @@ Files:
 - \`afk-docs/docs-index.jsonl\`: searchable doc records
 - \`afk-docs/inverted-index.json\`: token -> doc id map
 - \`afk-docs/id-to-path.json\`: doc id -> docs path
-- \`examples.md\`: merged runnable examples from snippets
+- \`afk-examples.md\`: merged runnable examples from snippets
 
 Quick search:
 

@@ -7,16 +7,14 @@ Tests for checkpoint replay API.
 """
 
 import pytest
+
 from afk.agents.lifecycle import (
-    CheckpointInfo,
-    CheckpointReplayHandle,
-    CheckpointReplayManager,
+    InteractiveReplayHandler,
     ReplayAPI,
     ReplayDecisionPoint,
     ReplaySession,
     ReplayTimeline,
     ReplayTimelineEvent,
-    InteractiveReplayHandler,
     create_replay_api,
 )
 

@@ -9,26 +9,23 @@ _looks_like_path_key, _iter_leaf_values, _extract_command_parts).
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
-
 import pytest
 
+from afk.tools.core.base import ToolContext, ToolResult
+from afk.tools.core.errors import ToolPolicyError
 from afk.tools.security import (
     SandboxProfile,
+    _extract_command_parts,
+    _is_command_allowed,
+    _iter_leaf_values,
+    _looks_like_path_key,
+    _truncate_json_like,
+    _truncate_text,
     apply_tool_output_limits,
     build_registry_sandbox_policy,
     resolve_sandbox_profile,
     validate_tool_args_against_sandbox,
-    _is_command_allowed,
-    _looks_like_path_key,
-    _iter_leaf_values,
-    _extract_command_parts,
-    _truncate_text,
-    _truncate_json_like,
 )
-from afk.tools.core.errors import ToolPolicyError
-from afk.tools.core.base import ToolContext, ToolResult
 
 
 # ---------------------------------------------------------------------------
@@ -41,7 +38,7 @@ class TestSandboxProfile:
         profile = SandboxProfile()
         assert profile.profile_id == "default"
         assert profile.allow_network is False
-        assert profile.allow_command_execution is True
+        assert profile.allow_command_execution is False
         assert profile.allowed_command_prefixes == []
         assert profile.deny_shell_operators is True
         assert profile.allowed_paths == []
@@ -158,6 +155,7 @@ class TestValidateToolArgsAgainstSandbox:
     def test_command_execution_allowed_passes(self, tmp_path):
         profile = SandboxProfile(
             allow_command_execution=True,
+            allowed_command_prefixes=["ls"],
             deny_shell_operators=False,
         )
         result = validate_tool_args_against_sandbox(
@@ -172,6 +170,7 @@ class TestValidateToolArgsAgainstSandbox:
 
     def test_allowed_command_prefixes_exact_match(self, tmp_path):
         profile = SandboxProfile(
+            allow_command_execution=True,
             allowed_command_prefixes=["git", "npm"],
             deny_shell_operators=False,
         )
@@ -185,6 +184,7 @@ class TestValidateToolArgsAgainstSandbox:
 
     def test_allowed_command_prefixes_path_prefix_match(self, tmp_path):
         profile = SandboxProfile(
+            allow_command_execution=True,
             allowed_command_prefixes=["git"],
             deny_shell_operators=False,
         )
@@ -198,6 +198,7 @@ class TestValidateToolArgsAgainstSandbox:
 
     def test_command_not_in_allowlist_blocked(self, tmp_path):
         profile = SandboxProfile(
+            allow_command_execution=True,
             allowed_command_prefixes=["git", "npm"],
             deny_shell_operators=False,
         )
@@ -217,7 +218,11 @@ class TestValidateToolArgsAgainstSandbox:
         ["&&", "||", ";", "|", "`", "$(", ">", ">>", "<", "<<", "&"],
     )
     def test_shell_operators_blocked_when_deny_enabled(self, tmp_path, operator):
-        profile = SandboxProfile(deny_shell_operators=True)
+        profile = SandboxProfile(
+            allow_command_execution=True,
+            allowed_command_prefixes=["ls"],
+            deny_shell_operators=True,
+        )
         result = validate_tool_args_against_sandbox(
             tool_name="run",
             tool_args={"command": f"ls {operator} whoami"},
@@ -228,7 +233,11 @@ class TestValidateToolArgsAgainstSandbox:
         assert "shell operator" in result.lower()
 
     def test_shell_operators_allowed_when_deny_disabled(self, tmp_path):
-        profile = SandboxProfile(deny_shell_operators=False)
+        profile = SandboxProfile(
+            allow_command_execution=True,
+            allowed_command_prefixes=["ls && whoami"],
+            deny_shell_operators=False,
+        )
         result = validate_tool_args_against_sandbox(
             tool_name="run",
             tool_args={"command": "ls && whoami"},
@@ -412,7 +421,7 @@ class TestApplyToolOutputLimits:
         returned = apply_tool_output_limits(result, profile=profile)
         assert isinstance(returned.output, list)
         assert "truncated" in returned.output[0]
-        assert returned.output[1] == "short"
+        assert returned.output[1] == "[truncated]"
 
     def test_short_output_passes_through_unchanged(self):
         profile = SandboxProfile(max_output_chars=1000)
@@ -559,14 +568,14 @@ class TestTruncateJsonLike:
         assert isinstance(result, list)
         assert len(result) == 2
         assert "truncated" in result[0]
-        assert result[1] == "ok"
+        assert result[1] == "[truncated]"
 
     def test_dict_values_truncated_recursively(self):
         data = {"key1": "b" * 50, "key2": 42}
         result = _truncate_json_like(data, max_chars=10)
         assert isinstance(result, dict)
         assert "truncated" in result["key1"]
-        assert result["key2"] == 42
+        assert result["..."] == "[truncated]"
 
     def test_nested_dict_list_structure(self):
         data = {"items": [{"name": "x" * 100}]}

@@ -33,6 +33,7 @@ The examples are ordered by complexity. If you are new to AFK, start at the top 
 | Intermediate | Cost Monitoring      | Budget limits, real-time cost tracking, batch budgets      |
 | Advanced     | MCP Client           | Connect to external MCP servers, hybrid local+remote tools |
 | Advanced     | Multi-Model Fallback | Fallback chains, circuit breakers, model tier strategies   |
+| Advanced     | Production Client    | Timeout middleware, Redis connection pooling, graceful shutdown |
 
 ## Scenario catalog
 
@@ -88,7 +89,7 @@ The examples are ordered by complexity. If you are new to AFK, start at the top 
   <Card
     title="Hooks + Middleware"
     href="/library/snippets/07_tool_hooks_and_middleware"
-    icon="layers"
+    icon="layer-group"
   >
     Attach pre-execution and post-execution hooks to tools. Chain middleware for
     logging, validation, and transformation.
@@ -140,5 +141,13 @@ The examples are ordered by complexity. If you are new to AFK, start at the top 
   >
     Configure fallback model chains for LLM resilience, circuit breakers, and
     cost optimization.
+  </Card>
+  <Card
+    title="Production Client"
+    href="/library/snippets/14_production_client"
+    icon="server"
+  >
+    Production-ready LLM client with timeout middleware, Redis connection pooling,
+    and graceful shutdown handling.
   </Card>
 </CardGroup>

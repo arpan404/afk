@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
 
 import pytest
 
@@ -25,7 +24,6 @@ from afk.llms.clients.shared.normalization import (
 )
 from afk.llms.clients.shared.transport import collect_headers
 from afk.llms.types import ToolCall, Usage
-
 
 # ---------------------------------------------------------------------------
 # content.py -- json_text

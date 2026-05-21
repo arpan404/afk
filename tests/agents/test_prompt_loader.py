@@ -141,8 +141,8 @@ def test_prompt_path_escape_raises_access_error(tmp_path: Path):
         run_async(agent.resolve_instructions({}))
 
 
-def test_absolute_path_bypasses_security_check(tmp_path: Path):
-    """Absolute paths should bypass security check but still require file to exist."""
+def test_absolute_path_inside_prompts_root_loads(tmp_path: Path):
+    """Absolute paths are allowed only when they stay inside prompts_dir."""
     from afk.agents.prompts.store import resolve_prompts_dir
 
     root = tmp_path / "prompts"
@@ -154,12 +154,11 @@ def test_absolute_path_bypasses_security_check(tmp_path: Path):
     abs_path = valid_file.resolve()
 
     # Get prompt root for context
-    prompt_root = resolve_prompts_dir(prompts_dir=None, cwd=tmp_path)
+    prompt_root = resolve_prompts_dir(prompts_dir=root, cwd=tmp_path)
 
     # Import directly - this is a module-level function
     from afk.agents.prompts.store import resolve_prompt_file_path
 
-    # Should work - absolute path bypasses security check
     resolved = resolve_prompt_file_path(
         prompt_root=prompt_root,
         instruction_file=abs_path,
@@ -167,12 +166,12 @@ def test_absolute_path_bypasses_security_check(tmp_path: Path):
     )
     assert resolved == abs_path
 
-    # Non-existent absolute path should fail with PromptResolutionError (not access error)
-    non_existent = Path("/nonexistent/file.txt")
-    with pytest.raises(PromptResolutionError):
+    outside = tmp_path / "outside.md"
+    outside.write_text("outside", encoding="utf-8")
+    with pytest.raises(PromptAccessError):
         resolve_prompt_file_path(
             prompt_root=prompt_root,
-            instruction_file=non_existent,
+            instruction_file=outside.resolve(),
             agent_name="test",
         )
 

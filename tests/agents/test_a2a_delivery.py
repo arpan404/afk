@@ -14,7 +14,6 @@ from afk.agents.contracts import (
     AgentInvocationResponse,
 )
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 

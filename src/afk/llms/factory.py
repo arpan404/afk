@@ -8,6 +8,8 @@ Module: factory.py.
 
 from __future__ import annotations
 
+from typing import Any
+
 from .errors import LLMConfigurationError
 
 
@@ -19,21 +21,22 @@ def _removed() -> None:
     )
 
 
-def register_llm_adapter(*args, **kwargs):  # type: ignore[no-untyped-def]
+def register_llm_adapter(*args: Any, **kwargs: Any) -> None:
     """Removed legacy API shim."""
     _removed()
 
 
-def available_llm_adapters(*args, **kwargs):  # type: ignore[no-untyped-def]
+def available_llm_adapters(*args: Any, **kwargs: Any) -> list[str]:
+    """Removed legacy API shim."""
+    _removed()
+    return []
+
+
+def create_llm(*args: Any, **kwargs: Any) -> Any:
     """Removed legacy API shim."""
     _removed()
 
 
-def create_llm(*args, **kwargs):  # type: ignore[no-untyped-def]
-    """Removed legacy API shim."""
-    _removed()
-
-
-def create_llm_from_env(*args, **kwargs):  # type: ignore[no-untyped-def]
+def create_llm_from_env(*args: Any, **kwargs: Any) -> Any:
     """Removed legacy API shim."""
     _removed()

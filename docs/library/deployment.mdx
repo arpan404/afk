@@ -1,0 +1,381 @@
+---
+title: Deployment
+description: Deploy AFK agents to production with Docker, Kubernetes, and scaling patterns.
+---
+
+This guide covers deploying AFK agents to production environments, from single-container setups to distributed, multi-worker deployments.
+
+## Docker deployment
+
+### Basic Dockerfile
+
+```dockerfile
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Run your application entrypoint that creates AFK agents/runners
+CMD ["python", "-m", "your_app.server"]
+```
+
+### Production Dockerfile with multi-stage build
+
+```dockerfile
+FROM python:3.13-slim AS builder
+
+WORKDIR /app
+RUN pip install --upgrade pip
+COPY requirements.txt .
+RUN pip install --prefix=/install -r requirements.txt
+
+# Production image
+FROM python:3.13-slim
+
+WORKDIR /app
+COPY --from=builder /install /usr/local
+COPY . .
+
+# Run as non-root user
+RUN useradd -m appuser && chown -R appuser:appuser /app
+USER appuser
+
+CMD ["python", "-m", "your_app.server"]
+```
+
+### docker-compose.yml
+
+```yaml
+version: '3.8'
+
+services:
+  agent:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AFK_MEMORY_BACKEND=redis
+      - AFK_REDIS_URL=redis://redis:6379
+      - AFK_QUEUE_BACKEND=redis
+      - AFK_QUEUE_REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+```
+
+## Environment configuration
+
+### Required environment variables
+
+```bash
+# LLM Provider
+OPENAI_API_KEY=sk-...              # Required for OpenAI
+# or
+ANTHROPIC_API_KEY=sk-ant-...       # For Anthropic
+
+# Memory backend
+AFK_MEMORY_BACKEND=postgres         # Options: memory, sqlite, redis, postgres
+AFK_SQLITE_PATH=./data/memory.sqlite3
+AFK_REDIS_URL=redis://localhost:6379
+AFK_PG_DSN=postgresql://user:pass@host/db
+AFK_VECTOR_DIM=1536                 # Required for Postgres vector search
+
+# Queue backend  
+AFK_QUEUE_BACKEND=redis
+AFK_QUEUE_REDIS_URL=redis://localhost:6379
+
+# Observability
+AFK_TELEMETRY=otel                  # Options: console, json, otel, none
+OTEL_EXPORTER_OTLP_ENDPOINT=http://telemetry:4317
+
+# Server mode
+AFK_SERVER_PORT=8000
+AFK_SERVER_WORKERS=4
+```
+
+### Production configuration file
+
+Create `config/production.yaml`:
+
+```yaml
+agent:
+  default_model: gpt-5.2-mini
+  default_fail_safe:
+    max_steps: 20
+    max_tool_calls: 10
+    max_total_cost_usd: 1.00
+    max_wall_time_s: 120
+
+llm:
+  provider: openai
+  profile: production
+
+memory:
+  backend: postgres
+  postgres_dsn: ${AFK_PG_DSN}
+
+queue:
+  backend: redis
+  redis_url: ${AFK_QUEUE_REDIS_URL}
+  max_concurrency: 10
+
+telemetry:
+  exporter: otel
+  service_name: afk-agent
+  export_interval_ms: 5000
+```
+
+## Scaling patterns
+
+### Horizontal scaling with workers
+
+```python
+from afk.queues import RUNNER_CHAT_CONTRACT, InMemoryTaskQueue, TaskWorker
+from afk.core import Runner
+
+queue = InMemoryTaskQueue()
+worker = TaskWorker(
+    queue=queue,
+    agents={"analyzer": agent},
+    runner_factory=lambda: Runner(),
+    execution_contracts=[RUNNER_CHAT_CONTRACT],
+)
+
+await worker.start()
+```
+
+### Kubernetes deployment
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: afk-agent
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: afk-agent
+  template:
+    metadata:
+      labels:
+        app: afk-agent
+    spec:
+      containers:
+        - name: agent
+          image: your-registry/afk-agent:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: llm-secrets
+                  key: api-key
+            - name: AFK_MEMORY_BACKEND
+              value: "redis"
+            - name: AFK_REDIS_URL
+              value: "redis://redis:6379"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+```
+
+### Kubernetes HPA for auto-scaling
+
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: afk-agent-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: afk-agent
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Pods
+      pods:
+        metric:
+          name: queue_depth
+        target:
+          type: AverageValue
+          averageValue: "10"
+```
+
+## Health checks
+
+Implement health endpoints in your server:
+
+```python
+from afk.core import Runner
+from afk.memory import InMemoryMemoryStore
+
+app = FastAPI()
+
+runner = Runner()
+memory_store = InMemoryMemoryStore()
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
+
+@app.get("/ready")
+async def ready():
+    try:
+        await memory_store.health_check()
+        return {"status": "ready", "memory": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=str(e))
+```
+
+## Database schema
+
+### SQLite (development)
+
+SQLite requires no schema setup — tables are created automatically on first use.
+
+### PostgreSQL
+
+```sql
+-- Run these for production PostgreSQL deployments
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE afk_events (
+    id TEXT PRIMARY KEY,
+    thread_id TEXT NOT NULL,
+    run_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    role TEXT,
+    content TEXT,
+    metadata JSONB,
+    created_at TIMESTAMPTZ NOT NULL,
+    INDEX idx_thread_id (thread_id),
+    INDEX idx_run_id (run_id),
+    INDEX idx_created_at (created_at)
+);
+
+CREATE TABLE afk_checkpoints (
+    id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL,
+    thread_id TEXT NOT NULL,
+    step INTEGER NOT NULL,
+    state JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    UNIQUE(run_id, step)
+);
+
+CREATE TABLE afk_long_term_memory (
+    id TEXT PRIMARY KEY,
+    user_id TEXT,
+    scope TEXT,
+    data JSONB,
+    text TEXT,
+    embedding VECTOR(1536),
+    tags TEXT[],
+    metadata JSONB,
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL
+);
+
+-- Vector similarity search
+CREATE INDEX ON afk_long_term_memory 
+    USING ivfflat (embedding vector_cosine_ops)
+    WITH (lists = 100);
+```
+
+## Security checklist
+
+<Steps>
+  <Step title="Secrets management">
+    Store API keys in secrets managers (AWS Secrets Manager, HashiCorp Vault, Kubernetes Secrets). Never commit keys to version control.
+  </Step>
+  <Step title="Network policies">
+    Restrict traffic between services. Agents should only reach LLM providers and necessary databases.
+  </Step>
+  <Step title="Rate limiting">
+    Configure rate limits on public endpoints to prevent abuse.
+  </Step>
+  <Step title="Cost limits">
+    Always set `max_total_cost_usd` in `FailSafeConfig` for production agents.
+  </Step>
+  <Step title="Audit logging">
+    Enable telemetry export to your logging infrastructure for compliance.
+  </Step>
+</Steps>
+
+## Monitoring
+
+Key metrics to track:
+
+| Metric | What it indicates | Alert threshold |
+|--------|------------------|-----------------|
+| `agent.run.duration` | How long runs take | > 60s p95 |
+| `agent.run.cost` | Token spend per run | > $0.50 per run |
+| `agent.run.failures` | Failed runs | > 5% error rate |
+| `llm.latency` | LLM response time | > 10s p95 |
+| `llm.errors` | LLM API errors | > 1% error rate |
+| `queue.depth` | Pending tasks | > 100 items |
+| `queue.dead_letters` | Failed tasks | > 0 |
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Observability" icon="chart-bar" href="/library/observability">
+    Set up telemetry and alerting for production monitoring.
+  </Card>
+  <Card title="Security Model" icon="shield" href="/library/security-model">
+    Security hardening checklist and best practices.
+  </Card>
+  <Card title="Evals" icon="check-circle" href="/library/evals">
+    CI-gated quality checks for agent releases.
+  </Card>
+  <Card title="Building with AI" icon="hammer" href="/library/building-with-ai">
+    Production patterns and anti-patterns.
+  </Card>
+</CardGroup>

@@ -60,6 +60,7 @@ class CachePolicy:
 
     enabled: bool = False
     ttl_s: float = 30.0
+    namespace: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

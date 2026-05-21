@@ -8,23 +8,22 @@ import time
 
 import pytest
 
-from afk.observability.backends.null import NullTelemetrySink, NullTelemetryBackend
-from afk.observability.collectors.runtime import RuntimeTelemetryCollector
+from afk.core.telemetry import TelemetryEvent, TelemetrySpan
+from afk.observability.backends import registry as _reg
+from afk.observability.backends.null import NullTelemetryBackend, NullTelemetrySink
 from afk.observability.backends.registry import (
-    register_telemetry_backend,
+    TelemetryBackendError,
+    create_telemetry_sink,
     get_telemetry_backend,
     list_telemetry_backends,
-    create_telemetry_sink,
-    TelemetryBackendError,
+    register_telemetry_backend,
 )
-from afk.observability.backends import registry as _reg
+from afk.observability.collectors.runtime import RuntimeTelemetryCollector
 from afk.observability.exporters.console import ConsoleRunMetricsExporter
 from afk.observability.exporters.json import JSONRunMetricsExporter
 from afk.observability.exporters.jsonl import JSONLRunMetricsExporter
-from afk.observability.projectors.run_metrics import run_metrics_schema_version
 from afk.observability.models import RunMetrics
-from afk.core.telemetry import TelemetryEvent, TelemetrySpan
-
+from afk.observability.projectors.run_metrics import run_metrics_schema_version
 
 # =======================================================================
 # NullTelemetrySink

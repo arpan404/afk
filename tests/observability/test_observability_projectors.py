@@ -6,18 +6,17 @@ import time
 
 import pytest
 
-from afk.observability.projectors.run_metrics import (
-    run_metrics_schema_version,
-    project_run_metrics_from_collector,
-    _to_int,
-    _to_float,
-    _to_str,
-    _counter_total,
-)
-from afk.observability.collectors.runtime import RuntimeTelemetryCollector
-from afk.observability import contracts
 from afk.core.telemetry import TelemetryEvent
-
+from afk.observability import contracts
+from afk.observability.collectors.runtime import RuntimeTelemetryCollector
+from afk.observability.projectors.run_metrics import (
+    _counter_total,
+    _to_float,
+    _to_int,
+    _to_str,
+    project_run_metrics_from_collector,
+    run_metrics_schema_version,
+)
 
 # ---------------------------------------------------------------------------
 # run_metrics_schema_version

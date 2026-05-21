@@ -9,11 +9,11 @@ State machine workflow builder for complex multi-step agentic workflows.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Callable
+from enum import StrEnum
+from typing import Any
 
 
-class WorkflowState(str, Enum):
+class WorkflowState(StrEnum):
     """States in a workflow state machine."""
 
     PENDING = "pending"
@@ -25,7 +25,7 @@ class WorkflowState(str, Enum):
     CANCELLED = "cancelled"
 
 
-class WorkflowEvent(str, Enum):
+class WorkflowEvent(StrEnum):
     """Events that transition workflow state."""
 
     START = "start"

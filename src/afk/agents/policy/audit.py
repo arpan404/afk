@@ -11,16 +11,17 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from ..types import JSONValue, PolicyDecision, PolicyEvent
 
 
-class AuditAction(str, Enum):
+class AuditAction(StrEnum):
     """Actions captured in audit log."""
 
     POLICY_EVALUATED = "policy_evaluated"
@@ -36,7 +37,7 @@ class AuditAction(str, Enum):
     APPROVAL_DENIED = "approval_denied"
 
 
-class AuditLevel(str, Enum):
+class AuditLevel(StrEnum):
     """Audit log levels."""
 
     DEBUG = "debug"

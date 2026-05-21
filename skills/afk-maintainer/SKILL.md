@@ -36,7 +36,7 @@ Load references on demand as the task requires:
 Search bundled docs when needed:
 
 ```bash
-python scripts/search_afk_docs.py "query terms"
+python skills/afk-maintainer/scripts/search_afk_docs.py "query terms"
 ```
 
 ## AFK identity

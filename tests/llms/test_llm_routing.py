@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 import pytest
 
+from afk.llms.routing import registry
 from afk.llms.routing.defaults import OrderedFallbackRouter
 from afk.llms.routing.registry import (
     LLMRouterError,
@@ -18,7 +19,6 @@ from afk.llms.routing.registry import (
     list_llm_routers,
     register_llm_router,
 )
-from afk.llms.routing import registry
 from afk.llms.runtime.contracts import RoutePolicy
 from afk.llms.types import LLMRequest
 

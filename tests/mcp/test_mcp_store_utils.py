@@ -22,7 +22,6 @@ from afk.mcp.store.utils import (
     resolve_server_ref,
 )
 
-
 # ── _sanitize_name ──────────────────────────────────────────────────────────
 
 

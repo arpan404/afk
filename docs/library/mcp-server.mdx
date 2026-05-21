@@ -49,9 +49,17 @@ Make your AFK tools available to any MCP-compatible client:
     class CalcArgs(BaseModel):
         expression: str
 
+    _OPS = {
+        "+": lambda a, b: a + b,
+        "-": lambda a, b: a - b,
+        "*": lambda a, b: a * b,
+        "/": lambda a, b: a / b,
+    }
+
     @tool(args_model=CalcArgs, name="calculate", description="Evaluate a math expression.")
     def calculate(args: CalcArgs) -> dict:
-        return {"result": eval(args.expression)}
+        left, op, right = args.expression.split()
+        return {"result": _OPS[op](float(left), float(right))}
     ```
 
   </Step>

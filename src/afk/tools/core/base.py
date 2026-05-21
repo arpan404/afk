@@ -9,7 +9,6 @@ This module defines the types and base classes for tools that can be registered 
 from __future__ import annotations
 
 import asyncio
-
 import inspect
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field

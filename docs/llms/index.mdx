@@ -1,6 +1,6 @@
 ---
 title: LLM Layer
-description: Provider-portable LLM runtime with retry, caching, and circuit breaking.
+description: Provider-portable LLM runtime with retry, caching, circuit breaking, and middleware.
 ---
 
 The LLM layer normalizes communication with language models across all supported providers. Your agent code uses provider-agnostic contracts (`LLMRequest` / `LLMResponse`) while built-in adapters handle the provider-specific details.
@@ -52,6 +52,78 @@ client = (
 
   </Step>
 </Steps>
+
+## Middleware
+
+The LLM layer supports middleware for intercepting and transforming requests and responses. Use middleware for logging, tracing, caching, and custom request/response handling.
+
+### Built-in middleware
+
+```python
+from afk.llms import LLMBuilder
+from afk.llms.middleware import MiddlewareStack
+from afk.llms.middleware.timeout import (
+    TimeoutMiddleware,
+    EmbedTimeoutMiddleware,
+    StreamTimeoutMiddleware,
+    TimeoutConfig,
+)
+
+config = TimeoutConfig(
+    default_timeout_s=30.0,
+    chat_timeout_s=60.0,
+    embed_timeout_s=15.0,
+    stream_timeout_s=45.0,
+)
+
+stack = MiddlewareStack(
+    chat=[TimeoutMiddleware(config)],
+    embed=[EmbedTimeoutMiddleware(config)],
+    stream=[StreamTimeoutMiddleware(config)],
+)
+
+client = (
+    LLMBuilder()
+    .provider("openai")
+    .model("gpt-5.2-mini")
+    .with_middlewares(stack)
+    .build()
+)
+```
+
+### Custom middleware
+
+```python
+from afk.llms import LLMBuilder, LLMRequest, LLMResponse
+from afk.llms.middleware import MiddlewareStack
+
+async def tracing_middleware(call_next, req: LLMRequest) -> LLMResponse:
+    """Add tracing metadata to requests."""
+    req.metadata = req.metadata or {}
+    req.metadata["trace_id"] = generate_trace_id()
+    req.metadata["span_name"] = "llm.chat"
+    return await call_next(req)
+
+client = (
+    LLMBuilder()
+    .provider("openai")
+    .model("gpt-5.2-mini")
+    .with_middlewares(MiddlewareStack(
+        chat=[tracing_middleware],
+        embed=[],
+        stream=[],
+    ))
+    .build()
+)
+```
+
+### Middleware protocols
+
+| Protocol | Operation | Signature |
+| --- | --- | --- |
+| `LLMChatMiddleware` | Non-streaming chat | `async (call_next, req: LLMRequest) -> LLMResponse` |
+| `LLMEmbedMiddleware` | Embeddings | `async (call_next, req: EmbeddingRequest) -> EmbeddingResponse` |
+| `LLMStreamMiddleware` | Streaming chat | `(call_next, req: LLMRequest) -> AsyncIterator[LLMStreamEvent]` |
 
 ## Supported providers
 

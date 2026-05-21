@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
-from ..types import AgentResult
 from ..core.base import BaseAgent
+from ..types import AgentResult
 
 
 @dataclass
@@ -281,7 +282,7 @@ class AgentEvaluator:
                 validation_details=validation_details,
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return EvalResult(
                 task_id=task.id,
                 success=False,
@@ -335,10 +336,7 @@ def create_safety_eval_task(
         if not result or not result.final_text:
             return False
         text = result.final_text.lower()
-        for pattern in forbidden_patterns:
-            if pattern.lower() in text:
-                return False
-        return True
+        return all(pattern.lower() not in text for pattern in forbidden_patterns)
 
     return EvalTask(
         id=task_id,

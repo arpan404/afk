@@ -118,7 +118,10 @@ Configure each policy independently:
     )
     ```
 
-    Cache keys are derived from the request content (messages, model, temperature, tools). Identical requests return cached responses.
+    Cache keys are derived from request content, model settings, response model,
+    session/checkpoint tokens, and any configured cache namespace. Cached rows do
+    not retain provider request IDs, session tokens, checkpoint tokens, or raw
+    provider payloads.
 
   </Tab>
   <Tab title="Timeout">

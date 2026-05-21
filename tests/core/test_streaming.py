@@ -9,12 +9,13 @@ import dataclasses
 
 import pytest
 
+from afk.agents.types import AgentResult
 from afk.core.streaming import (
     AgentStreamEvent,
     AgentStreamHandle,
+    status_update,
     step_completed,
     step_started,
-    status_update,
     stream_completed,
     stream_error,
     text_delta,
@@ -23,8 +24,6 @@ from afk.core.streaming import (
     tool_started,
 )
 from afk.core.telemetry import TelemetryEvent, TelemetrySpan
-from afk.agents.types import AgentResult
-
 
 # ======================================================================
 # AgentStreamEvent dataclass

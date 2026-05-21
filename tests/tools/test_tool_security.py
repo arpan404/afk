@@ -41,6 +41,8 @@ def large_text(args: _LargeArgs) -> dict[str, str]:
 def test_validate_tool_args_against_sandbox_denies_path_and_command_operator(tmp_path):
     profile = SandboxProfile(
         profile_id="strict",
+        allow_command_execution=True,
+        allowed_command_prefixes=["ls"],
         allowed_paths=[str(tmp_path / "allowed")],
         denied_paths=["/etc"],
         deny_shell_operators=True,

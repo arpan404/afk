@@ -13,9 +13,10 @@
 `Runner.run_stream()` returns an `AgentStreamHandle` that yields real-time events.
 
 ```python
-from afk.agents import Agent, Runner
+from afk.agents import Agent
+from afk.core import Runner
 
-agent = Agent(model="gpt-4.1-mini", instructions="You are helpful.")
+agent = Agent(model="gpt-5.2-mini", instructions="You are helpful.")
 runner = Runner()
 
 handle = await runner.run_stream(agent, user_message="Explain async/await")

@@ -12,7 +12,7 @@ import json
 from dataclasses import dataclass
 
 from ..types import LLMResponse, ToolCall, Usage
-from .base import LLMCacheBackend
+from .base import LLMCacheBackend, cache_safe_response
 
 
 @dataclass(slots=True)
@@ -62,25 +62,26 @@ class RedisLLMCache(LLMCacheBackend):
         )
 
     async def set(self, key: str, value: LLMResponse, *, ttl_s: float) -> None:
+        safe_value = cache_safe_response(value)
         payload = {
-            "text": value.text,
-            "request_id": value.request_id,
-            "provider_request_id": value.provider_request_id,
-            "session_token": value.session_token,
-            "checkpoint_token": value.checkpoint_token,
-            "structured_response": value.structured_response,
+            "text": safe_value.text,
+            "request_id": safe_value.request_id,
+            "provider_request_id": safe_value.provider_request_id,
+            "session_token": safe_value.session_token,
+            "checkpoint_token": safe_value.checkpoint_token,
+            "structured_response": safe_value.structured_response,
             "tool_calls": [
                 {"id": tc.id, "tool_name": tc.tool_name, "arguments": tc.arguments}
-                for tc in value.tool_calls
+                for tc in safe_value.tool_calls
             ],
-            "finish_reason": value.finish_reason,
+            "finish_reason": safe_value.finish_reason,
             "usage": {
-                "input_tokens": value.usage.input_tokens,
-                "output_tokens": value.usage.output_tokens,
-                "total_tokens": value.usage.total_tokens,
+                "input_tokens": safe_value.usage.input_tokens,
+                "output_tokens": safe_value.usage.output_tokens,
+                "total_tokens": safe_value.usage.total_tokens,
             },
-            "raw": value.raw,
-            "model": value.model,
+            "raw": safe_value.raw,
+            "model": safe_value.model,
         }
         await self._redis.setex(
             key, int(max(1, ttl_s)), json.dumps(payload, ensure_ascii=True)

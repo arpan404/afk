@@ -40,19 +40,29 @@ PYTHONPATH=src pytest -q tests/agents/test_agent_runtime.py
 - Mintlify config is `docs/docs.json`
 - Main landing page is `docs/index.mdx`
 - AI docs index output is generated under `ai-index/`
-- Coding-agent skills are stored in `agent-skill/`
+- Coding-agent skills are stored in `skills/`
+- Repository instructions for coding agents live in `AGENTS.md`
 
 Local docs preview:
 
 ```bash
-cd docs
-bunx mintlify dev
+./scripts/docs_dev.sh
 ```
+
+Mintlify currently requires an LTS Node runtime and fails on Node 25+. The
+script above runs the preview with Node 22 even if your global `node` points to a
+newer development release.
 
 Build AI-searchable docs index + skill metadata:
 
 ```bash
 ./scripts/build_agentic_ai_assets.sh
+```
+
+Search the bundled agent docs index:
+
+```bash
+python skills/afk-coder/scripts/search_afk_docs.py "runner resume"
 ```
 
 ## Contribution Guidelines

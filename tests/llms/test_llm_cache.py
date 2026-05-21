@@ -7,16 +7,17 @@ import time
 
 import pytest
 
+from afk.llms.cache import registry
 from afk.llms.cache.base import CacheEntry
 from afk.llms.cache.inmemory import InMemoryLLMCache
-from afk.llms.cache import registry
+from afk.llms.cache.redis import RedisLLMCache
 from afk.llms.cache.registry import (
     LLMCacheError,
     create_llm_cache,
     list_llm_cache_backends,
     register_llm_cache_backend,
 )
-from afk.llms.types import LLMResponse
+from afk.llms.types import LLMResponse, ToolCall, Usage
 
 
 def run_async(coro):
@@ -112,6 +113,100 @@ class TestInMemoryLLMCache:
         result = run_async(_run())
         assert result is not None
         assert result.text == "new"
+
+    def test_set_strips_request_scoped_provider_metadata(self):
+        cache = InMemoryLLMCache()
+        resp = LLMResponse(
+            text="cached",
+            request_id="req_1",
+            provider_request_id="provider_req_1",
+            session_token="session_1",
+            checkpoint_token="checkpoint_1",
+            raw={"provider": "payload"},
+        )
+
+        async def _run():
+            await cache.set("k1", resp, ttl_s=60)
+            return await cache.get("k1")
+
+        result = run_async(_run())
+        assert result is not None
+        assert result.text == "cached"
+        assert result.request_id is None
+        assert result.provider_request_id is None
+        assert result.session_token is None
+        assert result.checkpoint_token is None
+        assert result.raw == {}
+
+
+class _FakeRedisCacheClient:
+    def __init__(self) -> None:
+        self.rows: dict[str, str] = {}
+        self.deleted: list[str] = []
+
+    async def get(self, key: str):
+        return self.rows.get(key)
+
+    async def setex(self, key: str, ttl_s: int, payload: str) -> None:
+        self.rows[key] = payload
+        self.rows[f"{key}:ttl"] = str(ttl_s)
+
+    async def delete(self, key: str) -> None:
+        self.deleted.append(key)
+        self.rows.pop(key, None)
+
+
+class TestRedisLLMCache:
+    def test_get_returns_none_for_missing_or_invalid_payload(self):
+        client = _FakeRedisCacheClient()
+        cache = RedisLLMCache(client)
+
+        assert run_async(cache.get("missing")) is None
+
+        client.rows["bad"] = "not-json"
+        assert run_async(cache.get("bad")) is None
+
+    def test_set_get_and_delete_round_trip_sanitized_payload(self):
+        client = _FakeRedisCacheClient()
+        cache = RedisLLMCache(client)
+        response = LLMResponse(
+            text="hello",
+            request_id="req_1",
+            provider_request_id="provider_req_1",
+            session_token="session_1",
+            checkpoint_token="checkpoint_1",
+            structured_response={"answer": "hello"},
+            tool_calls=[ToolCall(id="tc_1", tool_name="lookup", arguments={"q": "x"})],
+            finish_reason="stop",
+            usage=Usage(input_tokens=1, output_tokens=2, total_tokens=3),
+            raw={"provider": "payload"},
+            model="demo",
+        )
+
+        async def scenario():
+            await cache.set("k1", response, ttl_s=0)
+            loaded = await cache.get("k1")
+            await cache.delete("k1")
+            deleted = await cache.get("k1")
+            return loaded, deleted
+
+        loaded, deleted = run_async(scenario())
+
+        assert client.rows["k1:ttl"] == "1"
+        assert loaded is not None
+        assert loaded.text == "hello"
+        assert loaded.request_id is None
+        assert loaded.provider_request_id is None
+        assert loaded.session_token is None
+        assert loaded.checkpoint_token is None
+        assert loaded.raw == {}
+        assert loaded.structured_response == {"answer": "hello"}
+        assert loaded.tool_calls == [
+            ToolCall(id="tc_1", tool_name="lookup", arguments={"q": "x"})
+        ]
+        assert loaded.usage.total_tokens == 3
+        assert deleted is None
+        assert client.deleted == ["k1"]
 
 
 # ---------------------------------------------------------------------------

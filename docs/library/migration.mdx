@@ -1,0 +1,426 @@
+---
+title: Migration Guide
+description: Move from LangChain, OpenAI Assistants, or custom agents to AFK.
+---
+
+This guide helps you migrate existing agent code from other frameworks to AFK.
+
+## From LangChain
+
+### LangChain → AFK concepts
+
+| LangChain Concept | AFK Equivalent | Key Difference |
+|-------------------|----------------|----------------|
+| `ChatOpenAI` | `LLMBuilder` | Provider-portable, typed contracts |
+| `Agent` | `Agent` | Config object, not runtime |
+| `Tool` | `@tool` decorator | Pydantic-based, typed arguments |
+| `Chain` | `Runner` | Explicit execution loop |
+| `Memory` | `MemoryStore` | Multiple backends, checkpointing |
+| `Callback` | `Middleware` / `Hooks` | Request/response interception |
+| `LangSmith` | `Telemetry` | Built-in OTEL support |
+
+### Basic agent migration
+
+**LangChain:**
+```python
+from langchain_openai import ChatOpenAI
+from langchain.agents import initialize_agent, Tool
+
+llm = ChatOpenAI(model="gpt-4")
+
+def search(query: str) -> str:
+    return f"Results for: {query}"
+
+tools = [Tool(name="search", func=search, description="Search the web")]
+
+agent = initialize_agent(
+    tools, llm, agent="zero-shot-react-description", verbose=True
+)
+
+result = agent.run("Search for AI news")
+```
+
+**AFK:**
+```python
+from afk.agents import Agent
+from afk.tools import tool
+from afk.core import Runner
+from pydantic import BaseModel
+
+class SearchArgs(BaseModel):
+    query: str
+
+@tool(args_model=SearchArgs, name="search", description="Search the web")
+def search(args: SearchArgs) -> dict:
+    return {"results": f"Results for: {args.query}"}
+
+agent = Agent(
+    name="assistant",
+    model="gpt-5.2-mini",
+    instructions="Use the search tool to find information.",
+    tools=[search],
+)
+
+runner = Runner()
+result = runner.run_sync(agent, user_message="Search for AI news")
+print(result.final_text)
+```
+
+### Key differences
+
+**1. Agent is a config object, not a runtime:**
+
+```python
+# LangChain: agent is callable
+result = agent.run(input)
+
+# AFK: Agent defines what, Runner executes how
+runner = Runner()
+result = runner.run_sync(agent, user_message="input")
+```
+
+**2. Tools use Pydantic for validation:**
+
+```python
+# LangChain: function signature and docstring
+def search(query: str) -> str:
+    """Search the web for information."""
+    ...
+
+# AFK: Pydantic model for typed arguments
+class SearchArgs(BaseModel):
+    query: str
+
+@tool(args_model=SearchArgs, name="search", description="Search the web")
+def search(args: SearchArgs) -> dict:
+    return {"results": f"Results for: {args.query}"}
+```
+
+**3. Explicit execution modes:**
+
+```python
+# LangChain: single run() method
+result = agent.run(input)
+
+# AFK: explicit sync, async, or streaming
+result = runner.run_sync(agent, user_message=input)           # Blocking
+result = await runner.run(agent, user_message=input)          # Async
+handle = await runner.run_stream(agent, user_message=input)   # Streaming
+```
+
+### Tool migration
+
+**LangChain tools:**
+```python
+from langchain.tools import tool
+from langchain_core.tools import StructuredTool
+
+# Simple tool
+@tool
+def get_weather(city: str) -> str:
+    """Get weather for a city."""
+    return f"Weather in {city}: 72°F"
+
+# Structured tool with custom logic
+def custom_search(query: str, limit: int = 10) -> dict:
+    ...
+
+search_tool = StructuredTool.from_function(
+    func=custom_search,
+    name="search",
+    description="Search for documents",
+    args_schema=CustomSearchSchema,
+)
+```
+
+**AFK equivalents:**
+```python
+from afk.tools import tool
+from pydantic import BaseModel, Field
+
+# Simple tool
+class WeatherArgs(BaseModel):
+    city: str
+
+@tool(args_model=WeatherArgs, name="get_weather", description="Get weather for a city.")
+def get_weather(args: WeatherArgs) -> dict:
+    return {"weather": f"Weather in {args.city}: 72°F"}
+
+# Tool with constraints
+class SearchArgs(BaseModel):
+    query: str
+    limit: int = Field(default=10, ge=1, le=100)
+
+@tool(args_model=SearchArgs, name="search", description="Search for documents.")
+def search(args: SearchArgs) -> dict:
+    return {"results": [], "count": 0}
+```
+
+### Memory migration
+
+**LangChain memory:**
+```python
+from langchain.memory import ConversationBufferMemory
+from langchain.agents import AgentExecutor
+
+memory = ConversationBufferMemory(memory_key="chat_history")
+
+agent_executor = AgentExecutor.from_agent_and_tools(
+    agent=agent,
+    tools=tools,
+    memory=memory,
+    verbose=True,
+)
+```
+
+**AFK memory:**
+```python
+from afk.memory import SQLiteMemoryStore
+from afk.core import Runner
+
+# Configure memory backend
+runner = Runner(
+    memory_store=SQLiteMemoryStore(path="./memory.sqlite3")
+)
+
+# Use thread_id for conversation continuity
+thread_id = "user-123-session-1"
+
+result1 = await runner.run(agent, user_message="Hi", thread_id=thread_id)
+result2 = await runner.run(agent, user_message="What did I say?", thread_id=thread_id)
+```
+
+### Callback → Middleware migration
+
+**LangChain callbacks:**
+```python
+from langchain.callbacks import CallbackManager
+from langchain.tracing.openai import OpenAICallbackHandler
+
+callback_manager = CallbackManager([OpenAICallbackHandler()])
+
+agent = Agent(..., callback_manager=callback_manager)
+```
+
+**AFK middleware:**
+```python
+from afk.llms import LLMBuilder
+from afk.llms.middleware import MiddlewareStack
+from afk.llms.middleware.timeout import TimeoutMiddleware, TimeoutConfig
+
+stack = MiddlewareStack(
+    chat=[TimeoutMiddleware(TimeoutConfig(default_timeout_s=30.0))],
+)
+
+client = (
+    LLMBuilder()
+    .provider("openai")
+    .model("gpt-5.2-mini")
+    .with_middlewares(stack)
+    .build()
+)
+```
+
+### RAG migration
+
+**LangChain retrieval:**
+```python
+from langchain_community.vectorstores import Chroma
+from langchain_openai import OpenAIEmbeddings
+from langchain.chains import RetrievalQA
+
+embeddings = OpenAIEmbeddings()
+vectorstore = Chroma(persist_directory="./db", embedding_function=embeddings)
+retriever = vectorstore.as_retriever()
+
+qa_chain = RetrievalQA.from_chain_type(
+    llm=llm,
+    chain_type="stuff",
+    retriever=retriever,
+)
+```
+
+**AFK approach:**
+```python
+from afk.memory import PostgresMemoryStore
+from afk.memory.types import LongTermMemory
+
+memory_store = PostgresMemoryStore(dsn="postgresql://...")
+
+# Store documents with embeddings
+await memory_store.upsert_long_term_memory(
+    LongTermMemory(
+        id="doc-1",
+        user_id="user-123",
+        scope="knowledge",
+        text="Document content here...",
+        embedding=embedding_vector,
+        tags=["product", "faq"],
+    )
+)
+
+# Retrieve in tool
+class RetrieveArgs(BaseModel):
+    query: str
+
+@tool(args_model=RetrieveArgs, name="retrieve", description="Search knowledge base.")
+async def retrieve(args: RetrieveArgs) -> dict:
+    results = await memory_store.search_long_term_memory_vector(
+        user_id=None,
+        query_embedding=get_embedding(args.query),
+        scope="knowledge",
+        limit=5,
+    )
+    return {"results": [r[0].text for r in results]}
+```
+
+## From OpenAI Assistants API
+
+### Assistants → AFK concepts
+
+| OpenAI Concept | AFK Equivalent |
+|----------------|----------------|
+| Assistant | Agent |
+| Thread | Memory + thread_id |
+| Run | Runner execution |
+| Message | MemoryEvent |
+| Tool | @tool decorator |
+| Function | @tool with Pydantic |
+| File search | Long-term memory + vector search |
+
+### Basic migration
+
+**OpenAI Assistants:**
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+assistant = client.beta.assistants.create(
+    name="Helper",
+    instructions="You are a helpful assistant.",
+    tools=[{"type": "function", "function": {...}}],
+    model="gpt-4",
+)
+
+thread = client.beta.threads.create()
+
+client.beta.threads.messages.create(
+    thread_id=thread.id,
+    role="user",
+    content="Hello!",
+)
+
+run = client.beta.threads.runs.create(
+    thread_id=thread.id,
+    assistant_id=assistant.id,
+)
+```
+
+**AFK:**
+```python
+from afk.agents import Agent
+from afk.tools import tool
+from afk.core import Runner
+
+@tool(name="help", description="Provide helpful responses.")
+def help(args) -> dict:
+    return {"response": "Hello!"}
+
+agent = Agent(
+    name="helper",
+    model="gpt-5.2-mini",
+    instructions="You are a helpful assistant.",
+    tools=[help],
+)
+
+runner = Runner()
+result = runner.run_sync(agent, user_message="Hello!")
+```
+
+### Key advantages of AFK over Assistants API
+
+1. **Local execution** — No API calls needed for simple tasks
+2. **Portable** — Switch LLM providers without code changes
+3. **Debuggable** — Step through agent logic locally
+4. **Testable** — Run evals locally in CI
+5. **Controllable** — Full access to prompts, tools, and behavior
+
+## From custom agent code
+
+### Common patterns migration
+
+**Custom retry logic:**
+```python
+# Before: Custom retry implementation
+import time
+
+def call_with_retry(func, max_attempts=3):
+    for attempt in range(max_attempts):
+        try:
+            return func()
+        except Exception as e:
+            if attempt == max_attempts - 1:
+                raise
+            time.sleep(2 ** attempt)
+```
+
+**AFK:**
+```python
+client = (
+    LLMBuilder()
+    .provider("openai")
+    .model("gpt-5.2-mini")
+    .retry(max_attempts=3, backoff_base=1.0)
+    .build()
+)
+```
+
+**Custom circuit breaker:**
+```python
+# Before: Custom circuit breaker
+class CircuitBreaker:
+    def __init__(self, failure_threshold=5):
+        self.failures = 0
+        self.threshold = failure_threshold
+        self.state = "closed"
+    
+    def call(self, func):
+        if self.state == "open":
+            raise CircuitOpenError()
+        try:
+            return func()
+        except Exception:
+            self.failures += 1
+            if self.failures >= self.threshold:
+                self.state = "open"
+            raise
+```
+
+**AFK:**
+```python
+client = (
+    LLMBuilder()
+    .provider("openai")
+    .model("gpt-5.2-mini")
+    .circuit_breaker(failure_threshold=5, recovery_timeout=30.0)
+    .build()
+)
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/library/quickstart">
+    Build your first AFK agent in 5 minutes.
+  </Card>
+  <Card title="Core Concepts" icon="book" href="/library/overview">
+    Understand AFK's design philosophy.
+  </Card>
+  <Card title="API Reference" icon="book" href="/library/api-reference">
+    Complete API documentation.
+  </Card>
+  <Card title="Examples" icon="code" href="/library/examples/index">
+    Runnable examples for every feature.
+  </Card>
+</CardGroup>

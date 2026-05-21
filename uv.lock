@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.13"
 
 [manifest]
@@ -12,12 +12,6 @@ members = [
 name = "02-weather-agent"
 version = "0.1.0"
 source = { virtual = "examples/projects/02_Weather_Agent" }
-dependencies = [
-    { name = "pydantic" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "pydantic", specifier = ">=2.12.5" }]
 
 [[package]]
 name = "afk-py"

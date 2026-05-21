@@ -7,18 +7,15 @@ Tests for policy audit logging.
 """
 
 import pytest
+
 from afk.agents.policy.audit import (
-    AuditAction,
     AuditConfig,
-    AuditLevel,
     AuditRecord,
-    AuditSink,
     ConsoleAuditSink,
     FileAuditSink,
     PolicyAuditLogger,
     create_policy_audit_logger,
 )
-from afk.agents.types.policy import PolicyDecision, PolicyEvent
 
 
 class TestAuditConfig:

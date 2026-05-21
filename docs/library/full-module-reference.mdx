@@ -136,7 +136,7 @@ Pluggable memory stores, compaction, retention policies, long-term memory, vecto
 | `afk.memory.types`      | `MemoryEvent`, `LongTermMemory`, `JsonValue`, retention policy models.                                                        |
 | `afk.memory.lifecycle`  | `apply_event_retention()`, `apply_state_retention()`, `compact_thread_memory()`, `MemoryCompactionResult`.                    |
 | `afk.memory.vector`     | `cosine_similarity()`, vector scoring utilities for embedding-based search.                                                   |
-| `afk.memory.factory`    | `create_memory_store()` factory for environment-based backend selection.                                                      |
+| `afk.memory.factory`    | `create_memory_store_from_env()` factory for environment-based backend selection.                                             |
 | `afk.memory.adapters`   | Backend implementations: `InMemoryMemoryStore`, `SQLiteMemoryStore`, `PostgresMemoryStore`, `RedisMemoryStore`.               |
 
 **Key imports:**

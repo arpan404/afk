@@ -12,7 +12,8 @@ them and returns an immutable typed object.
 from __future__ import annotations
 
 import os
-from typing import Any, Callable, TypeVar
+from collections.abc import Callable
+from typing import Any, ClassVar, TypeVar
 
 T = TypeVar("T")
 
