@@ -3,9 +3,9 @@ title: Tested Behaviors
 description: Contract-level guarantees and what test suites validate.
 ---
 
-AFK maintains a comprehensive test suite that validates contract-level guarantees across every major subsystem. These tests are not implementation details -- they define the behavioral contracts that the framework promises to uphold across releases. If a test fails, it means a contract has been broken.
+AFK's tests describe the behavior contributors should preserve when changing the runtime, tools, memory, queues, LLM adapters, observability, and evals. Treat this page as a map from behavior to the test files that cover it.
 
-This page documents what each test category validates, why those guarantees matter for your application, and how to run and extend the test suite.
+If you change a public contract, update the matching tests and the docs that explain that contract. A passing test suite is necessary, but it is not a release guarantee by itself; review the affected behavior and run the focused suite for the code you touched.
 
 ## Guaranteed behaviors
 
@@ -101,9 +101,9 @@ PYTHONPATH=src pytest -v --tb=short
 
 ## Interpreting test results
 
-- **All tests pass**: The framework's behavioral contracts are intact. Safe to upgrade or deploy.
-- **A test fails**: A contract has been broken. The failure message identifies which guarantee was violated. Do not deploy until the contract is restored.
-- **A new test is marked as `xfail`**: The team has acknowledged a known limitation and documented the expected behavior.
+- **All relevant tests pass**: The checked behavior still matches the test suite. Review docs and public imports before merging user-visible changes.
+- **A test fails**: Inspect the assertion before changing code. The test may expose a real contract regression, or the intended contract may have changed and need a deliberate test/doc update.
+- **A new test is marked as `xfail`**: Include a reason and keep the scope narrow so known limitations do not hide unrelated regressions.
 
 ## Adding new tests
 
@@ -119,7 +119,7 @@ When adding a new feature or fixing a bug, follow this pattern:
 
 ## CI pipeline guidance
 
-The AFK test suite is designed to run in CI without external dependencies. All tests use in-memory backends and mock LLM providers, so no API keys or infrastructure are required.
+Most tests run without API keys and use in-memory or mocked providers. Some integration tests cover optional backends such as Redis, SQLite, or Postgres behavior; keep those isolated and skippable when the backing service is unavailable.
 
 Recommended CI configuration:
 
@@ -127,7 +127,7 @@ Recommended CI configuration:
 # Example GitHub Actions step
 - name: Run AFK tests
   run: |
-    pip install -e ".[dev]"
+    pip install -e . pytest
     PYTHONPATH=src pytest -q --tb=short --junitxml=reports/test-results.xml
   env:
     PYTHONDONTWRITEBYTECODE: "1"

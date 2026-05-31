@@ -354,7 +354,7 @@ class BackgroundCompactor(MemoryCompactor):
 
     async def stop(self) -> None:
         """Stop background compaction."""
-        self.stop()
+        super().stop()
         if self._task:
             self._task.cancel()
             try:

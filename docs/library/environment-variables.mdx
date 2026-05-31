@@ -16,7 +16,8 @@ These variables configure the default LLM provider and behavior. They are read b
 | Variable                        | Default        | Description                                                  |
 | ------------------------------- | -------------- | ------------------------------------------------------------ |
 | `AFK_LLM_PROVIDER`              | `litellm`      | Default provider id (`openai`, `litellm`, `anthropic_agent`) |
-| `AFK_LLM_MODEL`                 | `gpt-5.2-mini` | Default model name                                           |
+| `AFK_LLM_PROVIDER_ORDER`        | _(none)_       | Comma-separated provider preference order for routing helpers |
+| `AFK_LLM_MODEL`                 | `gpt-4.1-mini` | Default model name                                           |
 | `AFK_EMBED_MODEL`               | _(none)_       | Embedding model for vector operations                        |
 | `AFK_LLM_API_BASE_URL`          | _(none)_       | Provider API base URL                                        |
 | `AFK_LLM_API_KEY`               | _(none)_       | Provider API key                                             |
@@ -41,10 +42,24 @@ Configure the persistent memory backend for thread-based conversations.
 
 | Variable             | Default              | Description                                             |
 | -------------------- | -------------------- | ------------------------------------------------------- |
-| `AFK_MEMORY_BACKEND` | `sqlite`             | Backend type: `inmemory`, `sqlite`, `redis`, `postgres` |
+| `AFK_MEMORY_BACKEND` | `memory`             | Backend type: `inmemory`/`memory`, `sqlite`, `redis`, `postgres` |
 | `AFK_SQLITE_PATH`    | `afk_memory.sqlite3` | SQLite file path                                        |
-| `AFK_REDIS_URL`      | _(none)_             | Redis connection URL (e.g. `redis://localhost:6379`)    |
+| `AFK_REDIS_URL`      | _(none)_             | Redis connection URL (for example `redis://localhost:6379`) |
+| `AFK_REDIS_HOST`     | `localhost`          | Redis host when URL is not set                          |
+| `AFK_REDIS_PORT`     | `6379`               | Redis port when URL is not set                          |
+| `AFK_REDIS_DB`       | `0`                  | Redis DB when URL is not set                            |
+| `AFK_REDIS_PASSWORD` | _(none)_             | Redis password when URL is not set                      |
+| `AFK_REDIS_EVENTS_MAX` | `2000`             | Max Redis memory events per thread                      |
 | `AFK_PG_DSN`         | _(none)_             | PostgreSQL connection string                            |
+| `AFK_PG_HOST`        | `localhost`          | PostgreSQL host when DSN is not set                     |
+| `AFK_PG_PORT`        | `5432`               | PostgreSQL port when DSN is not set                     |
+| `AFK_PG_USER`        | `postgres`           | PostgreSQL user when DSN is not set                     |
+| `AFK_PG_PASSWORD`    | _(none)_             | PostgreSQL password when DSN is not set                 |
+| `AFK_PG_DB`          | `afk`                | PostgreSQL database when DSN is not set                 |
+| `AFK_PG_SSL`         | `false`              | Enable PostgreSQL SSL                                   |
+| `AFK_PG_POOL_MIN`    | `1`                  | PostgreSQL pool minimum size                            |
+| `AFK_PG_POOL_MAX`    | `10`                 | PostgreSQL pool maximum size                            |
+| `AFK_VECTOR_DIM`     | _(required for Postgres)_ | Vector dimension for Postgres memory search        |
 
 ```python
 # Override in code — takes precedence over env vars
@@ -60,6 +75,12 @@ Configure the task queue backend for async agent execution.
 | Variable                           | Default    | Description                       |
 | ---------------------------------- | ---------- | --------------------------------- |
 | `AFK_QUEUE_BACKEND`                | `inmemory` | Backend type: `inmemory`, `redis` |
+| `AFK_QUEUE_REDIS_URL`              | falls back to `AFK_REDIS_URL` | Redis URL for queue backend |
+| `AFK_QUEUE_REDIS_HOST`             | falls back to `AFK_REDIS_HOST`, then `localhost` | Redis queue host |
+| `AFK_QUEUE_REDIS_PORT`             | falls back to `AFK_REDIS_PORT`, then `6379` | Redis queue port |
+| `AFK_QUEUE_REDIS_DB`               | falls back to `AFK_REDIS_DB`, then `0` | Redis queue DB |
+| `AFK_QUEUE_REDIS_PASSWORD`         | falls back to `AFK_REDIS_PASSWORD` | Redis queue password |
+| `AFK_QUEUE_REDIS_PREFIX`           | `afk:queue` | Redis key prefix |
 | `AFK_QUEUE_RETRY_BACKOFF_BASE_S`   | `0.5`      | Retry base delay in seconds       |
 | `AFK_QUEUE_RETRY_BACKOFF_MAX_S`    | `30`       | Retry max delay in seconds        |
 | `AFK_QUEUE_RETRY_BACKOFF_JITTER_S` | `0.2`      | Random jitter added to backoff    |
@@ -76,6 +97,33 @@ Configure the task queue backend for async agent execution.
 | `AFK_AGENT_PROMPTS_DIR` | `.agents/prompt` | Root directory for system prompt files |
 
 Agents resolve `instruction_file` paths relative to this directory. See [System Prompts](/library/system-prompts) for details.
+
+## Runner and tool command defaults
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `AFK_ALLOWED_COMMANDS` | _(none)_ | Comma-separated default allowlist for runtime command tools |
+
+Runner constructors and `RunnerConfig` fields remain the preferred way to set command policy. Use this environment variable only for process-wide defaults.
+
+## MCP server
+
+These variables are read by the MCP server configuration helpers in `afk.config`.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `AFK_CORS_ORIGINS` | _(none)_ | Comma-separated CORS origins |
+| `AFK_MCP_NAME` | `afk-mcp-server` | Server name |
+| `AFK_MCP_VERSION` | `1.0.0` | Server version string |
+| `AFK_MCP_HOST` | `127.0.0.1` | Bind host |
+| `AFK_MCP_PORT` | `8000` | Bind port |
+| `AFK_MCP_INSTRUCTIONS` | _(none)_ | Optional server instructions |
+| `AFK_MCP_PATH` | `/mcp` | HTTP MCP endpoint path |
+| `AFK_MCP_SSE_PATH` | `/mcp/sse` | SSE endpoint path |
+| `AFK_MCP_HEALTH_PATH` | `/health` | Health endpoint path |
+| `AFK_MCP_ENABLE_SSE` | `true` | Enable SSE endpoint |
+| `AFK_MCP_ENABLE_HEALTH` | `true` | Enable health endpoint |
+| `AFK_MCP_ALLOW_BATCH` | `true` | Allow batched MCP requests |
 
 ## A2A
 

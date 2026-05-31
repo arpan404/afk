@@ -30,10 +30,10 @@ Use `profile()` to apply a curated set of policies:
 from afk.llms import LLMBuilder
 
 # Development: no retry, no caching, fast failures
-dev = LLMBuilder().provider("openai").model("gpt-5.2-mini").profile("development").build()
+dev = LLMBuilder().provider("openai").model("gpt-4.1-mini").profile("development").build()
 
 # Production: retry, circuit breaker, rate limiting, caching
-prod = LLMBuilder().provider("openai").model("gpt-5.2-mini").profile("production").build()
+prod = LLMBuilder().provider("openai").model("gpt-4.1-mini").profile("production").build()
 ```
 
 | Profile       | Retry                           | Cache               | Rate Limit | Circuit Breaker        | Timeout |
@@ -44,40 +44,43 @@ prod = LLMBuilder().provider("openai").model("gpt-5.2-mini").profile("production
 
 ## Individual policies
 
-Configure each policy independently:
+Configure each policy independently with `create_llm_client()`:
 
 <Tabs>
   <Tab title="Retry">
     Retry transient LLM failures with exponential backoff.
 
     ```python
-    client = (
-        LLMBuilder()
-        .provider("openai")
-        .model("gpt-5.2-mini")
-        .retry(max_attempts=3, backoff_base=1.0, backoff_max=30.0)
-        .build()
+    from afk.llms import LLMSettings, RetryPolicy, create_llm_client
+
+    client = create_llm_client(
+        provider="openai",
+        settings=LLMSettings(default_model="gpt-4.1-mini"),
+        retry_policy=RetryPolicy(max_retries=3, backoff_base_s=1.0),
     )
     ```
 
     | Parameter | Default | Description |
     | --- | --- | --- |
-    | `max_attempts` | 3 | Total attempts (1 initial + 2 retries) |
-    | `backoff_base` | 1.0 | Initial delay in seconds |
-    | `backoff_max` | 30.0 | Maximum delay between retries |
-    | `retryable_errors` | `[429, 500, 502, 503]` | HTTP status codes to retry |
+    | `max_retries` | 3 | Retry attempts after the initial request |
+    | `backoff_base_s` | 0.5 | Initial delay in seconds |
+    | `backoff_jitter_s` | 0.15 | Jitter added to retry delays |
+    | `require_idempotency_key` | `True` | Require idempotency keys for retried requests |
 
   </Tab>
   <Tab title="Circuit breaker">
     Stop calling a failing provider to prevent cascading failures.
 
     ```python
-    client = (
-        LLMBuilder()
-        .provider("openai")
-        .model("gpt-5.2-mini")
-        .circuit_breaker(failure_threshold=5, recovery_timeout=30.0)
-        .build()
+    from afk.llms import CircuitBreakerPolicy, LLMSettings, create_llm_client
+
+    client = create_llm_client(
+        provider="openai",
+        settings=LLMSettings(default_model="gpt-4.1-mini"),
+        circuit_breaker_policy=CircuitBreakerPolicy(
+            failure_threshold=5,
+            cooldown_s=30.0,
+        ),
     )
     ```
 
@@ -95,12 +98,12 @@ Configure each policy independently:
     Prevent exceeding provider rate limits.
 
     ```python
-    client = (
-        LLMBuilder()
-        .provider("openai")
-        .model("gpt-5.2-mini")
-        .rate_limit(requests_per_minute=60, tokens_per_minute=100_000)
-        .build()
+    from afk.llms import LLMSettings, RateLimitPolicy, create_llm_client
+
+    client = create_llm_client(
+        provider="openai",
+        settings=LLMSettings(default_model="gpt-4.1-mini"),
+        rate_limit_policy=RateLimitPolicy(requests_per_second=1.0, burst=10),
     )
     ```
 
@@ -109,12 +112,12 @@ Configure each policy independently:
     Cache identical requests to reduce cost and latency.
 
     ```python
-    client = (
-        LLMBuilder()
-        .provider("openai")
-        .model("gpt-5.2-mini")
-        .cache(ttl_seconds=300, max_entries=1000)
-        .build()
+    from afk.llms import CachePolicy, LLMSettings, create_llm_client
+
+    client = create_llm_client(
+        provider="openai",
+        settings=LLMSettings(default_model="gpt-4.1-mini"),
+        cache_policy=CachePolicy(enabled=True, ttl_s=300, namespace="docs"),
     )
     ```
 
@@ -128,12 +131,12 @@ Configure each policy independently:
     Hard timeout on LLM requests.
 
     ```python
-    client = (
-        LLMBuilder()
-        .provider("openai")
-        .model("gpt-5.2-mini")
-        .timeout(connect_s=5.0, read_s=60.0)
-        .build()
+    from afk.llms import LLMSettings, TimeoutPolicy, create_llm_client
+
+    client = create_llm_client(
+        provider="openai",
+        settings=LLMSettings(default_model="gpt-4.1-mini"),
+        timeout_policy=TimeoutPolicy(request_timeout_s=60.0),
     )
     ```
 
@@ -149,12 +152,12 @@ from afk.agents import Agent, FailSafeConfig
 
 agent = Agent(
     name="resilient",
-    model="gpt-5.2",
+    model="gpt-4.1",
     fail_safe=FailSafeConfig(
-        fallback_model_chain=["gpt-5.2-mini", "gpt-5.2-nano"],
+        fallback_model_chain=["gpt-4.1-mini", "gpt-4.1-nano"],
     ),
 )
-# If gpt-5.2 fails → try gpt-5.2-mini → try gpt-5.2-nano
+# If gpt-4.1 fails → try gpt-4.1-mini → try gpt-4.1-nano
 ```
 
 ## Tuning cheat sheet

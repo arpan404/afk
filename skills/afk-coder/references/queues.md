@@ -212,7 +212,11 @@ queue = RedisTaskQueue(
 )
 ```
 
-Requires `redis` package: `pip install afk[redis]`
+Requires the Redis client package alongside AFK:
+
+```bash
+python -m pip install afk-py redis
+```
 
 ---
 

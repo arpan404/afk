@@ -20,7 +20,7 @@ flowchart TB
         LLM["LLM Runtime\n(afk.llms)"]
         Tools["Tool Registry\n(afk.tools)"]
         Memory["Memory Backend\n(afk.memory)"]
-        Telemetry["Telemetry Pipeline\n(afk.telemetry)"]
+        Telemetry["Observability Pipeline\n(afk.observability)"]
     end
 
     subgraph External["External Systems"]
@@ -50,8 +50,8 @@ flowchart TB
 | `afk.llms`      | LLM runtime, provider adapters, retry/circuit breaking | Provider SDKs                                       |
 | `afk.tools`     | Tool registry, execution, validation, hooks            | `pydantic`                                          |
 | `afk.memory`    | State persistence, checkpoints, compaction             | Backend drivers                                     |
-| `afk.telemetry` | Event pipeline, metrics, exporters                     | OTEL SDK (optional)                                 |
-| `afk.a2a`       | Agent-to-agent protocol, auth, external adapters       | `afk.core`                                          |
+| `afk.observability` | Event pipeline, metrics, exporters                 | OTEL SDK (optional)                                 |
+| `afk.messaging` | Public A2A protocol, auth, host, and delivery exports  | `afk.agents`                                        |
 | `afk.evals`     | Eval runner, assertions, reporting                     | `afk.core`                                          |
 
 <Note>

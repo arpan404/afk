@@ -21,8 +21,11 @@ Quick start::
 
     registry.register(greet)
 
-    server = MCPServer(registry)
-    server.run()  # starts on http://0.0.0.0:8000
+    server = MCPServer(
+        registry,
+        config=MCPServerConfig(host="127.0.0.1"),
+    )  # Secure-by-default local bind
+    server.run()  # starts on http://127.0.0.1:8000
 """
 
 from .server import MCPServer, MCPServerConfig, create_mcp_server

@@ -17,6 +17,16 @@ from collections.abc import Callable
 from typing import Any
 
 from afk.mcp.store.types import MCPRemoteCallError, MCPRemoteProtocolError, MCPServerRef
+from afk.mcp.store.utils import _validate_remote_url
+
+
+def _validate_server_for_call(server: MCPServerRef) -> None:
+    _validate_remote_url(
+        server.url,
+        allow_private_networks=server.allow_private_networks,
+        require_https=server.require_https,
+        allowed_hostnames=server.allowed_hostnames,
+    )
 
 
 class MCPJsonRpcClient:
@@ -37,6 +47,7 @@ class MCPJsonRpcClient:
             "params": params,
         }
         payload = json.dumps(request_body).encode("utf-8")
+        _validate_server_for_call(server)
         post_fn = post or self.http_post
         response_bytes = await asyncio.to_thread(post_fn, server, payload)
         try:

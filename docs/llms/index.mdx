@@ -15,7 +15,7 @@ from afk.llms import LLMBuilder
 client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-5.2-mini")
+    .model("gpt-4.1-mini")
     .build()
 )
 ```
@@ -32,7 +32,7 @@ client = (
   <Step title="Set the model">
 
     ```python
-    builder = builder.model("gpt-5.2-mini")
+    builder = builder.model("gpt-4.1-mini")
     ```
 
   </Step>
@@ -85,7 +85,7 @@ stack = MiddlewareStack(
 client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-5.2-mini")
+    .model("gpt-4.1-mini")
     .with_middlewares(stack)
     .build()
 )
@@ -107,7 +107,7 @@ async def tracing_middleware(call_next, req: LLMRequest) -> LLMResponse:
 client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-5.2-mini")
+    .model("gpt-4.1-mini")
     .with_middlewares(MiddlewareStack(
         chat=[tracing_middleware],
         embed=[],
@@ -132,7 +132,7 @@ client = (
     GPT-4.1, GPT-4.1-mini, GPT-4.1-nano, o-series
   </Card>
   <Card title="Anthropic" icon="circle-a">
-    Claude Opus 4.5, Claude Opus 4.5
+    Claude Opus and Sonnet families
   </Card>
   <Card title="LiteLLM" icon="circle-l">
     100+ providers via the LiteLLM proxy
@@ -141,13 +141,15 @@ client = (
 
 All providers expose the same `LLMClient` interface. Your agent code never touches provider-specific types.
 
-## Which provider should I use?
+## Example model choices
 
-| Scenario                   | Recommended                                     |
+Use these as starting points, then verify model availability, pricing, and context limits with your provider account.
+
+| Scenario                   | Starting point                                  |
 | -------------------------- | ----------------------------------------------- |
-| General purpose            | OpenAI `gpt-5.2-mini`                           |
-| Complex reasoning          | OpenAI `gpt-5.2` or Anthropic `claude-opus-4-5` |
-| Cost-sensitive             | OpenAI `gpt-5.2-nano`                           |
+| General purpose            | OpenAI `gpt-4.1-mini`                           |
+| Complex reasoning          | OpenAI `gpt-4.1` or Anthropic `claude-opus-4-5` |
+| Cost-sensitive             | OpenAI `gpt-4.1-nano`                           |
 | Non-OpenAI/Anthropic model | LiteLLM adapter                                 |
 | Custom or self-hosted      | Custom adapter                                  |
 
@@ -157,11 +159,11 @@ You rarely build `LLMClient` directly. Agents resolve their model automatically:
 
 ```python
 # Option 1: Model name (auto-resolved)
-agent = Agent(name="demo", model="gpt-5.2-mini", ...)
+agent = Agent(name="demo", model="gpt-4.1-mini", instructions="Answer directly.")
 
 # Option 2: Pre-built client (full control)
-client = LLMBuilder().provider("openai").model("gpt-5.2-mini").profile("production").build()
-agent = Agent(name="demo", model=client, ...)
+client = LLMBuilder().provider("openai").model("gpt-4.1-mini").profile("production").build()
+agent = Agent(name="demo", model=client, instructions="Answer directly.")
 ```
 
 ## Next steps

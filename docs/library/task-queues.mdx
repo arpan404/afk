@@ -12,7 +12,7 @@ from afk.queues import InMemoryTaskQueue, RUNNER_CHAT_CONTRACT, TaskWorker
 from afk.agents import Agent
 from afk.core import Runner
 
-agent = Agent(name="analyzer", model="gpt-5.2-mini", instructions="Analyze data.")
+agent = Agent(name="analyzer", model="gpt-4.1-mini", instructions="Analyze data.")
 
 # Push a task
 queue = InMemoryTaskQueue()

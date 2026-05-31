@@ -3,7 +3,7 @@ title: Adapters
 description: Built-in LLM providers and custom adapter registration.
 ---
 
-Adapters translate between AFK's normalized contracts (`LLMRequest`/`LLMResponse`) and provider-specific APIs. AFK ships with three built-in adapters and supports custom adapters for any provider.
+Providers translate between AFK's normalized contracts (`LLMRequest`/`LLMResponse`) and provider-specific APIs. AFK ships with three built-in providers and supports custom providers for internal deployments.
 
 ## Built-in providers
 
@@ -38,7 +38,7 @@ Adapters translate between AFK's normalized contracts (`LLMRequest`/`LLMResponse
 from afk.llms import LLMBuilder
 
 # OpenAI
-openai_client = LLMBuilder().provider("openai").model("gpt-5.2-mini").build()
+openai_client = LLMBuilder().provider("openai").model("gpt-4.1-mini").build()
 
 # Anthropic
 anthropic_client = LLMBuilder().provider("anthropic").model("claude-opus-4-5").build()
@@ -47,46 +47,37 @@ anthropic_client = LLMBuilder().provider("anthropic").model("claude-opus-4-5").b
 gemini_client = LLMBuilder().provider("litellm").model("gemini/gemini-2.5-pro").build()
 ```
 
-## Custom adapter
+## Custom provider
 
-Register your own adapter for unsupported providers or custom inference servers:
+Register your own provider for unsupported inference servers:
 
 <Steps>
-  <Step title="Implement the LLMAdapter protocol">
+  <Step title="Implement provider and transport contracts">
     ```python
-    from afk.llms import LLMAdapter, LLMRequest, LLMResponse
+    from afk.llms import LLMProvider, LLMRequest, LLMResponse, LLMTransport
 
-    class MyCustomAdapter(LLMAdapter):
-        def __init__(self, base_url: str, api_key: str):
-            self.base_url = base_url
-            self.api_key = api_key
+    class MyTransport(LLMTransport):
+        provider_id = "my-provider"
 
-        async def generate(self, request: LLMRequest) -> LLMResponse:
+        async def chat(self, request: LLMRequest, *, response_model=None) -> LLMResponse:
             # Translate LLMRequest → your provider's format
             payload = self._build_payload(request)
-
-            # Make the API call
-            async with httpx.AsyncClient() as client:
-                resp = await client.post(
-                    f"{self.base_url}/v1/complete",
-                    json=payload,
-                    headers={"Authorization": f"Bearer {self.api_key}"},
-                )
-
-            # Translate provider response → LLMResponse
+            resp = await self._post(payload)
             return self._parse_response(resp.json())
 
-        async def generate_stream(self, request: LLMRequest):
-            # Optional: implement streaming
-            ...
+    class MyProvider(LLMProvider):
+        provider_id = "my-provider"
+
+        def create_transport(self, *, settings, middlewares=None, observers=None, provider_settings=None):
+            return MyTransport()
     ```
 
   </Step>
-  <Step title="Register the adapter">
+  <Step title="Register the provider">
     ```python
-    from afk.llms import register_adapter
+    from afk.llms import register_llm_provider
 
-    register_adapter("my-provider", MyCustomAdapter)
+    register_llm_provider(MyProvider())
     ```
 
   </Step>
@@ -102,21 +93,14 @@ Register your own adapter for unsupported providers or custom inference servers:
 
 ## Custom transport
 
-Override the HTTP transport layer for any adapter (useful for proxies, mTLS, or custom retry logic):
+Use provider-specific settings for custom endpoints, proxy URLs, or credentials:
 
 ```python
-import httpx
-
-transport = httpx.AsyncHTTPTransport(
-    limits=httpx.Limits(max_connections=50, max_keepalive_connections=10),
-    retries=3,
-)
-
 client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-5.2-mini")
-    .transport(transport)
+    .model("gpt-4.1-mini")
+    .with_provider_settings("openai", {"base_url": "https://proxy.example.com/v1"})
     .build()
 )
 ```

@@ -158,6 +158,6 @@ class TestBackgroundCompactor:
         from afk.memory import BackgroundCompactor
 
         compactor = BackgroundCompactor()
-        compactor.stop()
+        await compactor.stop()
 
         assert compactor._running is False

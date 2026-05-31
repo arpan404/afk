@@ -65,6 +65,15 @@ Search the bundled agent docs index:
 python skills/afk-coder/scripts/search_afk_docs.py "runner resume"
 ```
 
+Install the repository skills with Vercel's Skills CLI:
+
+```bash
+npx skills add https://github.com/arpan404/afk --skill afk-coder
+npx skills add https://github.com/arpan404/afk --skill afk-maintainer
+```
+
+Use `afk-coder` when building with AFK. Use `afk-maintainer` when reviewing or changing AFK itself.
+
 ## Contribution Guidelines
 
 - Use public imports (`afk.*`) in examples and docs.

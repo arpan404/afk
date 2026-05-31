@@ -56,7 +56,7 @@ def search(args: SearchArgs) -> dict:
 
 agent = Agent(
     name="assistant",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="Use the search tool to find information.",
     tools=[search],
 )
@@ -215,7 +215,7 @@ stack = MiddlewareStack(
 client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-5.2-mini")
+    .model("gpt-4.1-mini")
     .with_middlewares(stack)
     .build()
 )
@@ -329,7 +329,7 @@ def help(args) -> dict:
 
 agent = Agent(
     name="helper",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="You are a helpful assistant.",
     tools=[help],
 )
@@ -370,8 +370,8 @@ def call_with_retry(func, max_attempts=3):
 client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-5.2-mini")
-    .retry(max_attempts=3, backoff_base=1.0)
+    .model("gpt-4.1-mini")
+    .profile("production")
     .build()
 )
 ```
@@ -402,8 +402,8 @@ class CircuitBreaker:
 client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-5.2-mini")
-    .circuit_breaker(failure_threshold=5, recovery_timeout=30.0)
+    .model("gpt-4.1-mini")
+    .profile("production")
     .build()
 )
 ```

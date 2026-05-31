@@ -1,17 +1,17 @@
 {
-  "generated_at_utc": "2026-05-20T19:18:48.145474+00:00",
+  "generated_at_utc": "2026-05-31T13:25:20.450807+00:00",
   "skills": [
     {
       "id": "skill_8d9ddec839",
       "name": "afk-coder",
-      "description": "Build production-grade AI agents with the AFK Python library. Covers Agent declaration, Runner execution, tools, memory, streaming, policies, multi-agent delegation, LLM configuration, and evaluation.",
+      "description": "Build applications with the AFK Python SDK. Use when creating or modifying AFK agents, runners, tools, memory, streaming, policy/HITL, LLM runtime configuration, queues, MCP/A2A integrations, evals, or production examples using public `afk.*` imports.",
       "path": "skills/afk-coder/SKILL.md",
       "github_url": "https://github.com/arpan404/afk/tree/main/skills/afk-coder"
     },
     {
       "id": "skill_cc4bcb2a3a",
       "name": "afk-maintainer",
-      "description": "Governance skill for the AFK framework. Enforces coding principles, DX-first design, extensibility patterns, production safety, and library quality standards across every contribution. Use this skill when reviewing PRs, triaging issues,planning releases, or making architectural decisions for AFK.",
+      "description": "Maintain and review the AFK Python SDK repository. Use when changing AFK internals, reviewing PRs, triaging issues, planning releases, updating docs/skills, or making architecture, public API, safety, dependency, testing, and compatibility decisions for AFK.",
       "path": "skills/afk-maintainer/SKILL.md",
       "github_url": "https://github.com/arpan404/afk/tree/main/skills/afk-maintainer"
     }

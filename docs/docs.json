@@ -34,6 +34,12 @@
       "name": "API",
       "url": "/library/api-reference",
       "arrow": false
+    },
+    {
+      "type": "link",
+      "name": "Skills",
+      "url": "/library/agent-skills",
+      "arrow": false
     }
   ],
   "sidebar": {
@@ -50,31 +56,24 @@
       "github": "https://github.com/arpan404/afk"
     }
   },
-  "tabs": [
-    {
-      "name": "Examples",
-      "url": "library/examples"
-    }
-  ],
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Build with AFK",
         "groups": [
           {
-            "group": "Welcome",
-            "pages": ["index", "library/overview", "library/quickstart"]
-          },
-          {
-            "group": "Learn",
+            "group": "Start Here",
             "pages": [
-              "library/learn-in-15-minutes",
+              "index",
+              "library/overview",
               "library/mental-model",
+              "library/quickstart",
+              "library/learn-in-15-minutes",
               "library/how-to-use-afk"
             ]
           },
           {
-            "group": "Core Concepts",
+            "group": "Core Building Blocks",
             "pages": [
               "library/agents",
               "library/core-runner",
@@ -86,30 +85,7 @@
             ]
           },
           {
-            "group": "Scaling Up",
-            "pages": [
-              "library/agentic-behavior",
-              "library/agentic-levels",
-              "library/architecture",
-              "library/building-with-ai",
-              "library/developer-guide",
-              "library/deployment",
-              "library/performance",
-              "library/troubleshooting",
-              "library/migration"
-            ]
-          },
-          {
-            "group": "Communication",
-            "pages": [
-              "library/messaging",
-              "library/a2a",
-              "library/task-queues",
-              "library/mcp-server"
-            ]
-          },
-          {
-            "group": "LLM Layer",
+            "group": "LLM Runtime",
             "pages": [
               "llms/index",
               "llms/contracts",
@@ -119,51 +95,97 @@
             ]
           },
           {
-            "group": "Reliability",
+            "group": "Production",
             "pages": [
-              "library/observability",
+              "library/building-with-ai",
               "library/evals",
+              "library/observability",
               "library/security-model",
-              "library/failure-policy-matrix"
+              "library/task-queues",
+              "library/deployment",
+              "library/performance",
+              "library/troubleshooting"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "library/mcp-server",
+              "library/a2a",
+              "library/messaging"
             ]
           }
         ]
       },
       {
-        "tab": "References",
-        "pages": [
-          "library/api-reference",
-          "library/configuration-reference",
-          "library/environment-variables",
-          "library/full-module-reference",
-          "library/debugger",
-          "library/public-imports-and-function-improvement",
-          "library/run-event-contract",
-          "library/llm-interaction",
-          "library/tested-behaviors",
-          "library/tools-system-walkthrough",
-          "library/tool-call-lifecycle",
-          "library/checkpoint-schema"
+        "tab": "Maintain AFK",
+        "groups": [
+          {
+            "group": "Contributor Guide",
+            "pages": [
+              "library/developer-guide",
+              "library/architecture",
+              "library/public-imports-and-function-improvement",
+              "library/tested-behaviors"
+            ]
+          },
+          {
+            "group": "Internal Contracts",
+            "pages": [
+              "library/agentic-behavior",
+              "library/agentic-levels",
+              "library/failure-policy-matrix",
+              "library/tool-call-lifecycle",
+              "library/tools-system-walkthrough",
+              "library/run-event-contract",
+              "library/checkpoint-schema",
+              "library/llm-interaction",
+              "library/debugger"
+            ]
+          },
+          {
+            "group": "Migration",
+            "pages": ["library/migration"]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "API and Configuration",
+            "pages": [
+              "library/api-reference",
+              "library/configuration-reference",
+              "library/environment-variables",
+              "library/full-module-reference"
+            ]
+          }
         ]
       },
       {
         "tab": "Examples",
-        "pages": [
-          "library/examples/index",
-          "library/snippets/01_minimal_chat_agent",
-          "library/snippets/02_policy_with_hitl",
-          "library/snippets/03_subagents_with_router",
-          "library/snippets/04_resume_and_compact",
-          "library/snippets/05_direct_llm_structured_output",
-          "library/snippets/06_tool_registry_security",
-          "library/snippets/07_tool_hooks_and_middleware",
-          "library/snippets/08_prebuilt_runtime_tools",
-          "library/snippets/09_system_prompt_loader",
-          "library/snippets/10_streaming_chat_with_memory",
-          "library/snippets/11_cost_monitoring",
-          "library/snippets/12_mcp_client_integration",
-          "library/snippets/13_multi_model_fallback",
-          "library/snippets/14_production_client"
+        "groups": [
+          {
+            "group": "Runnable Snippets",
+            "pages": [
+              "library/examples/index",
+              "library/snippets/01_minimal_chat_agent",
+              "library/snippets/02_policy_with_hitl",
+              "library/snippets/03_subagents_with_router",
+              "library/snippets/04_resume_and_compact",
+              "library/snippets/05_direct_llm_structured_output",
+              "library/snippets/06_tool_registry_security",
+              "library/snippets/07_tool_hooks_and_middleware",
+              "library/snippets/08_prebuilt_runtime_tools",
+              "library/snippets/09_system_prompt_loader",
+              "library/snippets/10_streaming_chat_with_memory",
+              "library/snippets/11_cost_monitoring",
+              "library/snippets/12_mcp_client_integration",
+              "library/snippets/13_multi_model_fallback",
+              "library/snippets/14_production_client"
+            ]
+          }
         ]
       }
     ]

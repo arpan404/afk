@@ -223,7 +223,7 @@ from afk.agents import Agent, PolicyEngine, PolicyRule
 
 agent = Agent(
     name="ops",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     tools=[list_files, delete_file],
     policy_engine=PolicyEngine(rules=[
         PolicyRule(
@@ -430,7 +430,7 @@ tools = build_runtime_tools(root_dir="/workspace/project")
 
 agent = Agent(
     name="explorer",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="Explore the project directory structure.",
     tools=tools,
 )
@@ -456,7 +456,7 @@ from afk.agents.types import SkillToolPolicy
 
 agent = Agent(
     name="maintainer",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     skills=["maintainer"],
     skill_tool_policy=SkillToolPolicy(
         command_allowlist=["rg", "git", "python"],

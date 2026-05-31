@@ -1,388 +1,166 @@
 ---
-title: Performance Optimization
-description: Optimize AFK agents for latency, throughput, and cost efficiency.
+title: Performance
+description: Improve AFK latency, throughput, and cost without relying on internal APIs.
 ---
 
-This guide covers techniques for making AFK agents faster, more efficient, and less expensive to run.
+Performance work in AFK usually comes from four levers: choosing the right model, reducing unnecessary tool/LLM calls, keeping memory bounded, and moving long-running work into queues.
 
-## Latency optimization
+## Latency
 
-### Use faster models for simple tasks
-
-```python
-from afk.llms import LLMBuilder
-
-# Simple classification or extraction tasks
-fast_client = (
-    LLMBuilder()
-    .provider("openai")
-    .model("gpt-5.2-nano")  # Fastest, cheapest
-    .build()
-)
-
-# Complex reasoning tasks
-smart_client = (
-    LLMBuilder()
-    .provider("openai")
-    .model("gpt-5.2")
-    .build()
-)
-
-# Route based on task complexity
-def get_client_for_task(task: str) -> LLMClient:
-    if is_simple_task(task):
-        return fast_client
-    return smart_client
-```
-
-### Enable response caching
+Use the smallest model that can reliably handle the task, and reserve larger models for tasks that need deeper reasoning.
 
 ```python
-client = (
-    LLMBuilder()
-    .provider("openai")
-    .model("gpt-5.2-mini")
-    .cache(
-        ttl_seconds=3600,      # Cache for 1 hour
-        max_entries=5000,      # Keep 5000 entries
-    )
-    .build()
+from afk.agents import Agent
+
+classifier = Agent(
+    name="classifier",
+    model="gpt-4.1-nano",
+    instructions="Classify the request. Return only one label.",
+)
+
+analyst = Agent(
+    name="analyst",
+    model="gpt-4.1",
+    instructions="Perform detailed technical analysis.",
 )
 ```
 
-**What gets cached:** Identical requests (same messages, model, temperature, tools) return cached responses without LLM API call.
+Other latency controls:
 
-### Optimize tool execution time
+- keep system prompts short and specific;
+- make I/O-bound tools async;
+- avoid tools for information already present in context;
+- stream user-facing runs with `runner.run_stream(...)`;
+- set tight `max_steps`, `max_llm_calls`, and `max_wall_time_s` limits.
 
-```python
-# Use async tools for I/O-bound operations
-@tool(name="fetch_data", description="Fetch data from API.")
-async def fetch_data(args: FetchArgs) -> dict:
-    async with httpx.AsyncClient() as client:
-        response = await client.get(args.url)
-        return response.json()
+## Tool execution
 
-# Batch independent operations
-@tool(name="fetch_multiple", description="Fetch multiple URLs.")
-async def fetch_multiple(args: FetchMultipleArgs) -> dict:
-    async with httpx.AsyncClient() as client:
-        tasks = [client.get(url) for url in args.urls]
-        responses = await asyncio.gather(*tasks)
-        return {"results": [r.json() for r in responses]}
-```
-
-### Minimize token count
+Tools are often the slowest part of a run. Keep them typed, narrow, and bounded.
 
 ```python
-# Compact conversation history
-await runner.compact_thread(
-    thread_id=thread_id,
-    event_policy=RetentionPolicy(
-        max_events_per_thread=50,  # Keep recent only
-        keep_event_types=["user", "assistant", "system"],
-    ),
-)
+from pydantic import BaseModel
 
-# Use shorter system prompts
-system_prompt = """
-You are a helpful assistant. Be concise.
-""".strip()
+from afk.tools import tool
 
-# Prefer structured output to reduce parsing overhead
+
+class FetchArgs(BaseModel):
+    url: str
+
+
+@tool(args_model=FetchArgs, name="fetch_json", description="Fetch JSON from a URL.")
+async def fetch_json(args: FetchArgs) -> dict:
+    # Use your HTTP client here and enforce its own timeout.
+    return {"url": args.url, "status": "ok"}
 ```
 
-## Throughput optimization
+Tool guidance:
 
-### Concurrent agent runs
+- validate inputs with Pydantic models;
+- enforce timeouts in external clients;
+- return compact JSON-safe payloads;
+- truncate or summarize large external responses before returning them;
+- use `RunnerConfig(tool_output_max_chars=...)` as a final bound.
+
+## Throughput
+
+Use async runner APIs for services and workers.
 
 ```python
 import asyncio
+
 from afk.core import Runner
-from afk.agents import Agent
+
 
 runner = Runner()
 
-async def run_agent(user_message: str) -> str:
-    result = await runner.run(agent, user_message=user_message)
+
+async def run_one(message: str) -> str:
+    result = await runner.run(agent, user_message=message)
     return result.final_text
 
-async def main():
-    # Run 10 agents concurrently
+
+async def main() -> list[str]:
     messages = [f"Process request {i}" for i in range(10)]
-    results = await asyncio.gather(*[run_agent(msg) for msg in messages])
-    return results
-
-asyncio.run(main())
+    return await asyncio.gather(*(run_one(message) for message in messages))
 ```
 
-### Connection pooling
+For durable background work, use task queues instead of keeping HTTP requests open. See [Task Queues](/library/task-queues).
+
+## Cost
+
+Set cost and loop limits on every production agent.
 
 ```python
-from afk.llms.cache.redis_pool import get_redis_pool, PoolConfig
-
-# Reuse connections across requests
-pool = await get_redis_pool(
-    "redis://localhost:6379",
-    config=PoolConfig(
-        max_connections=50,
-        max_idle_connections=10,
-        socket_timeout=5.0,
-    ),
-)
-
-# Use in memory and queue backends
-runner = Runner(
-    memory_store=RedisMemoryStore(url="redis://localhost:6379"),
-)
-```
-
-### Worker pool for queue processing
-
-```python
-from afk.queues import InMemoryTaskQueue, TaskWorker, TaskWorkerConfig
-
-# Multiple workers for parallel processing
-queue = InMemoryTaskQueue()
-workers = [
-    TaskWorker(
-        queue=queue,
-        agents={"analyzer": agent},
-        config=TaskWorkerConfig(max_concurrent_tasks=5),
-    )
-    for _ in range(4)
-]
-
-# Start all workers
-await asyncio.gather(*[w.start() for w in workers])
-```
-
-## Cost optimization
-
-### Use the cheapest appropriate model
-
-| Task | Recommended Model | Cost Savings |
-|------|------------------|---------------|
-| Classification | `gpt-5.2-nano` | ~95% |
-| Simple extraction | `gpt-5.2-mini` | ~80% |
-| General Q&A | `gpt-5.2-mini` | ~80% |
-| Complex reasoning | `gpt-5.2` | baseline |
-
-### Implement smart routing
-
-```python
-from afk.agents import Agent
-
-class Router:
-    def route(self, message: str) -> Agent:
-        # Classify task complexity
-        complexity = self.classify(message)
-        
-        if complexity == "simple":
-            return self.simple_agent
-        elif complexity == "moderate":
-            return self.moderate_agent
-        else:
-            return self.complex_agent
-    
-    def classify(self, message: str) -> str:
-        # Use fast model to classify
-        result = self.classifier.run_sync(
-            self.classifier_agent,
-            user_message=f"Classify: {message}"
-        )
-        return result.final_text.strip().lower()
-
-router = Router()
-```
-
-### Cache aggressively
-
-```python
-# Long TTL for stable queries
-client = (
-    LLMBuilder()
-    .provider("openai")
-    .model("gpt-5.2-mini")
-    .cache(ttl_seconds=86400)  # 24 hours
-    .build()
-)
-
-# Short TTL for dynamic content
-client_dynamic = (
-    LLMBuilder()
-    .provider("openai")
-    .model("gpt-5.2-mini")
-    .cache(ttl_seconds=300)  # 5 minutes
-    .build()
-)
-```
-
-### Set hard cost limits
-
-```python
-from afk.agents import FailSafeConfig
+from afk.agents import Agent, FailSafeConfig
 
 agent = Agent(
-    name="cost-conscious",
-    model="gpt-5.2-mini",
+    name="bounded-agent",
+    model="gpt-4.1-mini",
+    instructions="Answer concisely and use tools only when needed.",
     fail_safe=FailSafeConfig(
-        max_total_cost_usd=0.10,  # Never exceed $0.10 per run
+        max_total_cost_usd=0.10,
+        max_steps=8,
+        max_llm_calls=12,
+        max_tool_calls=20,
+        max_wall_time_s=45.0,
     ),
 )
 ```
 
-## Memory optimization
-
-### Compact proactively
+Read cost from the terminal result:
 
 ```python
-# Compact before running long tasks
-await runner.compact_thread(
-    thread_id=thread_id,
-    event_policy=RetentionPolicy(
-        max_events_per_thread=100,
-        keep_event_types=["user", "assistant", "tool_call", "tool_result"],
-    ),
-)
+result = runner.run_sync(agent, user_message="Summarize this issue.")
 
-# Compact after every 50 interactions
-if event_count % 50 == 0:
-    await runner.compact_thread(thread_id=thread_id)
+print(result.usage_aggregate.total_tokens)
+print(result.total_cost_usd)
 ```
 
-### Use efficient memory backends
+## Memory
 
-| Backend | Use Case | Memory Footprint |
-|---------|----------|-----------------|
-| In-memory | Testing, dev | N/A (RAM) |
-| SQLite | Single process, local | ~1KB/event |
-| Redis | Multi-process, shared | ~1KB/event |
-| Postgres | Production, vector search | ~2KB/event |
+Long threads increase prompt size and storage. Use explicit thread ids and compact retained state when threads grow.
 
 ```python
-# Production: Use Postgres with connection pooling
-from afk.memory.adapters.postgres import PostgresMemoryStore
-
-runner = Runner(
-    memory_store=PostgresMemoryStore(
-        dsn="postgresql://user:pass@host/db?sslmode=require",
-        pool_size=10,
-    ),
-)
+await runner.compact_thread(thread_id="customer-123")
 ```
 
-## Profiling
+Choose the memory backend by deployment shape:
 
-### Measure agent performance
+| Backend | Use case |
+| --- | --- |
+| In-memory | Tests and local experiments |
+| SQLite | Single-process local or small deployments |
+| Redis | Shared state across processes |
+| Postgres | Persistent production storage and vector search |
+
+Configure backends with environment variables or pass a public `MemoryStore` implementation to `Runner(memory_store=...)`.
+
+## Measurement
+
+Measure from `AgentResult` first:
 
 ```python
 import time
-from afk.core import Runner
 
-runner = Runner()
-
-# Time individual runs
 start = time.perf_counter()
-result = await runner.run(agent, user_message="Complex task")
-elapsed = time.perf_counter() - start
+result = await runner.run(agent, user_message="Analyze this task.")
+elapsed_s = time.perf_counter() - start
 
-print(f"Run time: {elapsed:.2f}s")
-print(f"LLM calls: {len(result.llm_calls)}")
-print(f"Tool calls: {len(result.tool_executions)}")
-print(f"Tokens: {result.usage.total_tokens}")
+print(f"state={result.state}")
+print(f"elapsed_s={elapsed_s:.2f}")
+print(f"tokens={result.usage_aggregate.total_tokens}")
+print(f"cost={result.total_cost_usd or 0:.4f}")
+print(f"tools={len(result.tool_executions)}")
 ```
 
-### Identify bottlenecks
+For production, export telemetry through [Observability](/library/observability) and track latency, token usage, tool failures, degraded runs, and cost per run.
 
-```python
-# Log timing for each step
-from afk.core import RunnerConfig
+## Checklist
 
-runner = Runner(
-    config=RunnerConfig(
-        debug=True,
-    ),
-)
-
-# Check telemetry for detailed timing
-from afk.observability import TelemetryExporter
-
-exporter = TelemetryExporter("console")
-runner = Runner(telemetry=exporter)
-```
-
-## Performance checklist
-
-<Steps>
-  <Step title="Model selection">
-    Use `gpt-5.2-nano` for simple tasks, reserve `gpt-5.2` for complex reasoning.
-  </Step>
-  <Step title="Caching">
-    Enable caching with appropriate TTL for your use case.
-  </Step>
-  <Step title="Cost limits">
-    Always set `max_total_cost_usd` in production.
-  </Step>
-  <Step title="Connection pooling">
-    Use connection pools for Redis and database backends.
-  </Step>
-  <Step title="Memory compaction">
-    Compact conversation history before it grows too large.
-  </Step>
-  <Step title="Async tools">
-    Use async/await for I/O-bound tool operations.
-  </Step>
-  <Step title="Worker scaling">
-    Scale queue workers based on throughput needs.
-  </Step>
-</Steps>
-
-## Benchmarking
-
-Compare performance across configurations:
-
-```python
-import statistics
-
-def benchmark(client, messages, iterations=5):
-    times = []
-    costs = []
-    
-    for _ in range(iterations):
-        start = time.perf_counter()
-        result = runner.run_sync(agent, user_message=message, llm_client=client)
-        elapsed = time.perf_counter() - start
-        
-        times.append(elapsed)
-        costs.append(result.usage.total_cost_usd)
-    
-    return {
-        "avg_time": statistics.mean(times),
-        "p95_time": statistics.quantiles(times, n=20)[18],
-        "avg_cost": statistics.mean(costs),
-    }
-
-# Compare clients
-fast_config = LLMBuilder().provider("openai").model("gpt-5.2-nano").cache().build()
-smart_config = LLMBuilder().provider("openai").model("gpt-5.2").cache().build()
-
-print("Fast model:", benchmark(fast_config))
-print("Smart model:", benchmark(smart_config))
-```
-
-## Next steps
-
-<CardGroup cols={2}>
-  <Card title="Deployment" icon="server" href="/library/deployment">
-    Deploy optimized agents to production.
-  </Card>
-  <Card title="Observability" icon="chart-bar" href="/library/observability">
-    Monitor performance metrics in production.
-  </Card>
-  <Card title="Control & Session" icon="gear" href="/llms/control-and-session">
-    Configure retry, caching, and circuit breaker policies.
-  </Card>
-  <Card title="Evals" icon="check-circle" href="/library/evals">
-    Test performance regressions before shipping.
-  </Card>
-</CardGroup>
+- Use async runner APIs in servers and workers.
+- Stream user-facing runs.
+- Keep prompts and tool outputs compact.
+- Set fail-safe limits and cost budgets.
+- Compact long-running threads.
+- Move durable background work into queues.
+- Monitor token usage, tool count, state, and cost per run.

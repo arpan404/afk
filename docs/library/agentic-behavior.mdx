@@ -13,14 +13,14 @@ from afk.agents import Agent
 from afk.core import Runner
 
 # Specialist agents
-researcher = Agent(name="researcher", model="gpt-5.2-mini", instructions="Find facts.")
-writer = Agent(name="writer", model="gpt-5.2-mini", instructions="Write summaries.")
-reviewer = Agent(name="reviewer", model="gpt-5.2-mini", instructions="Review for accuracy.")
+researcher = Agent(name="researcher", model="gpt-4.1-mini", instructions="Find facts.")
+writer = Agent(name="writer", model="gpt-4.1-mini", instructions="Write summaries.")
+reviewer = Agent(name="reviewer", model="gpt-4.1-mini", instructions="Review for accuracy.")
 
 # Coordinator
 coordinator = Agent(
     name="coordinator",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="""
     1. Ask 'researcher' for facts
     2. Ask 'writer' to summarize

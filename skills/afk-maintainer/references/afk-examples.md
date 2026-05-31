@@ -2,7 +2,7 @@
 
 Merged from `docs/library/snippets/*.mdx` for agent-friendly context loading.
 
-Generated at: 2026-05-20T19:18:48.145710+00:00
+Generated at: 2026-05-31T13:25:20.451068+00:00
 
 ## 01_minimal_chat_agent
 
@@ -22,7 +22,7 @@ If you are new to AFK, start here. Every other example builds on this foundation
 from afk.agents import Agent
 from afk.core import Runner
 
-agent = Agent(name="chat", model="gpt-5.2-mini", instructions="Answer directly with concrete detail.")
+agent = Agent(name="chat", model="gpt-4.1-mini", instructions="Answer directly with concrete detail.")
 runner = Runner()
 result = runner.run_sync(agent, user_message="Define error budget in SRE.")
 print(result.final_text)
@@ -54,7 +54,7 @@ The `AgentResult` dataclass returned by `run_sync` includes:
 
 ## Expected behavior
 
-When you run this example, the runner makes a single LLM call to `gpt-5.2-mini` with the system instructions and user message. Since no tools are registered, the model responds with text only. The run completes in one step with `state="completed"`, and `final_text` contains a concise definition of error budgets in SRE.
+When you run this example, the runner makes a single LLM call to `gpt-4.1-mini` with the system instructions and user message. Since no tools are registered, the model responds with text only. The run completes in one step with `state="completed"`, and `final_text` contains a concise definition of error budgets in SRE.
 
 No network calls, API keys, or external services are required beyond access to the specified LLM provider (configured via environment variables like `OPENAI_API_KEY`).
 ```
@@ -95,7 +95,7 @@ policy = PolicyEngine(rules=[
 
 agent = Agent(
     name="change-manager",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="You manage infrastructure changes. Always use available tools.",
 )
 
@@ -205,24 +205,24 @@ from afk.core import Runner
 # Define specialist subagents
 triage = Agent(
     name="triage",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="Classify incident severity as SEV1, SEV2, SEV3, or SEV4 based on the description.",
 )
 analysis = Agent(
     name="analysis",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="Identify the most likely root causes for the described incident.",
 )
 comms = Agent(
     name="comms",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="Draft a concise stakeholder update email summarizing the incident and current status.",
 )
 
 # Define the coordinator agent
 lead = Agent(
     name="lead",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="Delegate to specialists and synthesize their outputs into a final response.",
     subagents=[triage, analysis, comms],
 )
@@ -274,7 +274,7 @@ from afk.agents import FailSafeConfig
 
 lead = Agent(
     name="lead",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="Delegate to specialists. If any specialist fails, work with available results.",
     subagents=[triage, analysis, comms],
     fail_safe=FailSafeConfig(
@@ -312,7 +312,7 @@ from afk.core import Runner, RunnerConfig
 
 agent = Agent(
     name="research-bot",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="You help users research topics thoroughly.",
 )
 
@@ -467,7 +467,7 @@ class Summary(BaseModel):
     bullets: list[str]
 
 # Build an LLM client using the fluent builder
-client = LLMBuilder().provider("openai").model("gpt-5.2-mini").profile("production").build()
+client = LLMBuilder().provider("openai").model("gpt-4.1-mini").profile("production").build()
 
 # Make a structured request
 resp = await client.chat(
@@ -486,10 +486,8 @@ print(resp.text)                 # The raw text response
 client = (
     LLMBuilder()
     .provider("openai")          # Which LLM provider to use
-    .model("gpt-5.2-mini")      # Which model
+    .model("gpt-4.1-mini")      # Which model
     .profile("production")       # Apply a preset profile (retry, timeout, etc.)
-    .temperature(0.0)            # Override sampling temperature
-    .max_tokens(1000)            # Set max response tokens
     .build()                     # Return the configured LLMClient
 )
 ```
@@ -503,11 +501,14 @@ Available builder methods:
 | `.provider(name)` | Set the LLM provider (`"openai"`, `"litellm"`, `"anthropic_agent"`). |
 | `.model(name)` | Set the model identifier. |
 | `.profile(name)` | Apply a named configuration profile (`"production"`, `"development"`, etc.). |
-| `.temperature(value)` | Set sampling temperature (0.0-2.0). |
-| `.max_tokens(value)` | Set maximum response tokens. |
-| `.top_p(value)` | Set nucleus sampling parameter. |
-| `.timeout(seconds)` | Set request timeout. |
+| `.settings(settings)` | Replace the loaded `LLMSettings`. |
+| `.with_middlewares(stack)` | Attach chat, stream, or embedding middleware. |
+| `.with_observers(observers)` | Attach LLM lifecycle observers. |
+| `.with_cache(cache_backend)` | Attach a cache backend instance or registered backend id. |
+| `.with_router(router)` | Attach a router instance or registered router id. |
 | `.build()` | Construct and return the `LLMClient`. |
+
+Sampling controls are request fields, not builder methods. Set them on `LLMRequest`, for example `LLMRequest(..., temperature=0.0, max_tokens=1000)`.
 
 ## Structured output with Pydantic
 
@@ -616,7 +617,7 @@ policy = PolicyEngine(rules=[
 
 agent = Agent(
     name="resource-manager",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="Manage resources using the available tools. Always look up a resource before modifying it.",
     tools=[get_resource, delete_resource],
     fail_safe=FailSafeConfig(
@@ -863,7 +864,7 @@ async def add_request_metadata(call_next, req: LLMRequest) -> LLMResponse:
 client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-5.2-mini")
+    .model("gpt-4.1-mini")
     .profile("production")
     .with_middlewares(MiddlewareStack(
         chat=[add_request_metadata],
@@ -920,7 +921,7 @@ stack = MiddlewareStack(
 client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-5.2-mini")
+    .model("gpt-4.1-mini")
     .with_middlewares(stack)
     .build()
 )
@@ -929,7 +930,7 @@ client = (
 The timeout middleware respects `TimeoutPolicy` from the request if provided:
 ```python
 req = LLMRequest(
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     messages=[...],
     timeout_policy=TimeoutPolicy(request_timeout_s=45.0),  # Override config
 )
@@ -981,7 +982,7 @@ runtime_tools = build_runtime_tools(root_dir=Path("./workspace"))
 
 agent = Agent(
     name="file-assistant",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions=(
         "You help users explore and read files in the workspace directory. "
         "Use list_directory to browse the directory structure and read_file "
@@ -1056,7 +1057,7 @@ policy = PolicyEngine(
 
 agent = Agent(
     name="ops-assistant",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="Use approved runtime tools only. Never read sensitive configuration without approval.",
     tools=build_runtime_tools(root_dir=Path("./project")),
 )
@@ -1096,7 +1097,7 @@ all_tools = build_runtime_tools(root_dir=Path("./workspace")) + [grep_files]
 
 agent = Agent(
     name="dev-assistant",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="Help developers explore and search the codebase.",
     tools=all_tools,
 )
@@ -1170,14 +1171,14 @@ from afk.agents import Agent
 # Option 1: Inline instructions (highest priority)
 agent = Agent(
     name="ChatAgent",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="Answer customer questions concisely.",
 )
 
 # Option 2: Explicit instruction file
 agent = Agent(
     name="ChatAgent",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instruction_file="chat_agent_system.md",   # Loaded from prompts_dir
     prompts_dir=".agents/prompt",
 )
@@ -1186,7 +1187,7 @@ agent = Agent(
 # Loads .agents/prompt/CHAT_AGENT.md automatically
 agent = Agent(
     name="ChatAgent",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     prompts_dir=".agents/prompt",
 )
 ```
@@ -1214,14 +1215,14 @@ The prompts directory is resolved through its own priority chain:
 
 ```python
 # Explicit
-agent = Agent(name="Bot", model="gpt-5.2-mini", prompts_dir="/opt/prompts")
+agent = Agent(name="Bot", model="gpt-4.1-mini", prompts_dir="/opt/prompts")
 
 # Environment variable
 # export AFK_AGENT_PROMPTS_DIR=/opt/prompts
-agent = Agent(name="Bot", model="gpt-5.2-mini")
+agent = Agent(name="Bot", model="gpt-4.1-mini")
 
 # Default: .agents/prompt/
-agent = Agent(name="Bot", model="gpt-5.2-mini")
+agent = Agent(name="Bot", model="gpt-4.1-mini")
 ```
 
 ## Jinja2 templating
@@ -1252,7 +1253,7 @@ from afk.core import Runner, RunnerConfig
 
 agent = Agent(
     name="SupportAgent",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     prompts_dir=".agents/prompt",
 )
 
@@ -1301,7 +1302,7 @@ The prompt loader enforces strict path containment. The resolved prompt file pat
 # This would raise PromptAccessError:
 agent = Agent(
     name="Agent",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instruction_file="../../etc/passwd",   # Escapes prompts root
     prompts_dir=".agents/prompt",
 )
@@ -1337,7 +1338,7 @@ from afk.core import Runner, RunnerConfig
 
 agent = Agent(
     name="chat-assistant",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="""
     You are a helpful assistant. Remember context from earlier in the conversation.
     Be concise but thorough. If the user refers to something from a previous message,
@@ -1466,7 +1467,7 @@ from afk.agents import Agent, FailSafeConfig
 
 agent = Agent(
     name="budget-agent",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="Be helpful and concise.",
     fail_safe=FailSafeConfig(
         max_total_cost_usd=0.50,        # Hard cost ceiling
@@ -1490,12 +1491,11 @@ runner = Runner()
 result = runner.run_sync(agent, user_message="Analyze this dataset...")
 
 # Access usage statistics
-usage = result.usage
+usage = result.usage_aggregate
 print(f"Input tokens:  {usage.input_tokens}")
 print(f"Output tokens: {usage.output_tokens}")
 print(f"Total tokens:  {usage.total_tokens}")
-print(f"Estimated cost: ${usage.estimated_cost_usd:.4f}")
-print(f"LLM calls:     {usage.llm_call_count}")
+print(f"Estimated cost: ${result.total_cost_usd or 0:.4f}")
 print(f"Tool calls:    {len(result.tool_executions)}")
 ```
 
@@ -1510,7 +1510,7 @@ from afk.core import Runner
 
 agent = Agent(
     name="analyst",
-    model="gpt-5.2",
+    model="gpt-4.1",
     instructions="Provide detailed analysis.",
     fail_safe=FailSafeConfig(
         max_total_cost_usd=1.00,
@@ -1522,7 +1522,7 @@ agent = Agent(
 async def monitor_cost():
     runner = Runner()
     handle = await runner.run_stream(
-        agent, user_message="Provide a comprehensive analysis of Python async patterns"
+        agent, user_message="Compare Python async patterns for service code"
     )
 
     step_count = 0
@@ -1535,12 +1535,11 @@ async def monitor_cost():
             case "tool_completed":
                 print(f"\n  [STEP] Step {step_count} | Tool: {event.tool_name}")
             case "completed" if event.result is not None:
-                usage = event.result.usage
+                usage = event.result.usage_aggregate
                 print(f"\n\n--- Cost Summary ---")
                 print(f"State:    {event.result.state}")
                 print(f"Tokens:   {usage.total_tokens}")
-                print(f"Cost:     ${usage.estimated_cost_usd:.4f}")
-                print(f"LLM calls: {usage.llm_call_count}")
+                print(f"Cost:     ${event.result.total_cost_usd or 0:.4f}")
                 print(f"Tools:    {len(event.result.tool_executions)}")
 
 asyncio.run(monitor_cost())
@@ -1566,7 +1565,7 @@ async def batch_process(items: list[str], budget_usd: float):
         remaining = budget_usd - cumulative_cost
         agent = Agent(
             name="batch-processor",
-            model="gpt-5.2-mini",
+            model="gpt-4.1-mini",
             instructions="Process the item concisely.",
             fail_safe=FailSafeConfig(
                 max_total_cost_usd=min(remaining, 0.10),  # Per-item cap
@@ -1575,22 +1574,23 @@ async def batch_process(items: list[str], budget_usd: float):
         )
 
         result = await runner.run(agent, user_message=item)
-        cumulative_cost += result.usage.estimated_cost_usd
+        item_cost = result.total_cost_usd or 0.0
+        cumulative_cost += item_cost
         results.append(result)
 
-        print(f"  [OK] {item[:40]}... (${result.usage.estimated_cost_usd:.4f})")
+        print(f"  [OK] {item[:40]}... (${item_cost:.4f})")
 
     print(f"\nTotal: {len(results)} items, ${cumulative_cost:.4f}")
     return results
 ```
 
-## Production recommendations
+## Operating recommendations
 
 1. **Always set `max_total_cost_usd`** — even generous limits prevent runaway costs
 2. **Layer defenses** — combine cost limits with `max_llm_calls`, `max_steps`, and `max_wall_time_s`
 3. **Use telemetry for dashboards** — export metrics to monitor cost trends over time
 4. **Set per-item budgets in batches** — prevent one expensive item from consuming the entire budget
-5. **Use cheaper models for iteration** — use `gpt-5.2-mini` for development, `gpt-5.2` for production
+5. **Choose models by task** — use smaller models for routine work and reserve larger models for requests that need them
 
 ## What to read next
 
@@ -1637,7 +1637,7 @@ async def main():
     # 3. Attach MCP tools to an agent — they work like local tools
     agent = Agent(
         name="mcp-assistant",
-        model="gpt-5.2-mini",
+        model="gpt-4.1-mini",
         instructions="""
         Use the available tools to help the user.
         Always explain what tool you're using and why.
@@ -1676,7 +1676,7 @@ from afk.agents import Agent
 # The agent connects to MCP servers automatically during startup
 agent = Agent(
     name="connected-agent",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="Use available tools to help the user.",
     mcp_servers=[
         "https://tools.example.com:3001",             # Simple URL
@@ -1716,7 +1716,7 @@ async def build_agent():
     # Combine local + external tools
     agent = Agent(
         name="hybrid-agent",
-        model="gpt-5.2-mini",
+        model="gpt-4.1-mini",
         instructions="Use search tools for research and summarize for concise output.",
         tools=[summarize] + mcp_tools,  # ← Mix freely
     )
@@ -1777,13 +1777,13 @@ from afk.agents import Agent, FailSafeConfig
 
 agent = Agent(
     name="resilient-agent",
-    model="gpt-5.2",                    # Primary model
+    model="gpt-4.1",                    # Primary model
     instructions="Be helpful and thorough.",
     fail_safe=FailSafeConfig(
         # Fallback chain: try these models in order if the primary fails
         fallback_model_chain=[
-            "gpt-5.2-mini",              # First fallback: cheaper, faster
-            "gpt-5.2-nano",              # Last resort: fastest, cheapest
+            "gpt-4.1-mini",              # First fallback: cheaper, faster
+            "gpt-4.1-nano",              # Last resort: fastest, cheapest
         ],
 
         # When LLM calls fail, retry then degrade
@@ -1795,11 +1795,11 @@ agent = Agent(
 )
 ```
 
-When `gpt-5.2` fails (timeout, rate limit, outage):
+When `gpt-4.1` fails (timeout, rate limit, outage):
 
 1. AFK retries with the primary model (controlled by retry policy)
-2. If retries exhaust, it falls through to `gpt-5.2-mini`
-3. If that also fails, it tries `gpt-5.2-nano`
+2. If retries exhaust, it falls through to `gpt-4.1-mini`
+3. If that also fails, it tries `gpt-4.1-nano`
 4. If all models fail, the `llm_failure_policy` determines the outcome
 
 ## Cost-optimized fallback
@@ -1813,13 +1813,13 @@ from afk.core import Runner
 # Start cheap, escalate if quality is insufficient
 simple_agent = Agent(
     name="classifier",
-    model="gpt-5.2-nano",              # Start with cheapest
+    model="gpt-4.1-nano",              # Start with cheapest
     instructions="""
     Classify the support ticket. Output exactly one label:
     billing, technical, account, other.
     """,
     fail_safe=FailSafeConfig(
-        fallback_model_chain=["gpt-5.2-mini", "gpt-5.2"],
+        fallback_model_chain=["gpt-4.1-mini", "gpt-4.1"],
         max_total_cost_usd=0.05,
     ),
 )
@@ -1827,13 +1827,13 @@ simple_agent = Agent(
 # Complex tasks get the big model with fallbacks
 analysis_agent = Agent(
     name="analyst",
-    model="gpt-5.2",                   # Start with most capable
+    model="gpt-4.1",                   # Start with most capable
     instructions="""
     Provide detailed technical analysis with code examples.
     Be thorough and precise.
     """,
     fail_safe=FailSafeConfig(
-        fallback_model_chain=["gpt-5.2-mini"],
+        fallback_model_chain=["gpt-4.1-mini"],
         llm_failure_policy="retry_then_degrade",
         max_total_cost_usd=2.00,
     ),
@@ -1841,13 +1841,13 @@ analysis_agent = Agent(
 
 runner = Runner()
 
-# Simple task → cheap model handles it
+# Simple task -> cheap model handles it
 r1 = runner.run_sync(simple_agent, user_message="I can't log in")
-print(f"Classification: {r1.final_text} (${r1.usage.estimated_cost_usd:.4f})")
+print(f"Classification: {r1.final_text} (${r1.total_cost_usd or 0:.4f})")
 
-# Complex task → powerful model with safety net
+# Complex task -> powerful model with safety net
 r2 = runner.run_sync(analysis_agent, user_message="Analyze Python's asyncio event loop")
-print(f"Analysis: {r2.final_text[:100]}... (${r2.usage.estimated_cost_usd:.4f})")
+print(f"Analysis: {r2.final_text[:100]}... (${r2.total_cost_usd or 0:.4f})")
 ```
 
 ## Circuit breaker integration
@@ -1857,10 +1857,10 @@ AFK's built-in circuit breaker works with fallback chains. When a model triggers
 ```python
 agent = Agent(
     name="breaker-demo",
-    model="gpt-5.2",
+    model="gpt-4.1",
     instructions="...",
     fail_safe=FailSafeConfig(
-        fallback_model_chain=["gpt-5.2-mini", "gpt-5.2-nano"],
+        fallback_model_chain=["gpt-4.1-mini", "gpt-4.1-nano"],
 
         # Circuit breaker settings
         breaker_failure_threshold=5,     # Open after 5 consecutive failures
@@ -1875,10 +1875,10 @@ agent = Agent(
 
 ```mermaid
 flowchart LR
-    A["gpt-5.2 fails 5x"] --> B["Circuit opens"]
-    B --> C["Skip to gpt-5.2-mini"]
+    A["gpt-4.1 fails 5x"] --> B["Circuit opens"]
+    B --> C["Skip to gpt-4.1-mini"]
     C --> D["30s cooldown"]
-    D --> E["gpt-5.2 retried"]
+    D --> E["gpt-4.1 retried"]
     E -->|"succeeds"| F["Circuit closes"]
     E -->|"fails again"| B
 ```
@@ -1893,27 +1893,27 @@ from afk.agents import Agent, FailSafeConfig
 # Cheap model for simple classification
 router = Agent(
     name="router",
-    model="gpt-5.2-nano",
+    model="gpt-4.1-nano",
     instructions="Route to the correct specialist.",
-    fail_safe=FailSafeConfig(fallback_model_chain=["gpt-5.2-mini"]),
+    fail_safe=FailSafeConfig(fallback_model_chain=["gpt-4.1-mini"]),
     subagents=[
         # Powerful model for complex analysis
         Agent(
             name="analyst",
-            model="gpt-5.2",
+            model="gpt-4.1",
             instructions="Provide deep technical analysis.",
             fail_safe=FailSafeConfig(
-                fallback_model_chain=["gpt-5.2-mini"],
+                fallback_model_chain=["gpt-4.1-mini"],
                 max_total_cost_usd=1.00,
             ),
         ),
         # Mid-tier model for summarization
         Agent(
             name="summarizer",
-            model="gpt-5.2-mini",
+            model="gpt-4.1-mini",
             instructions="Summarize findings concisely.",
             fail_safe=FailSafeConfig(
-                fallback_model_chain=["gpt-5.2-nano"],
+                fallback_model_chain=["gpt-4.1-nano"],
                 max_total_cost_usd=0.25,
             ),
         ),
@@ -1923,26 +1923,28 @@ router = Agent(
 
 ## Inspecting which model was used
 
-After a run, check the usage to see which model handled the request:
+After a run, check the result metadata and usage aggregate:
 
 ```python
 result = runner.run_sync(agent, user_message="Analyze this...")
 
-# Usage aggregate includes model info
 print(f"State: {result.state}")
-print(f"Total cost: ${result.usage.estimated_cost_usd:.4f}")
-print(f"LLM calls: {result.usage.llm_call_count}")
+print(f"Requested model: {result.requested_model}")
+print(f"Normalized model: {result.normalized_model}")
+print(f"Provider: {result.provider_adapter}")
+print(f"Total tokens: {result.usage_aggregate.total_tokens}")
+print(f"Total cost: ${result.total_cost_usd or 0:.4f}")
 ```
 
 ## Recommendations
 
 | Scenario                 | Primary Model  | Fallback Chain                  |
 | ------------------------ | -------------- | ------------------------------- |
-| **Classification**       | `gpt-5.2-nano` | `gpt-5.2-mini`                  |
-| **General chat**         | `gpt-5.2-mini` | `gpt-5.2-nano`                  |
-| **Complex analysis**     | `gpt-5.2`      | `gpt-5.2-mini` → `gpt-5.2-nano` |
-| **Code generation**      | `gpt-5.2`      | `gpt-5.2-mini`                  |
-| **Cost-sensitive batch** | `gpt-5.2-nano` | _(none)_                        |
+| **Classification**       | `gpt-4.1-nano` | `gpt-4.1-mini`                  |
+| **General chat**         | `gpt-4.1-mini` | `gpt-4.1-nano`                  |
+| **Complex analysis**     | `gpt-4.1`      | `gpt-4.1-mini` → `gpt-4.1-nano` |
+| **Code generation**      | `gpt-4.1`      | `gpt-4.1-mini`                  |
+| **Cost-sensitive batch** | `gpt-4.1-nano` | _(none)_                        |
 
 ## What to read next
 
@@ -1957,16 +1959,16 @@ Source: `docs/library/snippets/14_production_client.mdx`
 
 ```python
 ---
-title: "14: Production Client with Timeout and Connection Pooling"
-description: Configure production-ready LLM clients with timeout middleware and Redis connection pooling.
+title: "14: Client Timeouts and Redis Pooling"
+description: Configure LLM client timeouts and Redis connection pooling.
 ---
 
 ## What this snippet demonstrates
 
-This snippet shows how to build production-ready LLM clients with:
-1. **Timeout middleware** for preventing runaway requests
-2. **Redis connection pooling** for efficient database access
-3. **Proper shutdown handling** for graceful cleanup
+This snippet shows how to configure:
+1. **Timeout middleware** to bound slow provider calls
+2. **Redis connection pooling** for shared cache or memory connections
+3. **Shutdown handling** so runners and Redis pools close cleanly
 
 ## Timeout middleware
 
@@ -1999,7 +2001,7 @@ stack = MiddlewareStack(
 production_client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-5.2-mini")
+    .model("gpt-4.1-mini")
     .profile("production")
     .with_middlewares(stack)
     .build()
@@ -2009,10 +2011,10 @@ production_client = (
 ### Per-request timeout override
 
 ```python
-from afk.llms.policies import TimeoutPolicy
+from afk.llms import TimeoutPolicy
 
 req = LLMRequest(
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     messages=[...],
     timeout_policy=TimeoutPolicy(request_timeout_s=120.0),  # Override default
 )
@@ -2022,7 +2024,7 @@ response = await production_client.chat(req)
 
 ## Redis connection pooling
 
-For production Redis deployments, use connection pooling:
+For Redis deployments, use connection pooling instead of creating a new client per request:
 
 ```python
 from afk.llms.cache.redis_pool import (
@@ -2076,7 +2078,7 @@ async def main():
 asyncio.run(main())
 ```
 
-## Full production example
+## Full example
 
 ```python
 import asyncio
@@ -2124,7 +2126,7 @@ class ProductionSetup:
         self.llm_client = (
             LLMBuilder()
             .provider("openai")
-            .model("gpt-5.2-mini")
+            .model("gpt-4.1-mini")
             .profile("production")
             .with_middlewares(stack)
             .build()
@@ -2146,7 +2148,7 @@ class ProductionSetup:
 async def main():
     agent = Agent(
         name="assistant",
-        model="gpt-5.2-mini",
+        model="gpt-4.1-mini",
         instructions="You are a helpful assistant.",
     )
     

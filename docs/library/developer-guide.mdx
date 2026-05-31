@@ -1,197 +1,130 @@
 ---
 title: Developer Guide
-description: Contribute to AFK — conventions, patterns, and quality tools.
+description: Maintainer workflow for changing AFK itself.
 ---
 
-This guide is for developers contributing to the AFK framework itself. It covers the implementation workflow, code conventions, testing expectations, and quality tools.
+This page is for contributors changing the AFK framework. If you are building an application with AFK, start with [Quickstart](/library/quickstart) or [Building with AI](/library/building-with-ai).
 
-<Note>
-  **Building an app with AFK?** See [Building with
-  AI](/library/building-with-ai) instead. This page is for AFK framework
-  contributors.
-</Note>
+## Local setup
 
-## Implementation workflow
+AFK targets Python 3.13+.
 
-<Steps>
-  <Step title="Define the contract">
-    Start with the Pydantic model or Python protocol that defines the interface. This is the most important step — everything else flows from the contract.
-
-    ```python
-    from pydantic import BaseModel
-
-    class ToolExecutionRecord(BaseModel):
-        tool_name: str
-        success: bool
-        output: str | None
-        latency_ms: float
-        error: str | None = None
-    ```
-
-  </Step>
-  <Step title="Implement behavior">
-    Write the implementation that fulfills the contract. Keep the implementation focused — one module, one responsibility.
-
-    ```python
-    async def execute_tool(call: ToolCall) -> ToolExecutionRecord:
-        start = time.time()
-        try:
-            result = await call.handler(call.validated_args)
-            return ToolExecutionRecord(
-                tool_name=call.name,
-                success=True,
-                output=str(result),
-                latency_ms=(time.time() - start) * 1000,
-            )
-        except Exception as e:
-            return ToolExecutionRecord(
-                tool_name=call.name,
-                success=False,
-                output=None,
-                latency_ms=(time.time() - start) * 1000,
-                error=str(e),
-            )
-    ```
-
-  </Step>
-  <Step title="Test failure semantics">
-    Test the **failure paths** first — they're more important than the happy path. Every error should be classified (retryable, terminal, non-fatal).
-
-    ```python
-    def test_tool_timeout_produces_record():
-        """Timeout should produce a record with success=False, not crash."""
-        record = await execute_tool(slow_tool_call)
-        assert record.success is False
-        assert "timeout" in record.error.lower()
-
-    def test_invalid_args_returns_validation_error():
-        """Bad arguments should return a clear error, not raise."""
-        record = await execute_tool(bad_args_call)
-        assert record.success is False
-        assert "validation" in record.error.lower()
-    ```
-
-  </Step>
-  <Step title="Document interfaces">
-    Add docstrings to public functions and classes. Include parameter descriptions and examples.
-  </Step>
-</Steps>
-
-## Project structure
-
-```
-src/afk/
-├── agents/          # Agent definition, FailSafeConfig, PolicyEngine
-├── core/            # Runner, step loop, state management
-│   └── runner/      # Runner implementation
-├── llms/            # LLM runtime, provider adapters
-├── tools/           # Tool registry, execution, hooks
-├── memory/          # State persistence, checkpoints
-├── telemetry/       # Event pipeline, exporters
-├── a2a/             # Agent-to-agent protocol
-├── evals/           # Eval runner, assertions
-└── skills/          # Agent skills system
+```bash
+python -m pip install --upgrade pip
+python -m pip install -e . pytest
 ```
 
-## Code conventions
+Common commands:
 
-| Convention         | Rule                                                                                        |
-| ------------------ | ------------------------------------------------------------------------------------------- |
-| **Contracts**      | All public interfaces are Pydantic models or Python protocols                               |
-| **Imports**        | No cross-adapter imports (`afk.llms` ↛ `afk.tools`). Only `afk.core` wires modules.         |
-| **Error handling** | Classify errors: retryable, terminal, or non-fatal. Never raise unclassified exceptions.    |
-| **Async**          | Public APIs support both sync and async. Use `run_sync()` as a sync wrapper around `run()`. |
-| **Naming**         | Snake_case for functions/variables, PascalCase for classes, UPPER_CASE for constants        |
-| **Type hints**     | Required on all public functions and parameters                                             |
+```bash
+PYTHONPATH=src pytest -q
+PYTHONPATH=src pytest -q tests/agents/test_agent_runtime.py
+PYTHONPATH=src pytest -q tests/llms/test_llm_settings.py
+PYTHONPATH=src pytest -q tests/queues/test_queue_factory.py
+ruff check src tests
+ruff format src tests
+```
 
-## Common mistakes
+Preview docs:
 
-<AccordionGroup>
-  <Accordion title="Mixing orchestration and provider logic">
-    **Wrong:** Runner code that contains OpenAI-specific types.
+```bash
+./scripts/docs_dev.sh
+```
 
-    ```python
-    # [BAD] Bad: OpenAI types in the runner
-    from openai.types.chat import ChatCompletion
-    result = await openai_client.chat.completions.create(...)
-    ```
+Regenerate agent-facing docs and skill indexes:
 
-    **Right:** Runner sends `LLMRequest`, receives `LLMResponse`.
+```bash
+./scripts/build_agentic_ai_assets.sh
+```
 
-    ```python
-    # [OK] Good: Provider-agnostic contracts
-    response: LLMResponse = await llm_client.generate(request)
-    ```
+Install the repository skills with Vercel's Skills CLI:
 
-  </Accordion>
-  <Accordion title="Not classifying failures">
-    **Wrong:** All errors treated the same way.
+```bash
+npx skills add https://github.com/arpan404/afk --skill afk-coder
+npx skills add https://github.com/arpan404/afk --skill afk-maintainer
+```
 
-    ```python
-    # [BAD] Bad: Generic exception, no classification
-    except Exception as e:
-        raise RuntimeError(f"Tool failed: {e}")
-    ```
+Use `afk-coder` when building with AFK. Use `afk-maintainer` when reviewing or changing AFK itself.
 
-    **Right:** Errors classified for the runner to handle appropriately.
+## Repository boundaries
 
-    ```python
-    # [OK] Good: Classified failure
-    except httpx.TimeoutException:
-        return ToolResult(success=False, error_type="retryable", error="Timeout")
-    except ValueError as e:
-        return ToolResult(success=False, error_type="terminal", error=str(e))
-    ```
+| Package | Responsibility |
+| --- | --- |
+| `afk.agents` | Agent definitions, policy, prompts, skills, lifecycle, workflow, A2A |
+| `afk.core` | Runner, interaction providers, streaming handles, telemetry contracts |
+| `afk.llms` | Provider-portable LLM runtime, adapters, retry/timeout/cache/routing policies |
+| `afk.tools` | Typed tools, decorators, registry, sandboxing, output limiting |
+| `afk.memory` | Memory stores, checkpoints, retention, compaction, vector helpers |
+| `afk.queues` | Async task queues, execution contracts, workers, retry/DLQ behavior |
+| `afk.observability` | Telemetry collectors, projectors, exporters |
+| `afk.mcp`, `afk.messaging`, `afk.debugger`, `afk.evals` | Optional integration and quality layers |
 
-  </Accordion>
-  <Accordion title="Skipping contract validation">
-    **Wrong:** Passing raw dicts between modules.
+Keep the Agent/Runner/Runtime boundary intact:
 
-    ```python
-    # [BAD] Bad: Unvalidated dict
-    return {"tool_name": name, "result": output}
-    ```
+- agents are configuration;
+- runners execute;
+- tools, memory, queues, LLM adapters, and telemetry provide runtime capabilities.
 
-    **Right:** Using the Pydantic model.
+## Change workflow
 
-    ```python
-    # [OK] Good: Validated contract
-    return ToolExecutionRecord(tool_name=name, success=True, output=output)
-    ```
+1. Identify the public contract affected by the change.
+2. Inspect the existing module and tests before editing.
+3. Make the smallest behavior change that preserves package boundaries.
+4. Add or update focused tests for success and failure paths.
+5. Update docs when behavior, public imports, configuration, env vars, or examples change.
+6. Regenerate agent-facing docs when docs navigation, snippets, or skill metadata change.
 
-  </Accordion>
-</AccordionGroup>
+## Documentation workflow
 
-## Quality tools
+User-facing docs must:
 
-| Tool                 | Command                       | Purpose                                    |
-| -------------------- | ----------------------------- | ------------------------------------------ |
-| **Ruff**             | `ruff check src/ tests/`      | Linting (replaces flake8, isort, pyflakes) |
-| **Ruff format**      | `ruff format src/ tests/`     | Code formatting (replaces black)           |
-| **Pytest**           | `pytest tests/`               | Run test suite                             |
-| **Pytest (verbose)** | `pytest tests/ -v --tb=short` | Run with verbose output                    |
-| **Type check**       | `pyright src/`                | Static type checking                       |
+- import from public package surfaces such as `afk.agents` and `afk.core`;
+- explain behavior before internals;
+- use Python 3.13+ guidance;
+- distinguish `afk-py` distribution install from `afk` imports;
+- include new pages in `docs/docs.json`;
+- keep examples aligned with current `AgentResult`, `RunnerConfig`, and `FailSafeConfig` fields.
 
-## Testing expectations
+Maintainer docs may reference internal files, but should state which public contract or invariant is being protected.
 
-- **Unit tests** for every public function and class
-- **Failure tests** for every error path (timeout, validation, policy denial)
-- **Integration tests** for module boundaries (runner ↔ LLM, runner ↔ tools)
-- **Eval tests** for agent behavior (prompt produces expected output)
+## High-risk areas
 
-<Tip>
-  **Test failure semantics first.** The happy path usually works. The failure
-  paths are where bugs hide. For every new feature, write at least 2 failure
-  tests for every 1 success test.
-</Tip>
+Use targeted tests when touching:
+
+| Area | Risk |
+| --- | --- |
+| `src/afk/core/runner/` | execution loop, checkpoints, resume, policy/failure routing |
+| `src/afk/core/streaming.py` | stream events and handle lifecycle |
+| `src/afk/tools/core/base.py`, `src/afk/tools/registry.py` | tool invocation semantics |
+| `src/afk/tools/security.py` | sandbox, secret scope, output limiting |
+| `src/afk/llms/runtime/` | retries, circuit breakers, rate limits, caching, routing |
+| `src/afk/memory/` | persistence, checkpoint keys, compaction, vector search |
+| `src/afk/queues/` | execution contracts, retry/DLQ, worker lifecycle |
+| `src/afk/agents/a2a/` | auth, delivery guarantees, protocol compatibility |
+
+## Public API checklist
+
+Before changing exports or constructor fields:
+
+- update package-level `__all__`;
+- update [API Reference](/library/api-reference);
+- update [Configuration Reference](/library/configuration-reference) if defaults changed;
+- update snippets that use the changed field;
+- add public-import tests where useful.
 
 ## Next steps
 
 <CardGroup cols={2}>
   <Card title="Architecture" icon="layer-group" href="/library/architecture">
-    Module boundaries and design principles.
+    Package boundaries and runtime flow.
   </Card>
-  <Card title="Evals" icon="check-circle" href="/library/evals">
-    Behavioral testing framework.
+  <Card title="Public API Rules" icon="book" href="/library/public-imports-and-function-improvement">
+    Maintainer rules for stable imports and docs examples.
+  </Card>
+  <Card title="Tested Behaviors" icon="check-circle" href="/library/tested-behaviors">
+    Behaviors that tests protect.
+  </Card>
+  <Card title="Full Module Reference" icon="map" href="/library/full-module-reference">
+    Generated source-level symbol map.
   </Card>
 </CardGroup>

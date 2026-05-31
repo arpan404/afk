@@ -25,6 +25,7 @@ INVALID_REQUEST = -32600
 METHOD_NOT_FOUND = -32601
 INVALID_PARAMS = -32602
 INTERNAL_ERROR = -32603
+UNAUTHORIZED = -32001
 
 
 def jsonrpc_response(id: Any, result: Any) -> dict[str, Any]:
@@ -60,13 +61,26 @@ class MCPProtocolHandler:
         server_name: str,
         server_version: str,
         instructions: str | None = None,
+        require_tools_auth: bool = True,
+        insecure_development: bool = False,
+        auth_token: str | None = None,
+        token_header: str = "Authorization",
     ) -> None:
         self._registry = registry
         self._server_name = server_name
         self._server_version = server_version
         self._instructions = instructions
+        self._require_tools_auth = bool(require_tools_auth)
+        self._insecure_development = bool(insecure_development)
+        self._auth_token = auth_token
+        self._token_header = token_header
 
-    async def handle_message(self, message: dict[str, Any]) -> dict[str, Any] | None:
+    async def handle_message(
+        self,
+        message: dict[str, Any],
+        *,
+        headers: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
         """Route one JSON-RPC 2.0 message to the appropriate MCP method."""
         if not isinstance(message, dict):
             return jsonrpc_error(None, INVALID_REQUEST, "Invalid Request")
@@ -94,6 +108,7 @@ class MCPProtocolHandler:
             elif method == "tools/list":
                 result = self.handle_tools_list(params)
             elif method == "tools/call":
+                self._require_tools_auth_if_configured(method=method, headers=headers)
                 result = await self.handle_tools_call(params)
             elif method == "ping" or method == "notifications/initialized":
                 result = {}
@@ -107,9 +122,43 @@ class MCPProtocolHandler:
             if is_notification:
                 return None
             return jsonrpc_response(msg_id, result)
+        except PermissionError as exc:
+            return jsonrpc_error(msg_id, UNAUTHORIZED, str(exc))
         except Exception as exc:
             logger.exception("Error handling MCP method %s", method)
             return jsonrpc_error(msg_id, INTERNAL_ERROR, str(exc))
+
+    def _require_tools_auth_if_configured(
+        self,
+        *,
+        method: str,
+        headers: dict[str, Any] | None,
+    ) -> None:
+        if self._insecure_development:
+            return
+        if not self._require_tools_auth:
+            return
+        if method != "tools/call":
+            return
+
+        if self._auth_token is None:
+            raise PermissionError("MCP auth token is not configured")
+
+        supplied = None
+        if headers is not None:
+            for key, value in headers.items():
+                if key.lower() == self._token_header.lower():
+                    supplied = str(value)
+                    break
+        if supplied is None:
+            raise PermissionError("Missing MCP auth token")
+
+        expected = f"Bearer {self._auth_token}".strip()
+        if supplied.strip() == self._auth_token:
+            return
+        if supplied.strip() == expected:
+            return
+        raise PermissionError("Invalid MCP auth token")
 
     def handle_initialize(self, params: dict[str, Any]) -> dict[str, Any]:
         """Handle ``initialize`` and return server capabilities."""

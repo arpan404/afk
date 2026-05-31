@@ -68,6 +68,13 @@ Regenerate agent-friendly docs and skill indexes:
 ./scripts/build_agentic_ai_assets.sh
 ```
 
+Install AFK skills with Vercel's Skills CLI:
+
+```bash
+npx skills add https://github.com/arpan404/afk --skill afk-coder
+npx skills add https://github.com/arpan404/afk --skill afk-maintainer
+```
+
 ## Documentation Map
 
 - `README.md`: repository landing page and quickest human orientation.

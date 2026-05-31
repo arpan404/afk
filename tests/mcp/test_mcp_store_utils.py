@@ -16,6 +16,7 @@ from afk.mcp.store.utils import (
     _extract_mcp_text,
     _qualified_tool_name,
     _sanitize_name,
+    _validate_remote_url,
     _validate_http_url,
     normalize_json_schema,
     normalize_remote_tools,
@@ -78,6 +79,41 @@ class TestValidateHttpUrl:
     def test_empty_scheme_raises(self):
         with pytest.raises(MCPServerResolutionError):
             _validate_http_url("://localhost")
+
+
+class TestValidateRemoteUrl:
+    def test_blocks_non_https_non_private_host(self):
+        with pytest.raises(MCPServerResolutionError, match="must use HTTPS for remote"):
+            _validate_remote_url("http://example.com")
+
+    def test_blocks_private_host_by_default(self):
+        with pytest.raises(MCPServerResolutionError, match="restricted private"):
+            _validate_remote_url("http://127.0.0.1:8000")
+
+    def test_private_host_allowed_when_configured(self):
+        assert (
+            _validate_remote_url(
+                "http://127.0.0.1:8000",
+                allow_private_networks=True,
+                require_https=False,
+            )
+            == "http://127.0.0.1:8000"
+        )
+
+    def test_allowed_hostnames_can_be_enforced(self):
+        with pytest.raises(MCPServerResolutionError, match="not in allowed_hostnames"):
+            _validate_remote_url(
+                "https://evil.example.com",
+                allowed_hostnames=("allowed.example.com", "trusted.example.com"),
+            )
+
+        assert (
+            _validate_remote_url(
+                "https://allowed.example.com",
+                allowed_hostnames=("allowed.example.com", "trusted.example.com"),
+            )
+            == "https://allowed.example.com"
+        )
 
 
 # ── _qualified_tool_name ─────────────────────────────────────────────────────

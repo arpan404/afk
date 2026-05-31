@@ -20,42 +20,66 @@ source = { virtual = "." }
 dependencies = [
     { name = "aiosqlite" },
     { name = "async-lru" },
-    { name = "asyncpg" },
     { name = "cachetools" },
     { name = "claude-agent-sdk" },
-    { name = "fastapi" },
     { name = "jinja2" },
     { name = "litellm" },
     { name = "numpy" },
     { name = "openai" },
     { name = "prometheus-client" },
-    { name = "pytest" },
-    { name = "redis" },
 ]
 
 [package.optional-dependencies]
 a2a = [
     { name = "pyjwt" },
 ]
+all = [
+    { name = "asyncpg" },
+    { name = "fastapi" },
+    { name = "pyjwt" },
+    { name = "pytest" },
+    { name = "redis" },
+    { name = "uvicorn" },
+]
+dev = [
+    { name = "pytest" },
+]
+mcp = [
+    { name = "fastapi" },
+    { name = "uvicorn" },
+]
+postgres = [
+    { name = "asyncpg" },
+]
+redis = [
+    { name = "redis" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "aiosqlite", specifier = ">=0.22.1" },
     { name = "async-lru", specifier = ">=2.1.0" },
-    { name = "asyncpg", specifier = ">=0.31.0" },
+    { name = "asyncpg", marker = "extra == 'all'", specifier = ">=0.31.0" },
+    { name = "asyncpg", marker = "extra == 'postgres'", specifier = ">=0.31.0" },
     { name = "cachetools", specifier = ">=7.0.1" },
     { name = "claude-agent-sdk", specifier = "==0.1.37" },
-    { name = "fastapi", specifier = ">=0.129.0" },
+    { name = "fastapi", marker = "extra == 'all'", specifier = ">=0.129.0" },
+    { name = "fastapi", marker = "extra == 'mcp'", specifier = ">=0.129.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
-    { name = "litellm", specifier = "==1.81.13" },
+    { name = "litellm", specifier = ">=1.83.10" },
     { name = "numpy", specifier = ">=2.3.0" },
     { name = "openai", specifier = "==2.21.0" },
     { name = "prometheus-client", specifier = ">=0.24.1" },
     { name = "pyjwt", marker = "extra == 'a2a'", specifier = ">=2.10.1" },
-    { name = "pytest", specifier = ">=9.0.2" },
-    { name = "redis", specifier = "==7.2.0" },
+    { name = "pyjwt", marker = "extra == 'all'", specifier = ">=2.10.1" },
+    { name = "pytest", marker = "extra == 'all'", specifier = ">=9.0.2" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.2" },
+    { name = "redis", marker = "extra == 'all'", specifier = "==7.2.0" },
+    { name = "redis", marker = "extra == 'redis'", specifier = "==7.2.0" },
+    { name = "uvicorn", marker = "extra == 'all'", specifier = ">=0.38.0" },
+    { name = "uvicorn", marker = "extra == 'mcp'", specifier = ">=0.38.0" },
 ]
-provides-extras = ["a2a"]
+provides-extras = ["a2a", "mcp", "postgres", "redis", "dev", "evals", "all"]
 
 [[package]]
 name = "aiohappyeyeballs"
@@ -793,7 +817,7 @@ wheels = [
 
 [[package]]
 name = "litellm"
-version = "1.81.13"
+version = "1.86.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -809,9 +833,9 @@ dependencies = [
     { name = "tiktoken" },
     { name = "tokenizers" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/72/80/b6cb799e7100953d848e106d0575db34c75bc3b57f31f2eefdfb1e23655f/litellm-1.81.13.tar.gz", hash = "sha256:083788d9c94e3371ff1c42e40e0e8198c497772643292a65b1bc91a3b3b537ea", size = 16562861, upload-time = "2026-02-17T02:00:47.466Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/01/ee/1f6f3f5d01e0910629b6af3757e82c47b8b87dca497a661a9c63280b4bd8/litellm-1.86.2.tar.gz", hash = "sha256:7d559ad48b97d796ff325af88fd7eebbdc66e58773fb5312130ab1cac968f8f3", size = 15380548, upload-time = "2026-05-27T16:19:58.45Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/be/f3/fffb7932870163cea7addc392165647a9a8a5489967de486c854226f1141/litellm-1.81.13-py3-none-any.whl", hash = "sha256:ae4aea2a55e85993f5f6dd36d036519422d24812a1a3e8540d9e987f2d7a4304", size = 14587505, upload-time = "2026-02-17T02:00:44.22Z" },
+    { url = "https://files.pythonhosted.org/packages/4d/37/4da1dd67157aaa11477d6c63e4725216bfc46b4661e581b490d17e5b2831/litellm-1.86.2-py3-none-any.whl", hash = "sha256:27096463be7add661513ada3d9039e8f1a6195859e604d30fde96c939efe0a03", size = 17013061, upload-time = "2026-05-27T16:19:53.219Z" },
 ]
 
 [[package]]

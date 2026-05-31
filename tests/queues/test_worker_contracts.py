@@ -44,6 +44,54 @@ def test_missing_contract_is_terminal_without_retry():
     run_async(scenario())
 
 
+def test_cancelled_task_execution_marks_task_as_failed_non_retryable():
+    class _SlowContract:
+        contract_id = "slow.v1"
+        requires_agent = False
+
+        async def execute(
+            self,
+            task_item: TaskItem,
+            *,
+            agent,
+            worker_context: ExecutionContractContext,
+        ):
+            _ = task_item
+            _ = agent
+            _ = worker_context
+            await asyncio.sleep(1.0)
+            return {"done": True}
+
+    async def scenario() -> None:
+        queue = InMemoryTaskQueue()
+        task = await queue.enqueue_contract(
+            "slow.v1",
+            payload={},
+            agent_name=None,
+            max_retries=3,
+        )
+        worker = TaskWorker(
+            queue,
+            agents={},
+            execution_contracts={"slow.v1": _SlowContract()},
+        )
+        running = await queue.dequeue(timeout=0.1)
+        assert running is not None
+
+        handle = asyncio.create_task(worker._execute_task(running))
+        await asyncio.sleep(0.1)
+        handle.cancel()
+        await handle
+
+        current = await queue.get(task.id)
+        assert current is not None
+        assert current.status == "failed"
+        assert current.retry_count == 1
+        assert current.error == "Task execution cancelled"
+
+    run_async(scenario())
+
+
 def test_unknown_contract_is_terminal_without_retry():
     async def scenario() -> None:
         queue = InMemoryTaskQueue()

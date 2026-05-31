@@ -1,14 +1,14 @@
 ---
-title: "14: Production Client with Timeout and Connection Pooling"
-description: Configure production-ready LLM clients with timeout middleware and Redis connection pooling.
+title: "14: Client Timeouts and Redis Pooling"
+description: Configure LLM client timeouts and Redis connection pooling.
 ---
 
 ## What this snippet demonstrates
 
-This snippet shows how to build production-ready LLM clients with:
-1. **Timeout middleware** for preventing runaway requests
-2. **Redis connection pooling** for efficient database access
-3. **Proper shutdown handling** for graceful cleanup
+This snippet shows how to configure:
+1. **Timeout middleware** to bound slow provider calls
+2. **Redis connection pooling** for shared cache or memory connections
+3. **Shutdown handling** so runners and Redis pools close cleanly
 
 ## Timeout middleware
 
@@ -41,7 +41,7 @@ stack = MiddlewareStack(
 production_client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-5.2-mini")
+    .model("gpt-4.1-mini")
     .profile("production")
     .with_middlewares(stack)
     .build()
@@ -51,10 +51,10 @@ production_client = (
 ### Per-request timeout override
 
 ```python
-from afk.llms.policies import TimeoutPolicy
+from afk.llms import TimeoutPolicy
 
 req = LLMRequest(
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     messages=[...],
     timeout_policy=TimeoutPolicy(request_timeout_s=120.0),  # Override default
 )
@@ -64,7 +64,7 @@ response = await production_client.chat(req)
 
 ## Redis connection pooling
 
-For production Redis deployments, use connection pooling:
+For Redis deployments, use connection pooling instead of creating a new client per request:
 
 ```python
 from afk.llms.cache.redis_pool import (
@@ -118,7 +118,7 @@ async def main():
 asyncio.run(main())
 ```
 
-## Full production example
+## Full example
 
 ```python
 import asyncio
@@ -166,7 +166,7 @@ class ProductionSetup:
         self.llm_client = (
             LLMBuilder()
             .provider("openai")
-            .model("gpt-5.2-mini")
+            .model("gpt-4.1-mini")
             .profile("production")
             .with_middlewares(stack)
             .build()
@@ -188,7 +188,7 @@ class ProductionSetup:
 async def main():
     agent = Agent(
         name="assistant",
-        model="gpt-5.2-mini",
+        model="gpt-4.1-mini",
         instructions="You are a helpful assistant.",
     )
     

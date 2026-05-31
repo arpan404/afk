@@ -11,14 +11,24 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+import os
+from dataclasses import asdict, is_dataclass
+import dataclasses
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+from pydantic import BaseModel
+
 from ..types import JSONValue, PolicyDecision, PolicyEvent
+
+
+def _utc_timestamp_iso() -> str:
+    """Return a timezone-aware UTC timestamp for audit records."""
+    return datetime.now(UTC).isoformat()
 
 
 class AuditAction(StrEnum):
@@ -78,7 +88,7 @@ class AuditConfig:
 
     enabled: bool = True
     min_level: str = "info"  # Capture info and above
-    include_payloads: bool = True
+    include_payloads: bool = False
     max_payload_size: int = 10_000
     retention_days: int = 90
     sink: str = "console"  # console, file, syslog, custom
@@ -157,8 +167,15 @@ class FileAuditSink(AuditSink):
 
         path = Path(self._config.file_path)
         path.parent.mkdir(parents=True, exist_ok=True)
+        if not path.exists():
+            fd = os.open(path, os.O_CREAT | os.O_APPEND | os.O_WRONLY, 0o600)
+            os.close(fd)
+        try:
+            path.chmod(0o600)
+        except Exception:
+            pass
 
-        with open(path, "a") as f:
+        with open(path, "a", encoding="utf-8") as f:
             for record in self._buffer:
                 line = json.dumps(
                     {
@@ -188,19 +205,54 @@ class FileAuditSink(AuditSink):
 
     def _redact(self, data: dict[str, JSONValue]) -> dict[str, JSONValue]:
         """Redact sensitive fields."""
+        return {
+            str(key): self._redact_value(key, value)
+            for key, value in data.items()
+        }
+
+    def _redact_value(self, key: str, value: Any) -> JSONValue:
         import re
 
-        def _redact_value(key: str, value: Any) -> Any:
-            key_lower = key.lower()
-            for pattern in self._config.redact_patterns:
-                if re.search(pattern, key_lower):
-                    return "[REDACTED]"
+        if isinstance(value, str):
+            if self._is_sensitive_key(key) or self._is_sensitive_value(value):
+                return "[REDACTED]"
+            if len(value) > self._config.max_payload_size:
+                return (
+                    value[: self._config.max_payload_size]
+                    + f"... [truncated {len(value) - self._config.max_payload_size} chars]"
+                )
             return value
 
-        result = {}
-        for key, value in data.items():
-            result[key] = _redact_value(key, value)
-        return result
+        if isinstance(value, dict):
+            return {
+                str(k): self._redact_value(str(k), v)
+                for k, v in value.items()
+            }
+
+        if isinstance(value, list):
+            return [self._redact_value(key, item) for item in value]
+
+        if is_dataclass(value):
+            return self._redact_value(key, dataclasses.asdict(value))
+
+        if isinstance(value, BaseModel):
+            return self._redact_value(key, value.model_dump(mode="python"))
+
+        return value
+
+    def _is_sensitive_key(self, key: str) -> bool:
+        lowered = key.lower()
+        import re
+
+        return any(re.search(pattern, lowered) for pattern in self._config.redact_patterns)
+
+    def _is_sensitive_value(self, value: str) -> bool:
+        import re
+
+        if len(value) < 16:
+            return False
+        patterns = (r"eyJhbGci", r"sk_live", r"AKIA[0-9A-Z]{16}")
+        return any(re.search(pattern, value, flags=re.IGNORECASE) for pattern in patterns)
 
     async def close(self) -> None:
         """Flush and close."""
@@ -276,7 +328,7 @@ class PolicyAuditLogger:
         record = AuditRecord(
             id=f"audit-{int(time.time() * 1000)}-{len(self._records)}",
             timestamp_ms=int(time.time() * 1000),
-            timestamp_iso=datetime.utcnow().isoformat(),
+            timestamp_iso=_utc_timestamp_iso(),
             level=level.value,
             action=action.value,
             actor=actor,
@@ -317,7 +369,7 @@ class PolicyAuditLogger:
         record = AuditRecord(
             id=f"audit-{int(time.time() * 1000)}-{len(self._records)}",
             timestamp_ms=int(time.time() * 1000),
-            timestamp_iso=datetime.utcnow().isoformat(),
+            timestamp_iso=_utc_timestamp_iso(),
             level=level.value,
             action=action.value,
             actor=None,
@@ -355,7 +407,7 @@ class PolicyAuditLogger:
         record = AuditRecord(
             id=f"audit-{int(time.time() * 1000)}-{len(self._records)}",
             timestamp_ms=int(time.time() * 1000),
-            timestamp_iso=datetime.utcnow().isoformat(),
+            timestamp_iso=_utc_timestamp_iso(),
             level=level.value,
             action=action.value,
             actor=None,

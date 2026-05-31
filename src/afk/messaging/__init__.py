@@ -15,6 +15,7 @@ from ..agents.a2a import (
     A2AAuthorizationDecision,
     A2AAuthorizationError,
     A2AAuthProvider,
+    A2ADeliveryStore,
     A2APrincipal,
     A2AServiceHost,
     A2AServiceHostError,
@@ -57,6 +58,7 @@ __all__ = [
     "AllowAllA2AAuthProvider",
     "APIKeyA2AAuthProvider",
     "JWTA2AAuthProvider",
+    "A2ADeliveryStore",
     "InMemoryA2ADeliveryStore",
     "RedisA2ADeliveryStore",
 ]

@@ -14,7 +14,11 @@ Agents can specify their model in two ways:
     Pass a model name string. AFK resolves it to an LLM client using the default provider.
 
     ```python
-    agent = Agent(name="demo", model="gpt-5.2-mini", ...)
+    agent = Agent(
+        name="demo",
+        model="gpt-4.1-mini",
+        instructions="Answer directly.",
+    )
     ```
 
     The resolution order:
@@ -32,12 +36,16 @@ Agents can specify their model in two ways:
     client = (
         LLMBuilder()
         .provider("openai")
-        .model("gpt-5.2-mini")
+        .model("gpt-4.1-mini")
         .profile("production")
         .build()
     )
 
-    agent = Agent(name="demo", model=client, ...)
+    agent = Agent(
+        name="demo",
+        model=client,
+        instructions="Answer directly.",
+    )
     ```
 
   </Tab>
@@ -120,13 +128,15 @@ LLM errors are classified and handled automatically:
 
 ## Model selection guide
 
-| Task                       | Recommended model              | Why                                 |
+Treat these as example starting points. Confirm current model names, prices, and rate limits with the provider you use.
+
+| Task                       | Starting model                  | Why                                 |
 | -------------------------- | ------------------------------ | ----------------------------------- |
-| Simple Q&A, classification | `gpt-5.2-nano`                 | Fast, cheap, good enough            |
-| General purpose with tools | `gpt-5.2-mini`                 | Best balance of cost and capability |
-| Complex reasoning, coding  | `gpt-5.2` or `claude-opus-4-5` | Better at multi-step reasoning      |
-| Cost-sensitive batch       | `gpt-5.2-nano`                 | Lowest cost per token               |
-| Maximum quality            | `gpt-5.2` + `temperature=0.0`  | Deterministic, highest quality      |
+| Simple Q&A, classification | `gpt-4.1-nano`                 | Fast, cheap, good enough            |
+| General purpose with tools | `gpt-4.1-mini`                 | Best balance of cost and capability |
+| Complex reasoning, coding  | `gpt-4.1` or `claude-opus-4-5` | Better at multi-step reasoning      |
+| Cost-sensitive batch       | `gpt-4.1-nano`                 | Lowest cost per token               |
+| Higher quality generation  | `gpt-4.1` + low temperature    | More capability, less variation     |
 
 ## Next steps
 
