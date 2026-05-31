@@ -102,17 +102,26 @@ from .types import (
     ApprovalRequest,
     CommandExecutionRecord,
     FailSafeConfig,
+    InstructionRole,
     PolicyDecision,
     PolicyEvent,
+    PolicyRole,
     SkillReadRecord,
     SkillRef,
     SkillResolutionResult,
     SkillToolPolicy,
     SubagentExecutionRecord,
+    SubagentRouter,
     ToolExecutionRecord,
     UsageAggregate,
     UserInputDecision,
     UserInputRequest,
+)
+from .workflow.executor import (
+    WorkflowExecutionContext,
+    WorkflowExecutionResult,
+    WorkflowExecutor,
+    create_workflow_executor,
 )
 from .workflow.state_machine import (
     WorkflowBuilder,
@@ -122,12 +131,6 @@ from .workflow.state_machine import (
     WorkflowSpec,
     WorkflowState,
     WorkflowTransition,
-)
-from .workflow.executor import (
-    WorkflowExecutionContext,
-    WorkflowExecutionResult,
-    WorkflowExecutor,
-    create_workflow_executor,
 )
 
 __all__ = [
@@ -194,6 +197,9 @@ __all__ = [
     "CommandExecutionRecord",
     "UsageAggregate",
     "FailSafeConfig",
+    "InstructionRole",
+    "PolicyRole",
+    "SubagentRouter",
     "SkillToolPolicy",
     "SkillRef",
     "SkillResolutionResult",

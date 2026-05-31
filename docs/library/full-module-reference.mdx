@@ -3,24 +3,24 @@ title: Full Module Reference
 description: Module inventory and responsibilities.
 ---
 
-The Agent Forge Kit (AFK) Python SDK is organized into a set of top-level packages, each owning a distinct responsibility. This page provides a comprehensive inventory of every package, its sub-modules, key classes and functions, and example imports.
+The Agent Forge Kit (AFK) Python SDK is organized into top-level packages, each owning a distinct responsibility. This page summarizes the package map, key public imports, and extension boundaries.
 
-Use this reference when you need to find where a comprehensive inventory of every package, its sub-modules, key classes and functions, and example imports.
+Use this reference when you need to find which package owns a capability. For field-level details, read the focused reference pages linked from the sidebar.
 
 ## Module dependencies
 
-The AFK architecture is layered. Dependencies flow strictly downwards:
+The AFK architecture is organized around a few stable boundaries:
 
-- **`afk.agents`** (High-level definitions) -> depends on `afk.core`, `afk.tools`, `afk.llms`
-- **`afk.core`** (Execution engine) -> depends on `afk.model`, `afk.memory`, `afk.observability`
-- **`afk.llms`** (Provider I/O) -> independent
-- **`afk.tools`** (Capabilities) -> independent
+- **`afk.agents`** owns declarative agent configuration, policy, prompts, skills, delegation metadata, and A2A contracts.
+- **`afk.core`** owns execution: runner lifecycle, streaming, interaction providers, delegation scheduling, checkpointing, memory wiring, and telemetry wiring.
+- **`afk.llms`** owns model provider adapters, runtime policies, structured output helpers, routing, caching, and LLM request/response types.
+- **`afk.tools`** owns tool definitions, registries, hooks, middleware, sandbox profiles, and prebuilt runtime tools.
 
 ### Extension points
 
 The framework is designed to be extended at specific protocol boundaries. **Do not subclass internal classes**. Instead, implement these protocols:
 
-- **`InteractionProvider`** (`afk.core`): Build custom human-in-the-loop interaces (e.g. Slack, Discord, Web).
+- **`InteractionProvider`** (`afk.core`): Build custom human-in-the-loop interfaces (for example Slack, Discord, or web approval UIs).
 - **`MemoryStore`** (`afk.memory`): Add support for new databases (Mongo, DynamoDB).
 - **`LLMProvider`** (`afk.llms`): Integrate new model providers (local inference, exotic APIs).
 - **`TelemetrySink`** (`afk.observability`): Export metrics/traces to custom backends (Datadog, Honeycomb).
@@ -115,7 +115,7 @@ Tool definition, registry, hooks, middleware, security, and prebuilt runtime too
 | `afk.tools.core`      | `tool` decorator, `ToolSpec`, `ToolContext`, `ToolResult`, `ToolRegistry`.              |
 | `afk.tools.security`  | `SandboxProfile`, `SandboxProfileProvider`, `SecretScopeProvider`, argument validation. |
 | `afk.tools.prebuilts` | Built-in runtime tools (file read, directory list, command execution, skill tools).     |
-| `afk.tools.hooks`     | Pre/post execution hook system for tool middleware.                                     |
+| `afk.tools.registry`  | Shared registry and registry middleware helpers.                                        |
 
 **Key imports:**
 
@@ -136,7 +136,7 @@ Pluggable memory stores, compaction, retention policies, long-term memory, vecto
 | `afk.memory.types`      | `MemoryEvent`, `LongTermMemory`, `JsonValue`, retention policy models.                                                        |
 | `afk.memory.lifecycle`  | `apply_event_retention()`, `apply_state_retention()`, `compact_thread_memory()`, `MemoryCompactionResult`.                    |
 | `afk.memory.vector`     | `cosine_similarity()`, vector scoring utilities for embedding-based search.                                                   |
-| `afk.memory.factory`    | `create_memory_store()` factory for environment-based backend selection.                                                      |
+| `afk.memory.factory`    | `create_memory_store_from_env()` factory for environment-based backend selection.                                             |
 | `afk.memory.adapters`   | Backend implementations: `InMemoryMemoryStore`, `SQLiteMemoryStore`, `PostgresMemoryStore`, `RedisMemoryStore`.               |
 
 **Key imports:**
@@ -167,7 +167,7 @@ Task queue abstraction, worker lifecycle, failure classification, and metrics.
 **Key imports:**
 
 ```python
-from afk.queues import QueueWorker, TaskQueue
+from afk.queues import TaskQueue, TaskWorker
 ```
 
 ## `afk.observability`
@@ -236,18 +236,18 @@ from afk.mcp import get_mcp_store
 
 ## `afk.messaging`
 
-Internal agent-to-agent messaging primitives with delivery guarantees.
+Protocol-first agent-to-agent messaging exports.
 
 **Sub-modules:**
 
 | Sub-module               | Responsibility                                                                           |
 | ------------------------ | ---------------------------------------------------------------------------------------- |
-| `afk.messaging.bus`      | `MessageBus` protocol for pub/sub messaging between agents.                              |
-| `afk.messaging.delivery` | Delivery tracking, acknowledgment, and retry for inter-agent messages.                   |
-| `afk.messaging.types`    | `AgentMessage`, `MessageEnvelope`, delivery status types.                                |
+| `afk.messaging`          | Public re-exports for A2A contracts, envelopes, auth providers, hosts, and delivery stores. |
+| `afk.agents.a2a`         | Internal implementation modules for protocol, auth, delivery, hosting, and Google adapter. |
 
 **Key imports:**
 
 ```python
-from afk.messaging import MessageBus, AgentMessage
+from afk.messaging import InternalA2AEnvelope, InternalA2AProtocol
+from afk.messaging import AgentInvocationRequest, AgentInvocationResponse
 ```

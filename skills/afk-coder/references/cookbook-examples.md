@@ -14,10 +14,11 @@ All examples use **public imports only** and target Python 3.13+.
 The simplest possible AFK agent. Five lines of code.
 
 ```python
-from afk.agents import Agent, Runner
+from afk.agents import Agent
+from afk.core import Runner
 
 agent = Agent(
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     instructions="You are a helpful assistant.",
 )
 
@@ -39,7 +40,8 @@ Define and attach tools using the `@tool` decorator.
 
 ```python
 from pydantic import BaseModel
-from afk.agents import Agent, Runner
+from afk.agents import Agent
+from afk.core import Runner
 from afk.tools import tool, ToolContext
 
 class WeatherArgs(BaseModel):
@@ -58,7 +60,14 @@ class CalculateArgs(BaseModel):
 @tool(args_model=CalculateArgs)
 async def calculate(args: CalculateArgs):
     """Evaluate a math expression."""
-    return {"result": eval(args.expression)}
+    left, op, right = args.expression.split()
+    operations = {
+        "+": lambda a, b: a + b,
+        "-": lambda a, b: a - b,
+        "*": lambda a, b: a * b,
+        "/": lambda a, b: a / b,
+    }
+    return {"result": operations[op](float(left), float(right))}
 
 agent = Agent(
     model="gpt-4.1-mini",
@@ -79,16 +88,17 @@ print(f"Tools used: {[t.tool_name for t in result.tool_executions]}")
 Parent agent delegates to specialist subagents.
 
 ```python
-from afk.agents import Agent, Runner
+from afk.agents import Agent
+from afk.core import Runner
 
 researcher = Agent(
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     name="researcher",
     instructions="You research topics thoroughly and return findings.",
 )
 
 writer = Agent(
-    model="gpt-4.1-mini",
+    model="gpt-5.2-mini",
     name="writer",
     instructions="You write polished articles from research notes.",
 )
@@ -122,11 +132,12 @@ Real-time token-by-token output with run events.
 
 ```python
 import asyncio
-from afk.agents import Agent, Runner
+from afk.agents import Agent
+from afk.core import Runner
 
 async def main():
     agent = Agent(
-        model="gpt-4.1-mini",
+        model="gpt-5.2-mini",
         instructions="You explain concepts clearly.",
     )
     runner = Runner()
@@ -156,10 +167,14 @@ asyncio.run(main())
 Persist conversation history with SQLite.
 
 ```python
-from afk.agents import Agent, Runner
-from afk.memory import create_memory_store
+from afk.agents import Agent
+from afk.core import Runner
+from afk.memory import create_memory_store_from_env
 
-store = create_memory_store("sqlite", database_path="./agent_memory.db")
+import os
+os.environ["AFK_MEMORY_BACKEND"] = "sqlite"
+os.environ["AFK_SQLITE_PATH"] = "./agent_memory.db"
+store = create_memory_store_from_env()
 await store.setup()
 
 agent = Agent(
@@ -197,8 +212,8 @@ print(result2.final_text)  # "Your name is Alice and you love Python."
 Sandbox profiles, tool output limits, and fail-safe settings.
 
 ```python
-from afk.agents import Agent, Runner, FailSafeConfig
-from afk.core import RunnerConfig
+from afk.agents import Agent, FailSafeConfig
+from afk.core import Runner, RunnerConfig
 from afk.tools.security import SandboxProfile
 
 sandbox = SandboxProfile(
@@ -246,7 +261,8 @@ result = runner.run_sync(agent, user_message="Analyze sales data")
 Custom LLM setup with builder pattern.
 
 ```python
-from afk.agents import Agent, Runner
+from afk.agents import Agent
+from afk.core import Runner
 from afk.llms import LLMBuilder, LLMSettings
 
 # Simple -- just set model string
@@ -286,9 +302,9 @@ See [llm-configuration.md](./llm-configuration.md) for profiles, routing, and en
 Interactive approval flow for sensitive operations.
 
 ```python
-from afk.agents import Agent, Runner, PolicyRule, PolicyRuleCondition, PolicyEngine
+from afk.agents import Agent, PolicyRule, PolicyRuleCondition, PolicyEngine
 from afk.agents.types import ApprovalDecision
-from afk.core import InteractionProvider, RunnerConfig
+from afk.core import InteractionProvider, Runner, RunnerConfig
 
 class TerminalApprovalProvider:
     """Simple terminal-based approval provider."""
@@ -461,7 +477,7 @@ server = MCPServer(agent=agent)
 server.run(host="0.0.0.0", port=8080)
 ```
 
-See the MCP docs at `docs/library/mcp.mdx` for full server configuration.
+See the MCP docs at `docs/library/mcp-server.mdx` for full server configuration.
 
 ---
 
@@ -473,7 +489,7 @@ See the MCP docs at `docs/library/mcp.mdx` for full server configuration.
 | Custom tools | `@tool`, `ToolContext`, `ToolResult` | [tools-system.md](./tools-system.md) |
 | Multi-agent | `Agent(subagents=[...])` | [multi-agent-and-delegation.md](./multi-agent-and-delegation.md) |
 | Streaming | `runner.run_stream()` | [streaming-and-interaction.md](./streaming-and-interaction.md) |
-| Memory | `create_memory_store()` | [memory-and-state.md](./memory-and-state.md) |
+| Memory | `create_memory_store_from_env()` | [memory-and-state.md](./memory-and-state.md) |
 | Safety | `SandboxProfile`, `RunnerConfig` | [security-and-policies.md](./security-and-policies.md) |
 | LLM config | `LLMBuilder`, `LLMSettings` | [llm-configuration.md](./llm-configuration.md) |
 | HITL | `InteractionProvider`, `PolicyEngine` | [streaming-and-interaction.md](./streaming-and-interaction.md) |

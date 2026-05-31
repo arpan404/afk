@@ -9,6 +9,8 @@ Authentication and authorization contracts for A2A communication.
 from __future__ import annotations
 
 import hashlib
+import hmac
+import secrets
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Protocol
@@ -72,6 +74,14 @@ class A2AAuthorizationError(PermissionError):
     """Raised when authorization fails."""
 
 
+@dataclass(frozen=True, slots=True)
+class _APIKeyRecord:
+    salt: bytes
+    digest: bytes
+    subject: str
+    roles: tuple[str, ...]
+
+
 class AllowAllA2AAuthProvider:
     """Development-only provider that allows every request."""
 
@@ -109,29 +119,38 @@ class APIKeyA2AAuthProvider:
         header_name: str = "x-api-key",
     ) -> None:
         self._header_name = header_name.lower()
-        self._subject_by_digest: dict[str, str] = {}
-        self._roles_by_digest: dict[str, tuple[str, ...]] = {}
-        self._allow_all_by_digest: dict[str, bool] = {}
+        self._records: tuple[_APIKeyRecord, ...]
 
         role_map = key_to_roles or {}
+        records: list[_APIKeyRecord] = []
         for key, subject in key_to_subject.items():
-            digest = self._hash_key(key)
+            salt = secrets.token_bytes(16)
+            digest = self._hash_key(key, salt)
             roles = tuple(role_map.get(key, ()))
-            self._subject_by_digest[digest] = subject
-            self._roles_by_digest[digest] = roles
-            self._allow_all_by_digest[digest] = "a2a:all" in roles
+            records.append(
+                _APIKeyRecord(
+                    salt=salt,
+                    digest=digest,
+                    subject=subject,
+                    roles=roles,
+                )
+            )
+        self._records = tuple(records)
 
     async def authenticate(self, context: A2AAuthContext) -> A2APrincipal:
         key = self._get_header(context.headers, self._header_name)
         if not key:
             raise A2AAuthError("Missing API key")
 
-        digest = self._hash_key(key)
-        subject = self._subject_by_digest.get(digest)
-        if subject is None:
-            raise A2AAuthError("Invalid API key")
-        roles = self._roles_by_digest.get(digest, ())
-        return A2APrincipal(subject=subject, principal_type="service", roles=roles)
+        for record in self._records:
+            digest = self._hash_key(key, record.salt)
+            if hmac.compare_digest(digest, record.digest):
+                return A2APrincipal(
+                    subject=record.subject,
+                    principal_type="service",
+                    roles=record.roles,
+                )
+        raise A2AAuthError("Invalid API key")
 
     async def authorize(
         self,
@@ -157,8 +176,13 @@ class APIKeyA2AAuthProvider:
                 return value
         return None
 
-    def _hash_key(self, key: str) -> str:
-        return hashlib.sha256(key.encode("utf-8")).hexdigest()
+    def _hash_key(self, key: str, salt: bytes) -> bytes:
+        return hashlib.pbkdf2_hmac(
+            "sha256",
+            key.encode("utf-8"),
+            salt,
+            120_000,
+        )
 
 
 class JWTA2AAuthProvider:
@@ -205,7 +229,7 @@ class JWTA2AAuthProvider:
                 options={"verify_signature": True},
             )
         except Exception as exc:
-            raise A2AAuthError(f"Invalid bearer token: {exc}") from exc
+            raise A2AAuthError("Invalid bearer token") from exc
 
         subject = claims.get(self._subject_claim)
         if not isinstance(subject, str) or not subject.strip():

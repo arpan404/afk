@@ -103,10 +103,9 @@ def build_skill_tools(
         _ensure_inside(target, root)
         if not target.exists() or not target.is_file():
             raise SkillAccessError(f"Skill file not found: {args.relative_path}")
-        text = await asyncio.to_thread(target.read_text, encoding="utf-8")
-        truncated = len(text) > args.max_chars
-        if truncated:
-            text = text[: args.max_chars]
+        text, truncated = await asyncio.to_thread(
+            _read_text_limited, target, args.max_chars
+        )
         return {
             "skill_name": args.skill_name,
             "path": str(target),
@@ -135,7 +134,7 @@ def build_skill_tools(
                         "Command denied due to shell operator restrictions"
                     )
 
-        cwd = None
+        cwd_path: Path
         if args.cwd:
             maybe = Path(args.cwd).expanduser().resolve()
             # Command working directory must stay inside one of the resolved skill roots.
@@ -143,7 +142,13 @@ def build_skill_tools(
                 raise SkillAccessError(
                     "Command cwd must be inside one of the skill roots"
                 )
-            cwd = str(maybe)
+            cwd_path = maybe
+        elif len(roots) == 1:
+            cwd_path = next(iter(roots.values()))
+        else:
+            raise SkillAccessError(
+                "Command cwd is required when multiple skill roots are available"
+            )
 
         timeout_s = args.timeout_s or policy.command_timeout_s
         proc = await asyncio.create_subprocess_exec(
@@ -151,7 +156,7 @@ def build_skill_tools(
             *args.args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            cwd=cwd,
+            cwd=str(cwd_path),
         )
         try:
             stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout_s)
@@ -171,6 +176,7 @@ def build_skill_tools(
 
         return {
             "command": [command, *args.args],
+            "cwd": str(cwd_path),
             "exit_code": proc.returncode,
             "stdout": stdout,
             "stderr": stderr,
@@ -207,3 +213,12 @@ def _is_inside(path: Path, root: Path) -> bool:
         return True
     except ValueError:
         return False
+
+
+def _read_text_limited(path: Path, max_chars: int) -> tuple[str, bool]:
+    """Read at most max_chars plus one sentinel character from a UTF-8 file."""
+    with path.open("r", encoding="utf-8") as handle:
+        text = handle.read(max_chars + 1)
+    if len(text) <= max_chars:
+        return text, False
+    return text[:max_chars], True

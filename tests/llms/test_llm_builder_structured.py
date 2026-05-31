@@ -36,7 +36,6 @@ from afk.llms.structured import (
     parse_and_validate_json,
 )
 
-
 # ============================== Helpers ==============================
 
 # All AFK_LLM_* env vars that LLMSettings.from_env() reads.

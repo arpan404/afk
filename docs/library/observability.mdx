@@ -67,11 +67,12 @@ Every completed run produces a `RunMetrics` object:
 
 ```python
 result = runner.run_sync(agent, user_message="...")
-m = result.usage
+usage = result.usage_aggregate
 
-print(f"Steps: {m.total_steps}")
-print(f"Cost: ${m.total_cost_usd:.4f}")
-print(f"Duration: {m.wall_time_s:.1f}s")
+print(f"State: {result.state}")
+print(f"Tokens: {usage.total_tokens}")
+print(f"Cost: ${result.total_cost_usd or 0:.4f}")
+print(f"Tool calls: {len(result.tool_executions)}")
 ```
 
 ## Choosing an exporter

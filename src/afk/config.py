@@ -12,7 +12,8 @@ them and returns an immutable typed object.
 from __future__ import annotations
 
 import os
-from typing import Any, Callable, TypeVar
+from collections.abc import Callable
+from typing import Any, ClassVar, TypeVar
 
 T = TypeVar("T")
 
@@ -137,7 +138,7 @@ class MCPServerEnv(Settings):
     )
     AFK_MCP_NAME: str = EnvVarField("AFK_MCP_NAME", default="afk-mcp-server")
     AFK_MCP_VERSION: str = EnvVarField("AFK_MCP_VERSION", default="1.0.0")
-    AFK_MCP_HOST: str = EnvVarField("AFK_MCP_HOST", default="0.0.0.0")
+    AFK_MCP_HOST: str = EnvVarField("AFK_MCP_HOST", default="127.0.0.1")
     AFK_MCP_PORT: int = EnvVarField("AFK_MCP_PORT", default=8000, parser=_int)
     AFK_MCP_INSTRUCTIONS: str | None = EnvVarField(
         "AFK_MCP_INSTRUCTIONS", default=None
@@ -167,7 +168,7 @@ class RunnerEnv(Settings):
 class MemoryEnv(Settings):
     """Environment variable bindings for memory stores and queues."""
 
-    AFK_MEMORY_BACKEND: str = EnvVarField("AFK_MEMORY_BACKEND", default="sqlite")
+    AFK_MEMORY_BACKEND: str = EnvVarField("AFK_MEMORY_BACKEND", default="memory")
     AFK_SQLITE_PATH: str = EnvVarField("AFK_SQLITE_PATH", default="afk_memory.sqlite3")
     AFK_REDIS_URL: str | None = EnvVarField("AFK_REDIS_URL", default=None)
     AFK_REDIS_HOST: str = EnvVarField("AFK_REDIS_HOST", default="localhost")

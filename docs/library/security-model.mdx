@@ -96,14 +96,18 @@ flowchart TB
     External communication requires authentication and per-caller authorization.
 
     ```python
-    from afk.a2a import TokenAuthProvider
+    from afk.agents import A2AServiceHost, APIKeyA2AAuthProvider
 
-    auth = TokenAuthProvider(
-        valid_tokens={"system-a": "token-abc"},
-        allowed_agents={"system-a": ["analyzer"]},
+    auth = APIKeyA2AAuthProvider(
+        keys={"system-a": "token-abc"},
+        server_secret="hmac-secret-for-key-hashing",
     )
 
-    server = A2AServer(agents={"analyzer": agent}, auth_provider=auth)
+    server = A2AServiceHost(
+        agents={"analyzer": agent},
+        runner_factory=lambda: Runner(),
+        auth_provider=auth,
+    )
     ```
 
   </Accordion>

@@ -65,16 +65,34 @@ class MCPServerConfig:
 
     name: str = "afk-mcp-server"
     version: str = "1.0.0"
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"
     port: int = 8000
     instructions: str | None = None
     cors_origins: list[str] = field(default_factory=lambda: ["*"])
+    allow_credentials: bool = False
     mcp_path: str = "/mcp"
     sse_path: str = "/mcp/sse"
     health_path: str = "/health"
     enable_sse: bool = True
     enable_health: bool = True
     allow_batch_requests: bool = True
+    require_tools_auth: bool = True
+    insecure_development: bool = False
+    mcp_tools_auth_token: str | None = None
+    token_header: str = "Authorization"
+
+    def __post_init__(self) -> None:
+        if self.insecure_development:
+            return
+        if self.require_tools_auth and self.mcp_tools_auth_token is None:
+            raise ValueError(
+                "MCP server requires an auth token via mcp_tools_auth_token unless"
+                " insecure_development=True"
+            )
+        if self.allow_credentials and "*" in self.cors_origins:
+            raise ValueError(
+                "CORS wildcard origin '*' cannot be used with credentials enabled"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +188,10 @@ class MCPServer:
             server_name=self._config.name,
             server_version=self._config.version,
             instructions=self._config.instructions,
+            require_tools_auth=self._config.require_tools_auth,
+            insecure_development=self._config.insecure_development,
+            auth_token=self._config.mcp_tools_auth_token,
+            token_header=self._config.token_header,
         )
 
     def _create_router(self):
@@ -215,12 +237,18 @@ class MCPServer:
                     )
                 responses = []
                 for item in body:
-                    resp = await self._protocol_handler.handle_message(item)
+                    resp = await self._protocol_handler.handle_message(
+                        item,
+                        headers=dict(request.headers),
+                    )
                     if resp is not None:
                         responses.append(resp)
                 return JSONResponse(responses, status_code=200)
 
-            result = await self._protocol_handler.handle_message(body)
+            result = await self._protocol_handler.handle_message(
+                body,
+                headers=dict(request.headers),
+            )
             if result is None:
                 return FastAPIResponse(status_code=204)
             return JSONResponse(result, status_code=200)
@@ -283,7 +311,7 @@ class MCPServer:
         app.add_middleware(
             CORSMiddleware,
             allow_origins=self._config.cors_origins,
-            allow_credentials=True,
+            allow_credentials=self._config.allow_credentials,
             allow_methods=["*"],
             allow_headers=["*"],
         )

@@ -8,7 +8,9 @@ Utility helpers for MCP store reference parsing and schema normalization.
 
 from __future__ import annotations
 
+import ipaddress
 import re
+import socket
 import urllib.parse
 from typing import Any
 
@@ -26,13 +28,102 @@ def _sanitize_name(value: str) -> str:
     return out or "mcp"
 
 
+def _looks_private_or_local_host(host: str) -> bool:
+    normalized = host.lower().strip()
+    if normalized in {"localhost", "127.0.0.1", "::1", "[::1]"}:
+        return True
+    try:
+        ip = ipaddress.ip_address(normalized)
+    except ValueError:
+        return False
+    return _is_restricted_ip(ip)
+
+
+def _is_restricted_ip(ip: ipaddress._BaseAddress) -> bool:
+    return bool(
+        ip.is_loopback
+        or ip.is_private
+        or ip.is_link_local
+        or ip.is_multicast
+        or ip.is_unspecified
+        or ip.is_reserved
+    )
+
+
+def _validate_resolved_ips(*, host: str, allow_private_networks: bool) -> None:
+    try:
+        addrs = socket.getaddrinfo(host, None)
+    except OSError as exc:
+        raise MCPServerResolutionError(f"Unable to resolve MCP host '{host}': {exc}") from exc
+
+    ips = {sockaddr[0] for *_rest, sockaddr in addrs if isinstance(sockaddr, tuple)}
+    if not ips:
+        raise MCPServerResolutionError(f"No resolvable addresses for MCP host '{host}'")
+
+    if allow_private_networks:
+        return
+
+    for candidate in ips:
+        try:
+            ip = ipaddress.ip_address(candidate)
+        except ValueError:
+            continue
+        if _is_restricted_ip(ip):
+            raise MCPServerResolutionError(
+                f"MCP host '{host}' resolves to restricted address '{candidate}'"
+            )
+
+
+def _validate_remote_url(
+    url: str,
+    *,
+    parsed: urllib.parse.SplitResult | None = None,
+    allow_private_networks: bool = False,
+    require_https: bool = True,
+    allowed_hostnames: tuple[str, ...] = (),
+) -> str:
+    parsed_url = parsed or urllib.parse.urlparse(url)
+
+    if parsed_url.scheme not in {"http", "https"}:
+        raise MCPServerResolutionError("MCP server URL scheme must be http or https")
+    if not parsed_url.netloc:
+        raise MCPServerResolutionError("MCP server URL must include network location")
+
+    if require_https and parsed_url.scheme != "https" and not _looks_private_or_local_host(
+        parsed_url.hostname or ""
+    ):
+        raise MCPServerResolutionError(
+            "MCP server URL must use HTTPS for remote references"
+        )
+
+    if parsed_url.hostname is None:
+        raise MCPServerResolutionError("MCP server URL must include a valid hostname")
+
+    hostname = parsed_url.hostname.lower()
+    allowed = tuple(name.lower() for name in allowed_hostnames if isinstance(name, str))
+    if allowed and hostname not in allowed:
+        raise MCPServerResolutionError(
+            f"MCP server hostname '{hostname}' is not in allowed_hostnames"
+        )
+
+    if _looks_private_or_local_host(hostname) and not allow_private_networks:
+        raise MCPServerResolutionError(
+            "MCP server URL points to a restricted private/loopback host"
+        )
+
+    _validate_resolved_ips(host=hostname, allow_private_networks=allow_private_networks)
+    return url
+
+
 def _validate_http_url(url: str) -> str:
     parsed = urllib.parse.urlparse(url)
-    if parsed.scheme not in {"http", "https"}:
-        raise MCPServerResolutionError("MCP server URL scheme must be http or https")
-    if not parsed.netloc:
-        raise MCPServerResolutionError("MCP server URL must include network location")
-    return url
+    return _validate_remote_url(
+        url,
+        parsed=parsed,
+        allow_private_networks=True,
+        require_https=False,
+        allowed_hostnames=(),
+    )
 
 
 def _qualified_tool_name(server: MCPServerRef, tool_name: str) -> str:
@@ -64,6 +155,12 @@ def _extract_mcp_text(content: Any) -> str | None:
 def resolve_server_ref(ref: str | dict[str, Any] | MCPServerRef) -> MCPServerRef:
     """Resolve a server reference from string/dict/dataclass form."""
     if isinstance(ref, MCPServerRef):
+        _validate_remote_url(
+            ref.url,
+            allow_private_networks=ref.allow_private_networks,
+            require_https=ref.require_https,
+            allowed_hostnames=ref.allowed_hostnames,
+        )
         return ref
 
     if isinstance(ref, str):
@@ -116,6 +213,13 @@ def resolve_server_ref(ref: str | dict[str, Any] | MCPServerRef) -> MCPServerRef
                 "MCP server 'tool_name_prefix' must be a string when set"
             )
 
+        require_https = bool(ref.get("require_https", True))
+        allow_private = bool(ref.get("allow_private_networks", False))
+        allowed_hostnames = tuple(
+            str(v).strip() for v in ref.get("allowed_hostnames", ()) or ()
+            if str(v).strip()
+        )
+
         return MCPServerRef(
             name=name,
             url=normalized_url,
@@ -125,11 +229,10 @@ def resolve_server_ref(ref: str | dict[str, Any] | MCPServerRef) -> MCPServerRef
             tool_name_prefix=tool_name_prefix.strip()
             if isinstance(tool_name_prefix, str) and tool_name_prefix.strip()
             else None,
+            require_https=require_https,
+            allow_private_networks=allow_private,
+            allowed_hostnames=allowed_hostnames,
         )
-
-    raise MCPServerResolutionError(
-        f"Unsupported MCP server reference type: {type(ref).__name__}"
-    )
 
 
 def normalize_remote_tools(
@@ -138,7 +241,7 @@ def normalize_remote_tools(
 ) -> list[MCPRemoteTool]:
     """Validate and normalize a remote ``tools/list`` payload."""
     if not isinstance(tools, list):
-        raise MCPRemoteProtocolError(
+        raise MCPServerResolutionError(
             f"Invalid tools/list response from '{server.name}': missing tools list"
         )
 

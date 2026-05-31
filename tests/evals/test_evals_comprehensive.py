@@ -9,13 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from afk.evals.models import (
-    EvalAssertionResult,
-    EvalCase,
-    EvalCaseResult,
-    EvalSuiteConfig,
-    EvalSuiteResult,
-)
+from afk.agents.types.policy import AgentRunEvent
 from afk.evals.budgets import EvalBudget, evaluate_budget
 from afk.evals.datasets import (
     _as_json_obj,
@@ -24,9 +18,14 @@ from afk.evals.datasets import (
     load_eval_cases_json,
 )
 from afk.evals.golden import compare_event_types, write_golden_trace
+from afk.evals.models import (
+    EvalAssertionResult,
+    EvalCase,
+    EvalCaseResult,
+    EvalSuiteConfig,
+    EvalSuiteResult,
+)
 from afk.observability.models import RunMetrics
-from afk.agents.types.policy import AgentRunEvent
-
 
 # ======================================================================
 # Fake agent for EvalCase construction (avoids real Agent dependencies)

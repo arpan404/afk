@@ -8,7 +8,7 @@ Module: cache/base.py.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Protocol
 
 from ..types import JSONValue, LLMResponse
@@ -33,3 +33,15 @@ class LLMCacheBackend(Protocol):
     async def set(self, key: str, value: LLMResponse, *, ttl_s: float) -> None: ...
 
     async def delete(self, key: str) -> None: ...
+
+
+def cache_safe_response(value: LLMResponse) -> LLMResponse:
+    """Strip request-scoped provider metadata before storing a reusable cache row."""
+    return replace(
+        value,
+        request_id=None,
+        provider_request_id=None,
+        session_token=None,
+        checkpoint_token=None,
+        raw={},
+    )

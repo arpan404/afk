@@ -177,7 +177,7 @@ async def add_request_metadata(call_next, req: LLMRequest) -> LLMResponse:
 client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-5.2-mini")
+    .model("gpt-4.1-mini")
     .profile("production")
     .with_middlewares(MiddlewareStack(
         chat=[add_request_metadata],
@@ -197,6 +197,57 @@ client = (
 | `LLMStreamMiddleware` | Streaming chat | `(call_next, req: LLMRequest) -> AsyncIterator[LLMStreamEvent]` |
 
 Each middleware receives `call_next` (the next middleware or transport in the chain) and the request object. It can modify the request before calling `call_next`, modify the response after, or short-circuit entirely by returning a response without calling `call_next`.
+
+## Built-in LLM middleware
+
+AFK ships with pre-built middleware for common patterns:
+
+### Timeout middleware
+
+Apply per-request timeouts to prevent runaway calls:
+
+```python
+from afk.llms.middleware.timeout import (
+    TimeoutMiddleware,
+    EmbedTimeoutMiddleware,
+    StreamTimeoutMiddleware,
+    TimeoutConfig,
+)
+from afk.llms.middleware import MiddlewareStack
+
+# Configure timeouts
+config = TimeoutConfig(
+    default_timeout_s=30.0,
+    chat_timeout_s=60.0,
+    embed_timeout_s=15.0,
+    stream_timeout_s=45.0,
+)
+
+# Add to middleware stack
+stack = MiddlewareStack(
+    chat=[TimeoutMiddleware(config)],
+    embed=[EmbedTimeoutMiddleware(config)],
+    stream=[StreamTimeoutMiddleware(config)],
+)
+
+# Build client
+client = (
+    LLMBuilder()
+    .provider("openai")
+    .model("gpt-4.1-mini")
+    .with_middlewares(stack)
+    .build()
+)
+```
+
+The timeout middleware respects `TimeoutPolicy` from the request if provided:
+```python
+req = LLMRequest(
+    model="gpt-4.1-mini",
+    messages=[...],
+    timeout_policy=TimeoutPolicy(request_timeout_s=45.0),  # Override config
+)
+```
 
 ## When to use each layer
 

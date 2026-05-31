@@ -212,8 +212,8 @@ profile = SandboxProfile(
 |-------|------|---------|-------------|
 | `profile_id` | `str` | `"default"` | Identifier for this profile |
 | `allow_network` | `bool` | `False` | Allow network-accessing tools and URL args |
-| `allow_command_execution` | `bool` | `True` | Allow command execution tools |
-| `allowed_command_prefixes` | `list[str]` | `[]` | Allowlisted command prefixes (empty = all allowed) |
+| `allow_command_execution` | `bool` | `False` | Allow command execution tools |
+| `allowed_command_prefixes` | `list[str]` | `[]` | Allowlisted command prefixes (empty = none) |
 | `deny_shell_operators` | `bool` | `True` | Block `&&`, `\|\|`, `;`, `\|`, backticks, `$(`, redirects |
 | `allowed_paths` | `list[str]` | `[]` | Allowed filesystem paths (empty = no restriction) |
 | `denied_paths` | `list[str]` | `[]` | Denied filesystem paths (checked before allowlist) |
@@ -246,7 +246,7 @@ skill_policy = SkillToolPolicy(
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `command_allowlist` | `list[str]` | `[]` | Allowed command prefixes (empty = all allowed) |
+| `command_allowlist` | `list[str]` | `[]` | Allowed command prefixes (empty = none) |
 | `deny_shell_operators` | `bool` | `True` | Block shell chaining operators |
 | `max_stdout_chars` | `int` | `20_000` | Maximum stdout characters retained |
 | `max_stderr_chars` | `int` | `20_000` | Maximum stderr characters retained |
@@ -327,6 +327,7 @@ from afk.tools.security import SandboxProfile
 
 profile = SandboxProfile(
     allow_network=False,
+    allow_command_execution=True,
     allowed_command_prefixes=["ls", "cat"],
     allowed_paths=["/workspace"],
     denied_paths=["/etc", "/root", "/var"],

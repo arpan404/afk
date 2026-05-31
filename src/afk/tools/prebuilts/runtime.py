@@ -93,10 +93,9 @@ def build_runtime_tools(*, root_dir: Path) -> list[Tool[Any, Any]]:
         _ensure_inside(target, root)
         if not target.exists() or not target.is_file():
             raise FileAccessError(f"File not found: {args.path}")
-        text = await asyncio.to_thread(target.read_text, encoding="utf-8")
-        truncated = len(text) > args.max_chars
-        if truncated:
-            text = text[: args.max_chars]
+        text, truncated = await asyncio.to_thread(
+            _read_text_limited, target, args.max_chars
+        )
         return {
             "root": str(root),
             "path": str(target),
@@ -117,3 +116,12 @@ def _ensure_inside(path: Path, root: Path) -> None:
         path.relative_to(root)
     except ValueError as e:
         raise FileAccessError(f"Path '{path}' escapes root '{root}'") from e
+
+
+def _read_text_limited(path: Path, max_chars: int) -> tuple[str, bool]:
+    """Read at most max_chars plus one sentinel character from a UTF-8 file."""
+    with path.open("r", encoding="utf-8") as handle:
+        text = handle.read(max_chars + 1)
+    if len(text) <= max_chars:
+        return text, False
+    return text[:max_chars], True

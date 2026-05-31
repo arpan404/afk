@@ -6,6 +6,12 @@ See LICENSE file for full license text.
 Workflow module exports.
 """
 
+from .executor import (
+    WorkflowExecutionContext,
+    WorkflowExecutionResult,
+    WorkflowExecutor,
+    create_workflow_executor,
+)
 from .state_machine import (
     WorkflowBuilder,
     WorkflowEdge,
@@ -14,12 +20,6 @@ from .state_machine import (
     WorkflowSpec,
     WorkflowState,
     WorkflowTransition,
-)
-from .executor import (
-    WorkflowExecutionContext,
-    WorkflowExecutionResult,
-    WorkflowExecutor,
-    create_workflow_executor,
 )
 
 __all__ = [

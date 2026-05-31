@@ -11,13 +11,12 @@ from contextlib import contextmanager
 import numpy as np
 import pytest
 
-from afk.memory.utils import json_dumps, json_loads, new_id, now_ms
-from afk.memory.vector import cosine_similarity, format_pgvector
-from afk.memory.factory import _env_bool, create_memory_store_from_env
 from afk.memory.adapters.in_memory import InMemoryMemoryStore
 from afk.memory.adapters.sqlite import SQLiteMemoryStore
+from afk.memory.factory import _env_bool, create_memory_store_from_env
 from afk.memory.types import LongTermMemory, MemoryEvent
-
+from afk.memory.utils import json_dumps, json_loads, new_id, now_ms
+from afk.memory.vector import cosine_similarity, format_pgvector
 
 # ---------------------------------------------------------------------------
 # Helpers

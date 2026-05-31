@@ -7,18 +7,15 @@ Tests for policy audit logging.
 """
 
 import pytest
+
 from afk.agents.policy.audit import (
-    AuditAction,
     AuditConfig,
-    AuditLevel,
     AuditRecord,
-    AuditSink,
     ConsoleAuditSink,
     FileAuditSink,
     PolicyAuditLogger,
     create_policy_audit_logger,
 )
-from afk.agents.types.policy import PolicyDecision, PolicyEvent
 
 
 class TestAuditConfig:
@@ -30,7 +27,7 @@ class TestAuditConfig:
 
         assert config.enabled is True
         assert config.min_level == "info"
-        assert config.include_payloads is True
+        assert config.include_payloads is False
         assert config.max_payload_size == 10_000
         assert config.retention_days == 90
         assert config.sink == "console"
@@ -141,6 +138,37 @@ class TestFileAuditSink:
         assert result["password"] == "[REDACTED]"
         assert result["username"] == "admin"
         assert result["action"] == "test"
+
+    def test_redact_nested_payloads_and_sensitive_strings(self) -> None:
+        """Test redaction for nested data and sensitive-looking values."""
+        sink = FileAuditSink(AuditConfig())
+
+        data = {
+            "outer": {
+                "api_key": "eyJhbGci.sensitive.token",
+                "nested": {
+                    "password": "very_secret_password",
+                    "safe": "still_visible",
+                    "children": [
+                        {
+                            "token": "sk_live_0123456789ABCDEF0123",
+                            "role": "reader",
+                        },
+                        "value",
+                    ],
+                },
+                "header": "Bearer sk_live_ABCDEF0123456789",
+            },
+        }
+
+        result = sink._redact(data)
+
+        assert result["outer"]["api_key"] == "[REDACTED]"
+        assert result["outer"]["nested"]["password"] == "[REDACTED]"
+        assert result["outer"]["nested"]["safe"] == "still_visible"
+        assert result["outer"]["nested"]["children"][0]["token"] == "[REDACTED]"
+        assert result["outer"]["nested"]["children"][1] == "value"
+        assert result["outer"]["header"] == "[REDACTED]"
 
 
 class TestPolicyAuditLogger:

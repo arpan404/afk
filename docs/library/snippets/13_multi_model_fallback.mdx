@@ -14,13 +14,13 @@ from afk.agents import Agent, FailSafeConfig
 
 agent = Agent(
     name="resilient-agent",
-    model="gpt-5.2",                    # Primary model
+    model="gpt-4.1",                    # Primary model
     instructions="Be helpful and thorough.",
     fail_safe=FailSafeConfig(
         # Fallback chain: try these models in order if the primary fails
         fallback_model_chain=[
-            "gpt-5.2-mini",              # First fallback: cheaper, faster
-            "gpt-5.2-nano",              # Last resort: fastest, cheapest
+            "gpt-4.1-mini",              # First fallback: cheaper, faster
+            "gpt-4.1-nano",              # Last resort: fastest, cheapest
         ],
 
         # When LLM calls fail, retry then degrade
@@ -32,11 +32,11 @@ agent = Agent(
 )
 ```
 
-When `gpt-5.2` fails (timeout, rate limit, outage):
+When `gpt-4.1` fails (timeout, rate limit, outage):
 
 1. AFK retries with the primary model (controlled by retry policy)
-2. If retries exhaust, it falls through to `gpt-5.2-mini`
-3. If that also fails, it tries `gpt-5.2-nano`
+2. If retries exhaust, it falls through to `gpt-4.1-mini`
+3. If that also fails, it tries `gpt-4.1-nano`
 4. If all models fail, the `llm_failure_policy` determines the outcome
 
 ## Cost-optimized fallback
@@ -50,13 +50,13 @@ from afk.core import Runner
 # Start cheap, escalate if quality is insufficient
 simple_agent = Agent(
     name="classifier",
-    model="gpt-5.2-nano",              # Start with cheapest
+    model="gpt-4.1-nano",              # Start with cheapest
     instructions="""
     Classify the support ticket. Output exactly one label:
     billing, technical, account, other.
     """,
     fail_safe=FailSafeConfig(
-        fallback_model_chain=["gpt-5.2-mini", "gpt-5.2"],
+        fallback_model_chain=["gpt-4.1-mini", "gpt-4.1"],
         max_total_cost_usd=0.05,
     ),
 )
@@ -64,13 +64,13 @@ simple_agent = Agent(
 # Complex tasks get the big model with fallbacks
 analysis_agent = Agent(
     name="analyst",
-    model="gpt-5.2",                   # Start with most capable
+    model="gpt-4.1",                   # Start with most capable
     instructions="""
     Provide detailed technical analysis with code examples.
     Be thorough and precise.
     """,
     fail_safe=FailSafeConfig(
-        fallback_model_chain=["gpt-5.2-mini"],
+        fallback_model_chain=["gpt-4.1-mini"],
         llm_failure_policy="retry_then_degrade",
         max_total_cost_usd=2.00,
     ),
@@ -78,13 +78,13 @@ analysis_agent = Agent(
 
 runner = Runner()
 
-# Simple task → cheap model handles it
+# Simple task -> cheap model handles it
 r1 = runner.run_sync(simple_agent, user_message="I can't log in")
-print(f"Classification: {r1.final_text} (${r1.usage.estimated_cost_usd:.4f})")
+print(f"Classification: {r1.final_text} (${r1.total_cost_usd or 0:.4f})")
 
-# Complex task → powerful model with safety net
+# Complex task -> powerful model with safety net
 r2 = runner.run_sync(analysis_agent, user_message="Analyze Python's asyncio event loop")
-print(f"Analysis: {r2.final_text[:100]}... (${r2.usage.estimated_cost_usd:.4f})")
+print(f"Analysis: {r2.final_text[:100]}... (${r2.total_cost_usd or 0:.4f})")
 ```
 
 ## Circuit breaker integration
@@ -94,10 +94,10 @@ AFK's built-in circuit breaker works with fallback chains. When a model triggers
 ```python
 agent = Agent(
     name="breaker-demo",
-    model="gpt-5.2",
+    model="gpt-4.1",
     instructions="...",
     fail_safe=FailSafeConfig(
-        fallback_model_chain=["gpt-5.2-mini", "gpt-5.2-nano"],
+        fallback_model_chain=["gpt-4.1-mini", "gpt-4.1-nano"],
 
         # Circuit breaker settings
         breaker_failure_threshold=5,     # Open after 5 consecutive failures
@@ -112,10 +112,10 @@ agent = Agent(
 
 ```mermaid
 flowchart LR
-    A["gpt-5.2 fails 5x"] --> B["Circuit opens"]
-    B --> C["Skip to gpt-5.2-mini"]
+    A["gpt-4.1 fails 5x"] --> B["Circuit opens"]
+    B --> C["Skip to gpt-4.1-mini"]
     C --> D["30s cooldown"]
-    D --> E["gpt-5.2 retried"]
+    D --> E["gpt-4.1 retried"]
     E -->|"succeeds"| F["Circuit closes"]
     E -->|"fails again"| B
 ```
@@ -130,27 +130,27 @@ from afk.agents import Agent, FailSafeConfig
 # Cheap model for simple classification
 router = Agent(
     name="router",
-    model="gpt-5.2-nano",
+    model="gpt-4.1-nano",
     instructions="Route to the correct specialist.",
-    fail_safe=FailSafeConfig(fallback_model_chain=["gpt-5.2-mini"]),
+    fail_safe=FailSafeConfig(fallback_model_chain=["gpt-4.1-mini"]),
     subagents=[
         # Powerful model for complex analysis
         Agent(
             name="analyst",
-            model="gpt-5.2",
+            model="gpt-4.1",
             instructions="Provide deep technical analysis.",
             fail_safe=FailSafeConfig(
-                fallback_model_chain=["gpt-5.2-mini"],
+                fallback_model_chain=["gpt-4.1-mini"],
                 max_total_cost_usd=1.00,
             ),
         ),
         # Mid-tier model for summarization
         Agent(
             name="summarizer",
-            model="gpt-5.2-mini",
+            model="gpt-4.1-mini",
             instructions="Summarize findings concisely.",
             fail_safe=FailSafeConfig(
-                fallback_model_chain=["gpt-5.2-nano"],
+                fallback_model_chain=["gpt-4.1-nano"],
                 max_total_cost_usd=0.25,
             ),
         ),
@@ -160,26 +160,28 @@ router = Agent(
 
 ## Inspecting which model was used
 
-After a run, check the usage to see which model handled the request:
+After a run, check the result metadata and usage aggregate:
 
 ```python
 result = runner.run_sync(agent, user_message="Analyze this...")
 
-# Usage aggregate includes model info
 print(f"State: {result.state}")
-print(f"Total cost: ${result.usage.estimated_cost_usd:.4f}")
-print(f"LLM calls: {result.usage.llm_call_count}")
+print(f"Requested model: {result.requested_model}")
+print(f"Normalized model: {result.normalized_model}")
+print(f"Provider: {result.provider_adapter}")
+print(f"Total tokens: {result.usage_aggregate.total_tokens}")
+print(f"Total cost: ${result.total_cost_usd or 0:.4f}")
 ```
 
 ## Recommendations
 
 | Scenario                 | Primary Model  | Fallback Chain                  |
 | ------------------------ | -------------- | ------------------------------- |
-| **Classification**       | `gpt-5.2-nano` | `gpt-5.2-mini`                  |
-| **General chat**         | `gpt-5.2-mini` | `gpt-5.2-nano`                  |
-| **Complex analysis**     | `gpt-5.2`      | `gpt-5.2-mini` → `gpt-5.2-nano` |
-| **Code generation**      | `gpt-5.2`      | `gpt-5.2-mini`                  |
-| **Cost-sensitive batch** | `gpt-5.2-nano` | _(none)_                        |
+| **Classification**       | `gpt-4.1-nano` | `gpt-4.1-mini`                  |
+| **General chat**         | `gpt-4.1-mini` | `gpt-4.1-nano`                  |
+| **Complex analysis**     | `gpt-4.1`      | `gpt-4.1-mini` → `gpt-4.1-nano` |
+| **Code generation**      | `gpt-4.1`      | `gpt-4.1-mini`                  |
+| **Cost-sensitive batch** | `gpt-4.1-nano` | _(none)_                        |
 
 ## What to read next
 

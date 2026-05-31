@@ -14,6 +14,12 @@ from .adapters import (
     InMemoryMemoryStore,
     SQLiteMemoryStore,
 )
+from .compaction import (
+    BackgroundCompactor,
+    CompactionConfig,
+    CompactionStats,
+    MemoryCompactor,
+)
 from .factory import create_memory_store_from_env
 from .lifecycle import (
     MemoryCompactionResult,
@@ -27,12 +33,6 @@ from .store import MemoryCapabilities, MemoryStore
 from .types import JsonObject, JsonValue, LongTermMemory, MemoryEvent
 from .utils import new_id, now_ms
 from .vector import cosine_similarity
-from .compaction import (
-    BackgroundCompactor,
-    CompactionConfig,
-    CompactionStats,
-    MemoryCompactor,
-)
 
 RedisMemoryStore = None  # type: ignore[assignment]
 PostgresMemoryStore = None  # type: ignore[assignment]

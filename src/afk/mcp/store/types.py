@@ -32,6 +32,9 @@ class MCPServerRef:
     timeout_s: float = 20.0
     prefix_tools: bool = True
     tool_name_prefix: str | None = None
+    require_https: bool = True
+    allow_private_networks: bool = False
+    allowed_hostnames: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

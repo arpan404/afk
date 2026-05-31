@@ -40,12 +40,17 @@ flowchart LR
 <Steps>
   <Step title="Client builds invocation request">
     ```python
-    from afk.agents.contracts import AgentInvocationRequest
+    from afk.messaging import AgentInvocationRequest
 
     request = AgentInvocationRequest(
+        run_id="run-42",
+        thread_id="thread-42",
+        conversation_id="conversation-42",
+        correlation_id="analysis-42",
+        source_agent="system-a",
         target_agent="analyzer",
-        user_message="Analyze this dataset",
-        context={"source": "system-a"},
+        payload={"user_message": "Analyze this dataset"},
+        metadata={"source": "system-a"},
         idempotency_key="analysis-42",
     )
     ```
@@ -60,8 +65,8 @@ flowchart LR
   <Step title="Response returned">
     ```python
     response = await client.invoke(request)
-    print(response.final_text)   # Agent's response
-    print(response.state)        # "completed"
+    print(response.output)       # Agent output payload
+    print(response.success)      # True when handled successfully
     print(response.run_id)       # For tracing
     ```
   </Step>
@@ -73,22 +78,31 @@ flowchart LR
   <Tab title="Request">
     ```python
     class AgentInvocationRequest(BaseModel):
-        target_agent: str  # Which agent to invoke
-        user_message: str  # The input message
-        context: dict = {}  # Additional context
-        idempotency_key: str  # Deduplication key
-        timeout_s: float = 60.0  # Max wait time
-        thread_id: str | None = None  # For multi-turn
+        run_id: str
+        thread_id: str
+        conversation_id: str
+        correlation_id: str
+        idempotency_key: str
+        source_agent: str
+        target_agent: str
+        payload: dict = {}
+        metadata: dict = {}
+        timeout_s: float | None = None
     ```
   </Tab>
   <Tab title="Response">
     ```python
     class AgentInvocationResponse(BaseModel):
-        final_text: str  # Agent's response
-        state: str  # completed, failed, degraded
-        run_id: str  # Unique run identifier
-        error: str | None = None  # Error details (if failed)
-        usage: UsageAggregate | None  # Token usage
+        run_id: str
+        thread_id: str
+        conversation_id: str
+        correlation_id: str
+        idempotency_key: str
+        source_agent: str
+        target_agent: str
+        success: bool
+        output: dict | str | None = None
+        error: str | None = None
     ```
   </Tab>
 </Tabs>
@@ -98,13 +112,11 @@ flowchart LR
 Expose your agents as an A2A-accessible service:
 
 ```python
-from afk.agents.a2a import A2AServiceHost
-from afk.agents.a2a.auth import APIKeyA2AAuthProvider
-from afk.agents import Agent
+from afk.agents import Agent, A2AServiceHost, APIKeyA2AAuthProvider
 from afk.core import Runner
 
 # Define the agent
-analyzer = Agent(name="analyzer", model="gpt-5.2-mini", instructions="Analyze data.")
+analyzer = Agent(name="analyzer", model="gpt-4.1-mini", instructions="Analyze data.")
 
 # Create auth provider
 auth = APIKeyA2AAuthProvider(
@@ -131,39 +143,39 @@ AFK ships with three auth providers:
   <Tab title="AllowAll (dev only)">
     Permits all requests without authentication. **Never use in production.**
 
-    ```python
-    from afk.agents.a2a.auth import AllowAllA2AAuthProvider
+```python
+from afk.agents import AllowAllA2AAuthProvider
 
-    auth = AllowAllA2AAuthProvider()
-    ```
+auth = AllowAllA2AAuthProvider()
+```
 
   </Tab>
   <Tab title="API Key">
     Validates requests against pre-shared API keys with HMAC-SHA256 hashing.
 
-    ```python
-    from afk.agents.a2a.auth import APIKeyA2AAuthProvider
+```python
+from afk.agents import APIKeyA2AAuthProvider
 
-    auth = APIKeyA2AAuthProvider(
-        keys={"caller-id": "secret-key"},
-        server_secret="hmac-server-secret",
-    )
-    ```
+auth = APIKeyA2AAuthProvider(
+    keys={"caller-id": "secret-key"},
+    server_secret="hmac-server-secret",
+)
+```
 
   </Tab>
   <Tab title="JWT">
     Validates JWT tokens with configurable issuer and audience claims.
 
-    ```python
-    from afk.agents.a2a.auth import JWTA2AAuthProvider
+```python
+from afk.agents import JWTA2AAuthProvider
 
-    auth = JWTA2AAuthProvider(
-        secret="jwt-signing-secret",
-        algorithm="HS256",
-        issuer="https://auth.example.com",
-        audience="agent-service",
-    )
-    ```
+auth = JWTA2AAuthProvider(
+    secret="jwt-signing-secret",
+    algorithm="HS256",
+    issuer="https://auth.example.com",
+    audience="agent-service",
+)
+```
 
   </Tab>
 </Tabs>
@@ -173,15 +185,12 @@ AFK ships with three auth providers:
 For interoperability with Google's A2A protocol, use the Google adapter:
 
 ```python
-from afk.agents.a2a.google_adapter import GoogleA2AAdapter
+from afk.agents import GoogleA2AProtocolAdapter
 
-adapter = GoogleA2AAdapter(
-    protocol=internal_protocol,
-    auth_provider=auth,
-)
+adapter = GoogleA2AProtocolAdapter(client=google_a2a_client)
 ```
 
-The adapter normalizes Google A2A envelope formats to AFK's internal protocol types.
+The adapter wraps a configured Google A2A SDK client behind AFK's `AgentCommunicationProtocol`.
 
 ## Security considerations
 

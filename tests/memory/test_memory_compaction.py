@@ -7,12 +7,12 @@ Tests for memory compaction.
 """
 
 import pytest
+
 from afk.memory import (
     CompactionConfig,
     CompactionStats,
     MemoryCompactor,
 )
-from afk.memory.types import MemoryEvent
 
 
 class TestCompactionConfig:
@@ -158,6 +158,6 @@ class TestBackgroundCompactor:
         from afk.memory import BackgroundCompactor
 
         compactor = BackgroundCompactor()
-        compactor.stop()
+        await compactor.stop()
 
         assert compactor._running is False

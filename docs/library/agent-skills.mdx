@@ -68,6 +68,34 @@ Check the dashboard at https://monitoring.internal/deployments
 
 The YAML frontmatter (`name`, `description`) helps the agent decide which skill is relevant. The markdown body is the knowledge content.
 
+## Installing repository skills
+
+This repository includes two skills for agentic development:
+
+- `afk-coder` for building applications with AFK.
+- `afk-maintainer` for reviewing or changing AFK itself.
+
+Install them with Vercel's Skills CLI:
+
+```bash
+npx skills add https://github.com/arpan404/afk --skill afk-coder
+npx skills add https://github.com/arpan404/afk --skill afk-maintainer
+```
+
+Install one skill at a time:
+
+```bash
+npx skills add https://github.com/arpan404/afk --skill afk-coder
+```
+
+For another repository, use the same shape:
+
+```bash
+npx skills add https://github.com/vercel-labs/skills --skill find-skills
+```
+
+The Skills CLI installs the selected skill into the configured agent environment. See [skills.sh](https://www.skills.sh/) for CLI details and supported agents.
+
 ## Registering skills on an agent
 
 ```python
@@ -75,7 +103,7 @@ from afk.agents import Agent
 
 agent = Agent(
     name="devops-agent",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="""
     You are a DevOps assistant. Use your skills to help with
     deployment, monitoring, and infrastructure tasks.
@@ -153,7 +181,7 @@ The agent autonomously decides which skills to read based on the user's question
     ```python
     agent = Agent(
         name="reader",
-        model="gpt-5.2-mini",
+        model="gpt-4.1-mini",
         skills_dir="skills/",
         skill_tools=["list_skills", "read_skill_md", "read_skill_file"],
         # ← No run_skill_command

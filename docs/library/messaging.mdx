@@ -31,26 +31,34 @@ sequenceDiagram
 Every message is wrapped in a typed envelope:
 
 ```python
-from afk.a2a import InternalA2AEnvelope
+from afk.messaging import InternalA2AEnvelope
 
 envelope = InternalA2AEnvelope(
-    sender="researcher",
-    receiver="writer",
+    message_type="request",
+    run_id="run-42",
+    thread_id="thread-42",
+    conversation_id="conversation-42",
+    correlation_id="task-42",
     payload={"findings": ["fact 1", "fact 2"]},
-    correlation_id="task-42",         # ← Group related messages together
-    idempotency_key="unique-msg-01",  # ← Prevent duplicate processing
+    idempotency_key="task-42-research",
+    source_agent="researcher",
+    target_agent="writer",
 )
 ```
 
 | Field             | Type       | Purpose                                      |
 | ----------------- | ---------- | -------------------------------------------- |
-| `sender`          | `str`      | Name of the sending agent                    |
-| `receiver`        | `str`      | Name of the receiving agent                  |
+| `message_type`    | `str`      | `request`, `response`, or `event`            |
+| `run_id`          | `str`      | Run identifier for tracing                   |
+| `thread_id`       | `str`      | Memory thread identifier                     |
+| `conversation_id` | `str`      | Cross-run conversation identifier            |
 | `payload`         | `dict`     | Message data (any JSON-serializable content) |
 | `correlation_id`  | `str`      | Groups related messages in a workflow        |
 | `idempotency_key` | `str`      | Deduplication — same key = same message      |
-| `created_at`      | `datetime` | Timestamp of creation                        |
-| `attempt`         | `int`      | Current delivery attempt number              |
+| `source_agent`    | `str`      | Name of the sending agent                    |
+| `target_agent`    | `str`      | Name of the receiving agent                  |
+| `metadata`        | `dict`     | JSON-safe tracing or routing metadata        |
+| `timestamp_ms`    | `int`      | Creation timestamp in milliseconds           |
 
 ## Delivery behavior
 
@@ -99,16 +107,26 @@ envelope = InternalA2AEnvelope(
 correlation = f"analysis-{run_id}"
 
 await send(InternalA2AEnvelope(
-    sender="coordinator", receiver="researcher",
-    payload={"query": "AI trends"},
+    message_type="request",
+    run_id=run_id,
+    thread_id=thread_id,
+    conversation_id=conversation_id,
     correlation_id=correlation,
+    source_agent="coordinator",
+    target_agent="researcher",
+    payload={"query": "AI trends"},
     idempotency_key=f"{correlation}-research",
 ))
 
 await send(InternalA2AEnvelope(
-    sender="coordinator", receiver="writer",
-    payload={"topic": "AI trends"},
+    message_type="request",
+    run_id=run_id,
+    thread_id=thread_id,
+    conversation_id=conversation_id,
     correlation_id=correlation,
+    source_agent="coordinator",
+    target_agent="writer",
+    payload={"topic": "AI trends"},
     idempotency_key=f"{correlation}-write",
 ))
 ```
@@ -120,8 +138,9 @@ await send(InternalA2AEnvelope(
     Default. Fast, no setup. State lost on restart.
 
     ```python
-    from afk.a2a import InMemoryDeliveryStore
-    store = InMemoryDeliveryStore()
+    from afk.messaging import InMemoryA2ADeliveryStore
+
+    store = InMemoryA2ADeliveryStore()
     ```
 
   </Tab>
@@ -129,13 +148,13 @@ await send(InternalA2AEnvelope(
     Implement the `DeliveryStore` protocol for durable messaging:
 
     ```python
-    from afk.a2a import DeliveryStore
+    from afk.messaging import A2ADeliveryStore, InternalA2AEnvelope
 
-    class RedisDeliveryStore(DeliveryStore):
-        async def submit(self, envelope: InternalA2AEnvelope) -> bool: ...
-        async def ack(self, idempotency_key: str): ...
-        async def nack(self, idempotency_key: str): ...
-        async def get_dead_letters(self) -> list[InternalA2AEnvelope]: ...
+    class RedisDeliveryStore(A2ADeliveryStore):
+        async def get_success(self, idempotency_key: str): ...
+        async def record_success(self, idempotency_key: str, response): ...
+        async def record_dead_letter(self, dead_letter): ...
+        async def list_dead_letters(self): ...
     ```
 
   </Tab>

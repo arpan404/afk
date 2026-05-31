@@ -1,6 +1,6 @@
 ---
 title: LLM Layer
-description: Provider-portable LLM runtime with retry, caching, and circuit breaking.
+description: Provider-portable LLM runtime with retry, caching, circuit breaking, and middleware.
 ---
 
 The LLM layer normalizes communication with language models across all supported providers. Your agent code uses provider-agnostic contracts (`LLMRequest` / `LLMResponse`) while built-in adapters handle the provider-specific details.
@@ -15,7 +15,7 @@ from afk.llms import LLMBuilder
 client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-5.2-mini")
+    .model("gpt-4.1-mini")
     .build()
 )
 ```
@@ -32,7 +32,7 @@ client = (
   <Step title="Set the model">
 
     ```python
-    builder = builder.model("gpt-5.2-mini")
+    builder = builder.model("gpt-4.1-mini")
     ```
 
   </Step>
@@ -53,6 +53,78 @@ client = (
   </Step>
 </Steps>
 
+## Middleware
+
+The LLM layer supports middleware for intercepting and transforming requests and responses. Use middleware for logging, tracing, caching, and custom request/response handling.
+
+### Built-in middleware
+
+```python
+from afk.llms import LLMBuilder
+from afk.llms.middleware import MiddlewareStack
+from afk.llms.middleware.timeout import (
+    TimeoutMiddleware,
+    EmbedTimeoutMiddleware,
+    StreamTimeoutMiddleware,
+    TimeoutConfig,
+)
+
+config = TimeoutConfig(
+    default_timeout_s=30.0,
+    chat_timeout_s=60.0,
+    embed_timeout_s=15.0,
+    stream_timeout_s=45.0,
+)
+
+stack = MiddlewareStack(
+    chat=[TimeoutMiddleware(config)],
+    embed=[EmbedTimeoutMiddleware(config)],
+    stream=[StreamTimeoutMiddleware(config)],
+)
+
+client = (
+    LLMBuilder()
+    .provider("openai")
+    .model("gpt-4.1-mini")
+    .with_middlewares(stack)
+    .build()
+)
+```
+
+### Custom middleware
+
+```python
+from afk.llms import LLMBuilder, LLMRequest, LLMResponse
+from afk.llms.middleware import MiddlewareStack
+
+async def tracing_middleware(call_next, req: LLMRequest) -> LLMResponse:
+    """Add tracing metadata to requests."""
+    req.metadata = req.metadata or {}
+    req.metadata["trace_id"] = generate_trace_id()
+    req.metadata["span_name"] = "llm.chat"
+    return await call_next(req)
+
+client = (
+    LLMBuilder()
+    .provider("openai")
+    .model("gpt-4.1-mini")
+    .with_middlewares(MiddlewareStack(
+        chat=[tracing_middleware],
+        embed=[],
+        stream=[],
+    ))
+    .build()
+)
+```
+
+### Middleware protocols
+
+| Protocol | Operation | Signature |
+| --- | --- | --- |
+| `LLMChatMiddleware` | Non-streaming chat | `async (call_next, req: LLMRequest) -> LLMResponse` |
+| `LLMEmbedMiddleware` | Embeddings | `async (call_next, req: EmbeddingRequest) -> EmbeddingResponse` |
+| `LLMStreamMiddleware` | Streaming chat | `(call_next, req: LLMRequest) -> AsyncIterator[LLMStreamEvent]` |
+
 ## Supported providers
 
 <CardGroup cols={3}>
@@ -60,7 +132,7 @@ client = (
     GPT-4.1, GPT-4.1-mini, GPT-4.1-nano, o-series
   </Card>
   <Card title="Anthropic" icon="circle-a">
-    Claude Opus 4.5, Claude Opus 4.5
+    Claude Opus and Sonnet families
   </Card>
   <Card title="LiteLLM" icon="circle-l">
     100+ providers via the LiteLLM proxy
@@ -69,13 +141,15 @@ client = (
 
 All providers expose the same `LLMClient` interface. Your agent code never touches provider-specific types.
 
-## Which provider should I use?
+## Example model choices
 
-| Scenario                   | Recommended                                     |
+Use these as starting points, then verify model availability, pricing, and context limits with your provider account.
+
+| Scenario                   | Starting point                                  |
 | -------------------------- | ----------------------------------------------- |
-| General purpose            | OpenAI `gpt-5.2-mini`                           |
-| Complex reasoning          | OpenAI `gpt-5.2` or Anthropic `claude-opus-4-5` |
-| Cost-sensitive             | OpenAI `gpt-5.2-nano`                           |
+| General purpose            | OpenAI `gpt-4.1-mini`                           |
+| Complex reasoning          | OpenAI `gpt-4.1` or Anthropic `claude-opus-4-5` |
+| Cost-sensitive             | OpenAI `gpt-4.1-nano`                           |
 | Non-OpenAI/Anthropic model | LiteLLM adapter                                 |
 | Custom or self-hosted      | Custom adapter                                  |
 
@@ -85,11 +159,11 @@ You rarely build `LLMClient` directly. Agents resolve their model automatically:
 
 ```python
 # Option 1: Model name (auto-resolved)
-agent = Agent(name="demo", model="gpt-5.2-mini", ...)
+agent = Agent(name="demo", model="gpt-4.1-mini", instructions="Answer directly.")
 
 # Option 2: Pre-built client (full control)
-client = LLMBuilder().provider("openai").model("gpt-5.2-mini").profile("production").build()
-agent = Agent(name="demo", model=client, ...)
+client = LLMBuilder().provider("openai").model("gpt-4.1-mini").profile("production").build()
+agent = Agent(name="demo", model=client, instructions="Answer directly.")
 ```
 
 ## Next steps

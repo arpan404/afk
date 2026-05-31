@@ -103,8 +103,8 @@ def resolve_prompt_file_path(
     """
     Resolve the target prompt file path with root-constrained access checks.
 
-    Absolute paths bypass the security check but still require the file to exist.
-    Relative paths are resolved against prompt_root and checked for directory escape.
+    Both absolute and relative paths must resolve inside prompt_root.
+    Relative paths are resolved against prompt_root before the containment check.
     """
     if instruction_file is not None:
         candidate = Path(instruction_file)
@@ -113,19 +113,11 @@ def resolve_prompt_file_path(
         candidate = Path(derive_auto_prompt_filename(agent_name))
         source = "auto_prompt"
 
-    # Absolute paths bypass security check but must exist
     if candidate.is_absolute():
         resolved = candidate.resolve()
-        if not resolved.exists() or not resolved.is_file():
-            raise PromptResolutionError(
-                f"prompt file not found for {source} "
-                f"(path='{resolved}')"
-            )
-        return resolved
+    else:
+        resolved = (prompt_root / candidate).resolve()
 
-    # Relative paths: resolve against root and check for escape
-    target = prompt_root / candidate
-    resolved = target.resolve()
     if not _is_under(resolved, prompt_root):
         raise PromptAccessError(
             f"{source} path escapes configured prompts root "

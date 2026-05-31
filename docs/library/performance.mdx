@@ -1,0 +1,166 @@
+---
+title: Performance
+description: Improve AFK latency, throughput, and cost without relying on internal APIs.
+---
+
+Performance work in AFK usually comes from four levers: choosing the right model, reducing unnecessary tool/LLM calls, keeping memory bounded, and moving long-running work into queues.
+
+## Latency
+
+Use the smallest model that can reliably handle the task, and reserve larger models for tasks that need deeper reasoning.
+
+```python
+from afk.agents import Agent
+
+classifier = Agent(
+    name="classifier",
+    model="gpt-4.1-nano",
+    instructions="Classify the request. Return only one label.",
+)
+
+analyst = Agent(
+    name="analyst",
+    model="gpt-4.1",
+    instructions="Perform detailed technical analysis.",
+)
+```
+
+Other latency controls:
+
+- keep system prompts short and specific;
+- make I/O-bound tools async;
+- avoid tools for information already present in context;
+- stream user-facing runs with `runner.run_stream(...)`;
+- set tight `max_steps`, `max_llm_calls`, and `max_wall_time_s` limits.
+
+## Tool execution
+
+Tools are often the slowest part of a run. Keep them typed, narrow, and bounded.
+
+```python
+from pydantic import BaseModel
+
+from afk.tools import tool
+
+
+class FetchArgs(BaseModel):
+    url: str
+
+
+@tool(args_model=FetchArgs, name="fetch_json", description="Fetch JSON from a URL.")
+async def fetch_json(args: FetchArgs) -> dict:
+    # Use your HTTP client here and enforce its own timeout.
+    return {"url": args.url, "status": "ok"}
+```
+
+Tool guidance:
+
+- validate inputs with Pydantic models;
+- enforce timeouts in external clients;
+- return compact JSON-safe payloads;
+- truncate or summarize large external responses before returning them;
+- use `RunnerConfig(tool_output_max_chars=...)` as a final bound.
+
+## Throughput
+
+Use async runner APIs for services and workers.
+
+```python
+import asyncio
+
+from afk.core import Runner
+
+
+runner = Runner()
+
+
+async def run_one(message: str) -> str:
+    result = await runner.run(agent, user_message=message)
+    return result.final_text
+
+
+async def main() -> list[str]:
+    messages = [f"Process request {i}" for i in range(10)]
+    return await asyncio.gather(*(run_one(message) for message in messages))
+```
+
+For durable background work, use task queues instead of keeping HTTP requests open. See [Task Queues](/library/task-queues).
+
+## Cost
+
+Set cost and loop limits on every production agent.
+
+```python
+from afk.agents import Agent, FailSafeConfig
+
+agent = Agent(
+    name="bounded-agent",
+    model="gpt-4.1-mini",
+    instructions="Answer concisely and use tools only when needed.",
+    fail_safe=FailSafeConfig(
+        max_total_cost_usd=0.10,
+        max_steps=8,
+        max_llm_calls=12,
+        max_tool_calls=20,
+        max_wall_time_s=45.0,
+    ),
+)
+```
+
+Read cost from the terminal result:
+
+```python
+result = runner.run_sync(agent, user_message="Summarize this issue.")
+
+print(result.usage_aggregate.total_tokens)
+print(result.total_cost_usd)
+```
+
+## Memory
+
+Long threads increase prompt size and storage. Use explicit thread ids and compact retained state when threads grow.
+
+```python
+await runner.compact_thread(thread_id="customer-123")
+```
+
+Choose the memory backend by deployment shape:
+
+| Backend | Use case |
+| --- | --- |
+| In-memory | Tests and local experiments |
+| SQLite | Single-process local or small deployments |
+| Redis | Shared state across processes |
+| Postgres | Persistent production storage and vector search |
+
+Configure backends with environment variables or pass a public `MemoryStore` implementation to `Runner(memory_store=...)`.
+
+## Measurement
+
+Measure from `AgentResult` first:
+
+```python
+import time
+
+start = time.perf_counter()
+result = await runner.run(agent, user_message="Analyze this task.")
+elapsed_s = time.perf_counter() - start
+
+print(f"state={result.state}")
+print(f"elapsed_s={elapsed_s:.2f}")
+print(f"tokens={result.usage_aggregate.total_tokens}")
+print(f"cost={result.total_cost_usd or 0:.4f}")
+print(f"tools={len(result.tool_executions)}")
+```
+
+For production, export telemetry through [Observability](/library/observability) and track latency, token usage, tool failures, degraded runs, and cost per run.
+
+## Checklist
+
+- Use async runner APIs in servers and workers.
+- Stream user-facing runs.
+- Keep prompts and tool outputs compact.
+- Set fail-safe limits and cost budgets.
+- Compact long-running threads.
+- Move durable background work into queues.
+- Monitor token usage, tool count, state, and cost per run.

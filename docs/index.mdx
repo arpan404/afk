@@ -1,167 +1,145 @@
 ---
-title: AFK — Agent Forge Kit
-description: Build reliable AI agents in Python with typed tools, multi-agent orchestration, and production-grade controls.
+title: AFK - Agent Forge Kit
+description: Build reliable Python agents with typed tools, runtime controls, and production observability.
 ---
 
-<div className="not-prose mb-8">
-  <p className="text-lg text-muted-foreground">
-    AFK is the Python SDK for building AI agents that are{" "}
-    <strong>reliable by default</strong>. Define agents with typed contracts,
-    wire in tools and policies, and ship to production with observability,
-    evals, and safety limits built in.
-  </p>
-</div>
+AFK is a Python 3.13+ SDK for building AI agents that need to run reliably outside a demo. You define agents, tools, policies, and memory as typed Python contracts. The runner handles the agent loop, LLM calls, tool execution, streaming, checkpoints, telemetry, and safety limits.
+
+## Choose your path
+
+<CardGroup cols={2}>
+  <Card title="Build with AFK" icon="rocket" href="/library/quickstart">
+    Start here if you are building an application, workflow, chatbot, coding tool,
+    or production agent on top of AFK.
+  </Card>
+  <Card title="Maintain AFK" icon="code" href="/library/developer-guide">
+    Start here if you are changing AFK itself, reviewing internals, or updating
+    public contracts.
+  </Card>
+</CardGroup>
 
 ## Install
+
+The distribution package is `afk-py`; the import package is `afk`.
 
 <Tabs>
   <Tab title="pip">
   ```bash
-  pip install afk
-  ```
-  </Tab>
-  <Tab title="poetry">
-  ```bash 
-  poetry add afk
+  python -m pip install afk-py
   ```
   </Tab>
   <Tab title="uv">
   ```bash
-  uv add afk 
+  uv add afk-py
+  ```
+  </Tab>
+  <Tab title="local repo">
+  ```bash
+  python -m pip install --upgrade pip
+  python -m pip install -e . pytest
   ```
   </Tab>
 </Tabs>
 
-> **NOTE:** You need an LLM provider API key. Set `OPENAI_API_KEY`, or configure any provider supported by [LiteLLM](https://docs.litellm.ai/docs/providers).
+Set an LLM provider key before running examples:
 
-## Your first agent
+```bash
+export OPENAI_API_KEY="..."
+```
+
+## First agent
 
 ```python
 from afk.agents import Agent
 from afk.core import Runner
 
 agent = Agent(
-    name="my-agent",
-    model="gpt-5.2-mini",
-    instructions="You are a helpful assistant. Be concise and accurate.",
+    name="assistant",
+    model="gpt-4.1-mini",
+    instructions="Answer directly with concrete detail.",
 )
 
-runner = Runner()
-result = runner.run_sync(agent, user_message="What is an error budget in SRE?")
-print(result.final_text)   # ← The agent's response
-print(result.state)        # ← "completed"
-```
-
-<Accordion title="What just happened?">
-  1. `Agent(...)` defines the agent — its name, model, and system prompt
-  instructions. 2. `Runner()` creates the execution engine with safe defaults
-  (headless mode, in-memory state). 3. `run_sync()` sends the user message to
-  the LLM, waits for the response, and returns an `AgentResult`. 4. `final_text`
-  holds the model's response. `state` tells you how the run ended (`completed`,
-  `failed`, `degraded`, or `cancelled`).
-</Accordion>
-
-## Add a tool in 30 seconds
-
-```python
-from pydantic import BaseModel
-from afk.agents import Agent
-from afk.tools import tool
-from afk.core import Runner
-
-class WeatherArgs(BaseModel):
-    city: str
-
-@tool(args_model=WeatherArgs, name="get_weather", description="Get current weather for a city.")
-def get_weather(args: WeatherArgs) -> dict:
-    return {"city": args.city, "temp_f": 72, "condition": "sunny"}
-
-agent = Agent(
-    name="weather-bot",
-    model="gpt-5.2-mini",
-    instructions="Answer weather questions using your tools.",
-    tools=[get_weather],           # ← Attach tools here
+result = Runner().run_sync(
+    agent,
+    user_message="What is an error budget in SRE?",
 )
 
-runner = Runner()
-result = runner.run_sync(agent, user_message="What's the weather in Austin?")
-print(result.final_text)           # ← "It's 72°F and sunny in Austin."
+print(result.final_text)
+print(result.state)
 ```
 
-## What AFK gives you
+What matters:
+
+- `Agent` is configuration: model, instructions, tools, policies, subagents, and defaults.
+- `Runner` is execution: LLM calls, tool calls, memory, streaming, checkpoints, and telemetry.
+- `AgentResult` is the run record: final text, terminal state, tool/subagent records, usage, and cost.
+
+## Core capabilities
 
 <CardGroup cols={3}>
   <Card title="Agents" icon="robot" href="/library/agents">
-    Define agents with typed inputs, instructions, tools, and subagents.
-    Single-agent or multi-agent — you choose.
+    Declarative agent definitions with instructions, tools, subagents, skills,
+    MCP servers, and safety limits.
   </Card>
   <Card title="Runner" icon="play" href="/library/core-runner">
-    Execute agents synchronously, asynchronously, or with real-time streaming.
-    Pause, resume, cancel at any point.
+    Sync, async, and streaming execution with lifecycle control and thread
+    continuity.
   </Card>
   <Card title="Tools" icon="wrench" href="/library/tools">
-    Give agents capabilities through typed Python functions. Schema validation,
-    policy gates, and output sanitization built in.
+    Typed Python tools with Pydantic validation, hooks, middleware, sandboxing,
+    and bounded output.
+  </Card>
+  <Card title="LLM Runtime" icon="sparkles" href="/llms/index">
+    Provider-portable LLM clients with retries, timeouts, rate limits, caching,
+    circuit breakers, and fallback chains.
   </Card>
   <Card title="Memory" icon="database" href="/library/memory">
-    Persist conversation state across runs. Resume interrupted runs from
-    checkpoints. Compact long threads automatically.
+    Thread state, checkpoints, retention, compaction, and persistent stores.
   </Card>
-  <Card title="Multi-Agent" icon="sitemap" href="/library/agentic-behavior">
-    Orchestrate subagent DAGs with fan-out/fan-in, join policies, and
-    backpressure controls.
-  </Card>
-  <Card title="LLM Layer" icon="sparkles" href="/llms/index">
-    Provider-portable LLM runtime with retry, circuit breaking, caching, rate
-    limiting, and fallback chains.
-  </Card>
-  <Card title="Observability" icon="chart-bar" href="/library/observability">
-    Built-in telemetry pipeline with spans, metrics, and exporters for console,
-    JSON, and OpenTelemetry.
-  </Card>
-  <Card title="Evals" icon="check-circle" href="/library/evals">
-    Behavioral testing framework with assertions, budgets, golden traces, and
-    CI-ready reporting.
-  </Card>
-  <Card title="Security" icon="shield" href="/library/security-model">
-    Policy engine, sandbox profiles, tool allowlists, A2A auth, and secret scope
-    isolation out of the box.
+  <Card title="Production" icon="shield" href="/library/building-with-ai">
+    Evals, observability, queues, security controls, deployment guidance, and
+    troubleshooting.
   </Card>
 </CardGroup>
 
-## How it all fits together
+## AFK skills
 
-```mermaid
-flowchart TB
-    User([User / API]) --> Runner
-    Runner --> Agent
-    Agent --> LLM["LLM Runtime"]
-    Agent --> Tools["Tool Registry"]
-    Agent --> Subagents["Subagents"]
-    Runner --> Memory["Memory Store"]
-    Runner --> Policy["Policy Engine"]
-    Runner --> Telemetry["Observability"]
-    LLM --> Providers["OpenAI · Anthropic · LiteLLM"]
+Install the AFK skills with Vercel's Skills CLI when you want Codex or another supported agent to use AFK-specific guidance:
+
+```bash
+npx skills add https://github.com/arpan404/afk --skill afk-coder
+npx skills add https://github.com/arpan404/afk --skill afk-maintainer
 ```
 
-## Where to go next
+Use `afk-coder` when building applications with AFK. Use `afk-maintainer` when reviewing or changing AFK itself. See [Agent Skills](/library/agent-skills) for details.
+
+## How AFK fits together
+
+```mermaid
+flowchart LR
+    User["User or API"] --> Runner
+    Runner --> Agent
+    Agent --> LLM["LLM runtime"]
+    Agent --> Tools["Tool registry"]
+    Agent --> Subagents["Subagents"]
+    Runner --> Memory["Memory store"]
+    Runner --> Policy["Policy and HITL"]
+    Runner --> Telemetry["Observability"]
+```
+
+## Next steps
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/library/quickstart">
-    Build your first agent with tools and streaming in 5 minutes.
+    Build one runnable agent with one typed tool.
   </Card>
-  <Card
-    title="Learn in 15 Minutes"
-    icon="graduation-cap"
-    href="/library/learn-in-15-minutes"
-  >
-    Hands-on tutorial covering agents, tools, streaming, multi-agent, and
-    memory.
+  <Card title="Learn AFK in 15 Minutes" icon="graduation-cap" href="/library/learn-in-15-minutes">
+    Walk through agents, tools, streaming, memory, and safety.
   </Card>
   <Card title="Examples" icon="code" href="/library/examples/index">
-    Runnable code examples for every major AFK feature.
+    Find complete snippets by scenario.
   </Card>
   <Card title="API Reference" icon="book" href="/library/api-reference">
-    Complete import reference organized by task.
+    Check canonical imports, signatures, result fields, and stability rules.
   </Card>
 </CardGroup>

@@ -25,7 +25,7 @@ def _env_bool(name: str, default: bool = False) -> bool:
 
 def create_memory_store_from_env() -> MemoryStore:
     """Create a memory store based on `AFK_MEMORY_BACKEND` and related environment settings."""
-    backend = os.getenv("AFK_MEMORY_BACKEND", "sqlite").strip().lower()
+    backend = os.getenv("AFK_MEMORY_BACKEND", "memory").strip().lower()
 
     if backend in ("mem", "memory", "inmemory", "in_memory"):
         return InMemoryMemoryStore()

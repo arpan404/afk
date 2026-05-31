@@ -8,21 +8,22 @@ Task queues decouple agent work producers from consumers. Push a task, a worker 
 ## Quick start
 
 ```python
-from afk.queues import TaskQueue, TaskItem
+from afk.queues import InMemoryTaskQueue, RUNNER_CHAT_CONTRACT, TaskWorker
 from afk.agents import Agent
 from afk.core import Runner
 
-agent = Agent(name="analyzer", model="gpt-5.2-mini", instructions="Analyze data.")
+agent = Agent(name="analyzer", model="gpt-4.1-mini", instructions="Analyze data.")
 
 # Push a task
-queue = TaskQueue()
-await queue.push(TaskItem(
-    contract="runner.chat.v1",
-    agent=agent,
-    user_message="Analyze Q4 revenue trends",
-))
+queue = InMemoryTaskQueue()
+await queue.enqueue_contract(
+    RUNNER_CHAT_CONTRACT,
+    payload={"user_message": "Analyze Q4 revenue trends"},
+    agent_name="analyzer",
+)
 
-# A worker picks it up automatically
+# A worker consumes queued tasks
+worker = TaskWorker(queue, agents={"analyzer": agent}, runner_factory=lambda: Runner())
 ```
 
 ## Task lifecycle
@@ -56,12 +57,13 @@ Every task has a **contract** that defines what kind of work it represents:
     Standard agent chat. Runs an agent with a user message.
 
     ```python
-    task = TaskItem(
-        contract="runner.chat.v1",
-        agent=agent,
-        user_message="Analyze this data",
-        thread_id="t-42",              # Optional: for multi-turn
-        timeout_s=120.0,               # Max execution time
+    task = await queue.enqueue_contract(
+        RUNNER_CHAT_CONTRACT,
+        payload={
+            "user_message": "Analyze this data",
+            "context": {},
+        },
+        agent_name="analyzer",
     )
     ```
 
@@ -70,11 +72,12 @@ Every task has a **contract** that defines what kind of work it represents:
     Generic job dispatch. Runs a custom handler function.
 
     ```python
-    task = TaskItem(
-        contract="job.dispatch.v1",
-        handler="myapp.jobs.process_report",
-        payload={"report_id": "R-123", "format": "pdf"},
-        timeout_s=300.0,
+    task = await queue.enqueue_contract(
+        JOB_DISPATCH_CONTRACT,
+        payload={
+            "job_type": "process_report",
+            "arguments": {"report_id": "R-123", "format": "pdf"},
+        },
     )
     ```
 
@@ -83,8 +86,8 @@ Every task has a **contract** that defines what kind of work it represents:
     Define your own contract for specialized workloads:
 
     ```python
-    task = TaskItem(
-        contract="myapp.batch.v1",
+    task = await queue.enqueue_contract(
+        "myapp.batch.v1",
         payload={
             "batch_id": "B-456",
             "items": ["item1", "item2", "item3"],
@@ -103,23 +106,33 @@ Every task has a **contract** that defines what kind of work it represents:
 <Steps>
   <Step title="Create a worker">
     ```python
-    from afk.queues import Worker
+    from afk.queues import InMemoryTaskQueue, TaskWorker
 
-    worker = Worker(
+    queue = InMemoryTaskQueue()
+    worker = TaskWorker(
         queue=queue,
-        runner_factory=lambda: Runner(),
-        max_concurrency=5,            # Process up to 5 tasks in parallel
+        agents={"analyzer": agent},
     )
     ```
 
   </Step>
   <Step title="Register custom contract handlers">
     ```python
-    @worker.handler("myapp.batch.v1")
-    async def handle_batch(task: TaskItem) -> dict:
-        # Custom processing logic
-        results = await process_batch(task.payload["items"])
-        return {"processed": len(results)}
+    from afk.queues import ExecutionContract, ExecutionContractContext
+
+    class BatchContract(ExecutionContract):
+        contract_id = "myapp.batch.v1"
+        requires_agent = False
+
+        async def execute(self, task_item, *, agent, worker_context: ExecutionContractContext) -> dict:
+            results = await process_batch(task_item.payload["items"])
+            return {"processed": len(results)}
+
+    worker = TaskWorker(
+        queue=queue,
+        agents={"analyzer": agent},
+        execution_contracts={"myapp.batch.v1": BatchContract()},
+    )
     ```
   </Step>
   <Step title="Start the worker">
@@ -135,16 +148,16 @@ When a task exhausts all retries, it moves to the dead-letter queue (DLQ):
 
 ```python
 # Check for dead letters
-dead_letters = await queue.get_dead_letters()
+dead_letters = await queue.list_dead_letters()
 
 for task in dead_letters:
-    print(f"Failed: {task.contract} — {task.error}")
+    print(f"Failed: {task.id} — {task.error}")
 
-    # Retry manually after fixing the issue
-    await queue.retry_dead_letter(task.task_id)
+# Retry manually after fixing the issue
+moved = await queue.redrive_dead_letters()
 
-    # Or discard it
-    await queue.discard_dead_letter(task.task_id)
+# Or discard them
+removed = await queue.purge_dead_letters()
 ```
 
 ## Error classification
@@ -164,7 +177,7 @@ The queue uses error classification to decide whether to retry:
     State lives in process memory. No setup required.
 
     ```python
-    queue = TaskQueue()  # In-memory by default
+    queue = InMemoryTaskQueue()
     ```
 
     **Use for:** Development, testing, prototyping.
@@ -174,10 +187,9 @@ The queue uses error classification to decide whether to retry:
     Durable queue with persistence and multi-worker support.
 
     ```python
-    queue = TaskQueue(
-        backend="redis",
-        redis_url="redis://localhost:6379/0",
-    )
+    from afk.queues import create_task_queue_from_env
+
+    queue = create_task_queue_from_env()
     ```
 
     Set via environment variables:
@@ -190,6 +202,40 @@ The queue uses error classification to decide whether to retry:
 
   </Tab>
 </Tabs>
+
+### Connection pooling
+
+For high-throughput production workloads, use `RedisConnectionPool` to manage connections efficiently:
+
+```python
+from afk.llms.cache.redis_pool import get_redis_pool, PoolConfig
+
+# Create a pooled connection
+pool = await get_redis_pool(
+    "redis://localhost:6379/0",
+    config=PoolConfig(
+        max_connections=50,
+        max_idle_connections=10,
+        socket_timeout=5.0,
+    ),
+)
+
+# Use in queue
+queue = TaskQueue(
+    backend="redis",
+    redis_url="redis://localhost:6379/0",
+)
+
+# Health check
+if await pool.health_check():
+    print("Redis connection healthy")
+```
+
+The pool provides:
+- Configurable max connections (default: 50)
+- Idle connection management
+- Automatic health checks
+- Singleton access via `get_redis_pool()`
 
 ## Next steps
 

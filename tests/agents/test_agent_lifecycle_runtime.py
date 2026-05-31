@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from afk.agents.errors import AgentCircuitOpenError, AgentExecutionError
 from afk.agents.lifecycle.runtime import (
     CircuitBreaker,
     EffectJournal,
@@ -25,7 +26,6 @@ from afk.agents.lifecycle.runtime import (
 )
 from afk.agents.types.config import SkillRef
 from afk.agents.types.policy import FailSafeConfig
-from afk.agents.errors import AgentCircuitOpenError, AgentExecutionError
 
 
 def run_async(coro):

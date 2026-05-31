@@ -8,19 +8,6 @@ import dataclasses
 
 import pytest
 
-from afk.agents.types.config import (
-    RouterDecision,
-    RouterInput,
-    SkillRef,
-    SkillResolutionResult,
-    SkillToolPolicy,
-)
-from afk.agents.types.policy import (
-    AgentRunEvent,
-    FailSafeConfig,
-    PolicyDecision,
-    PolicyEvent,
-)
 from afk.agents.errors import (
     AgentBudgetExceededError,
     AgentCancelledError,
@@ -42,8 +29,20 @@ from afk.agents.errors import (
     SubagentExecutionError,
     SubagentRoutingError,
 )
+from afk.agents.types.config import (
+    RouterDecision,
+    RouterInput,
+    SkillRef,
+    SkillResolutionResult,
+    SkillToolPolicy,
+)
+from afk.agents.types.policy import (
+    AgentRunEvent,
+    FailSafeConfig,
+    PolicyDecision,
+    PolicyEvent,
+)
 from afk.debugger.types import DebuggerConfig
-
 
 # ---------------------------------------------------------------------------
 # SkillRef

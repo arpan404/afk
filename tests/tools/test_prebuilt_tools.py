@@ -10,16 +10,17 @@ from pathlib import Path
 
 import pytest
 
+from afk.agents.types import SkillRef, SkillToolPolicy
 from afk.tools.core.base import ToolContext, ToolResult
 from afk.tools.core.errors import ToolExecutionError
 from afk.tools.prebuilts.errors import FileAccessError
 from afk.tools.prebuilts.runtime import (
+    _ensure_inside,
     _ListDirectoryArgs,
     _ReadFileArgs,
-    _ensure_inside,
     build_runtime_tools,
 )
-
+from afk.tools.prebuilts.skills import build_skill_tools
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -335,3 +336,47 @@ class TestReadFileTool:
 
         assert result.success is False
         assert result.error_message is not None
+
+
+class TestSkillCommandTool:
+    """Tests for constrained skill command execution cwd behavior."""
+
+    def _skill_ref(self, root: Path, name: str) -> SkillRef:
+        root.mkdir(parents=True, exist_ok=True)
+        skill_md = root / "SKILL.md"
+        skill_md.write_text(f"---\nname: {name}\n---\n", encoding="utf-8")
+        return SkillRef(
+            name=name,
+            description="test skill",
+            root_dir=str(root),
+            skill_md_path=str(skill_md),
+        )
+
+    def test_command_without_cwd_uses_single_skill_root(self, tmp_path: Path):
+        skill_root = tmp_path / "skill-a"
+        ref = self._skill_ref(skill_root, "skill-a")
+        tools = build_skill_tools(
+            skills=[ref],
+            policy=SkillToolPolicy(command_allowlist=["pwd"]),
+        )
+        run_tool = [t for t in tools if t.spec.name == "run_skill_command"][0]
+
+        result = _call_tool(run_tool, {"command": "pwd"}, "run_skill_command")
+
+        assert result.success is True
+        assert result.output["cwd"] == str(skill_root.resolve())
+        assert result.output["stdout"].strip() == str(skill_root.resolve())
+
+    def test_command_without_cwd_fails_for_multiple_skill_roots(self, tmp_path: Path):
+        ref_a = self._skill_ref(tmp_path / "skill-a", "skill-a")
+        ref_b = self._skill_ref(tmp_path / "skill-b", "skill-b")
+        tools = build_skill_tools(
+            skills=[ref_a, ref_b],
+            policy=SkillToolPolicy(command_allowlist=["pwd"]),
+        )
+        run_tool = [t for t in tools if t.spec.name == "run_skill_command"][0]
+
+        result = _call_tool(run_tool, {"command": "pwd"}, "run_skill_command")
+
+        assert result.success is False
+        assert "cwd is required" in (result.error_message or "")

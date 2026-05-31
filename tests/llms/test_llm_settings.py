@@ -24,7 +24,6 @@ from afk.llms.runtime.contracts import (
 )
 from afk.llms.settings import LLMSettings
 
-
 # ============================== Helpers ==============================
 
 # All AFK_LLM_* env vars that LLMSettings.from_env() and LLMConfig.from_env() read.
@@ -549,6 +548,10 @@ class TestCachePolicyDefaults:
     def test_ttl_s(self):
         p = CachePolicy()
         assert p.ttl_s == 30.0
+
+    def test_namespace(self):
+        p = CachePolicy()
+        assert p.namespace is None
 
     def test_frozen(self):
         p = CachePolicy()

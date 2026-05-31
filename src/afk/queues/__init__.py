@@ -68,6 +68,7 @@ __all__ = [
     "WorkerPresenceCapable",
     "StartupRecoveryCapable",
     "InMemoryTaskQueue",
+    "RedisTaskQueue",
     "EXECUTION_CONTRACT_KEY",
     "RUNNER_CHAT_CONTRACT",
     "JOB_DISPATCH_CONTRACT",

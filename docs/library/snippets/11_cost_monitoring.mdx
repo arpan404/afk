@@ -16,7 +16,7 @@ from afk.agents import Agent, FailSafeConfig
 
 agent = Agent(
     name="budget-agent",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="Be helpful and concise.",
     fail_safe=FailSafeConfig(
         max_total_cost_usd=0.50,        # Hard cost ceiling
@@ -40,12 +40,11 @@ runner = Runner()
 result = runner.run_sync(agent, user_message="Analyze this dataset...")
 
 # Access usage statistics
-usage = result.usage
+usage = result.usage_aggregate
 print(f"Input tokens:  {usage.input_tokens}")
 print(f"Output tokens: {usage.output_tokens}")
 print(f"Total tokens:  {usage.total_tokens}")
-print(f"Estimated cost: ${usage.estimated_cost_usd:.4f}")
-print(f"LLM calls:     {usage.llm_call_count}")
+print(f"Estimated cost: ${result.total_cost_usd or 0:.4f}")
 print(f"Tool calls:    {len(result.tool_executions)}")
 ```
 
@@ -60,7 +59,7 @@ from afk.core import Runner
 
 agent = Agent(
     name="analyst",
-    model="gpt-5.2",
+    model="gpt-4.1",
     instructions="Provide detailed analysis.",
     fail_safe=FailSafeConfig(
         max_total_cost_usd=1.00,
@@ -72,7 +71,7 @@ agent = Agent(
 async def monitor_cost():
     runner = Runner()
     handle = await runner.run_stream(
-        agent, user_message="Provide a comprehensive analysis of Python async patterns"
+        agent, user_message="Compare Python async patterns for service code"
     )
 
     step_count = 0
@@ -85,12 +84,11 @@ async def monitor_cost():
             case "tool_completed":
                 print(f"\n  [STEP] Step {step_count} | Tool: {event.tool_name}")
             case "completed" if event.result is not None:
-                usage = event.result.usage
+                usage = event.result.usage_aggregate
                 print(f"\n\n--- Cost Summary ---")
                 print(f"State:    {event.result.state}")
                 print(f"Tokens:   {usage.total_tokens}")
-                print(f"Cost:     ${usage.estimated_cost_usd:.4f}")
-                print(f"LLM calls: {usage.llm_call_count}")
+                print(f"Cost:     ${event.result.total_cost_usd or 0:.4f}")
                 print(f"Tools:    {len(event.result.tool_executions)}")
 
 asyncio.run(monitor_cost())
@@ -116,7 +114,7 @@ async def batch_process(items: list[str], budget_usd: float):
         remaining = budget_usd - cumulative_cost
         agent = Agent(
             name="batch-processor",
-            model="gpt-5.2-mini",
+            model="gpt-4.1-mini",
             instructions="Process the item concisely.",
             fail_safe=FailSafeConfig(
                 max_total_cost_usd=min(remaining, 0.10),  # Per-item cap
@@ -125,22 +123,23 @@ async def batch_process(items: list[str], budget_usd: float):
         )
 
         result = await runner.run(agent, user_message=item)
-        cumulative_cost += result.usage.estimated_cost_usd
+        item_cost = result.total_cost_usd or 0.0
+        cumulative_cost += item_cost
         results.append(result)
 
-        print(f"  [OK] {item[:40]}... (${result.usage.estimated_cost_usd:.4f})")
+        print(f"  [OK] {item[:40]}... (${item_cost:.4f})")
 
     print(f"\nTotal: {len(results)} items, ${cumulative_cost:.4f}")
     return results
 ```
 
-## Production recommendations
+## Operating recommendations
 
 1. **Always set `max_total_cost_usd`** — even generous limits prevent runaway costs
 2. **Layer defenses** — combine cost limits with `max_llm_calls`, `max_steps`, and `max_wall_time_s`
 3. **Use telemetry for dashboards** — export metrics to monitor cost trends over time
 4. **Set per-item budgets in batches** — prevent one expensive item from consuming the entire budget
-5. **Use cheaper models for iteration** — use `gpt-5.2-mini` for development, `gpt-5.2` for production
+5. **Choose models by task** — use smaller models for routine work and reserve larger models for requests that need them
 
 ## What to read next
 

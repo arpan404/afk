@@ -344,7 +344,21 @@ class RunnerExecutionMixin:
                     raise AgentExecutionError(
                         f"Failed to load MCP tools for agent '{agent.name}': {e}"
                     ) from e
-            extra_tools.extend(build_runtime_tools(root_dir=Path.cwd()))
+
+            runtime_tool_names: set[str] = set()
+            runtime_tool_root: Path | None = None
+
+            if self.config.enable_runtime_tools and self.config.runtime_tool_root.strip():
+                try:
+                    runtime_tool_root = Path(self.config.runtime_tool_root).expanduser().resolve()
+                    runtime_tools = build_runtime_tools(root_dir=runtime_tool_root)
+                    runtime_tool_names = {tool.spec.name for tool in runtime_tools}
+                    extra_tools.extend(runtime_tools)
+                except Exception as e:
+                    raise AgentExecutionError(
+                        f"Failed to initialize runtime tools for agent '{agent.name}': {e}"
+                    ) from e
+
             registry = agent.build_tool_registry(
                 extra_tools=extra_tools,
             )
@@ -1264,19 +1278,25 @@ class RunnerExecutionMixin:
                     if decision.updated_tool_args is not None:
                         raw_args = dict(decision.updated_tool_args)
 
+                    is_runtime_tool = tool_name in runtime_tool_names
+                    default_profile = self.config.default_sandbox_profile
+                    if is_runtime_tool and self.config.runtime_tool_sandbox_profile is not None:
+                        default_profile = self.config.runtime_tool_sandbox_profile
+
                     effective_sandbox_profile = resolve_sandbox_profile(
                         tool_name=tool_name,
                         tool_args=raw_args,
                         run_context=ctx,
-                        default_profile=self.config.default_sandbox_profile,
+                        default_profile=default_profile,
                         provider=self.config.sandbox_profile_provider,
                     )
                     if effective_sandbox_profile is not None:
+                        cwd = runtime_tool_root or Path.cwd()
                         sandbox_violation = validate_tool_args_against_sandbox(
                             tool_name=tool_name,
                             tool_args=raw_args,
                             profile=effective_sandbox_profile,
-                            cwd=Path.cwd(),
+                            cwd=cwd,
                         )
                         if sandbox_violation is not None:
                             record = ToolExecutionRecord(

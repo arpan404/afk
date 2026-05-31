@@ -49,9 +49,17 @@ Make your AFK tools available to any MCP-compatible client:
     class CalcArgs(BaseModel):
         expression: str
 
+    _OPS = {
+        "+": lambda a, b: a + b,
+        "-": lambda a, b: a - b,
+        "*": lambda a, b: a * b,
+        "/": lambda a, b: a / b,
+    }
+
     @tool(args_model=CalcArgs, name="calculate", description="Evaluate a math expression.")
     def calculate(args: CalcArgs) -> dict:
-        return {"result": eval(args.expression)}
+        left, op, right = args.expression.split()
+        return {"result": _OPS[op](float(left), float(right))}
     ```
 
   </Step>
@@ -103,7 +111,7 @@ Discover and use tools from any MCP server:
 
     agent = Agent(
         name="assistant",
-        model="gpt-5.2-mini",
+        model="gpt-4.1-mini",
         instructions="Use available tools to help the user.",
         tools=tools,  # ← MCP tools work like local tools
     )

@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable
 
 from ..agents.types.memory import (
     ConsolidationResult,
@@ -21,7 +21,6 @@ from ..agents.types.memory import (
     should_compact_event,
 )
 from ..memory.types import MemoryEvent
-from .types import JsonValue
 
 
 @dataclass
@@ -260,7 +259,6 @@ class MemoryCompactor:
 
         # Separate into compacted and retained
         to_compact = [e for e in scored if e.should_compact]
-        to_retain = [e for e in scored if not e.should_compact]
 
         events_compacted = len(to_compact)
 
@@ -356,7 +354,7 @@ class BackgroundCompactor(MemoryCompactor):
 
     async def stop(self) -> None:
         """Stop background compaction."""
-        self.stop()
+        super().stop()
         if self._task:
             self._task.cancel()
             try:

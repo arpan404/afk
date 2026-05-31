@@ -1,25 +1,27 @@
 ---
 title: Quickstart
-description: Build an agent with tools and streaming in 5 minutes.
+description: Build one AFK agent with one typed tool.
 ---
 
-This guide takes you from zero to a working agent in five steps. Each step adds one new concept and is runnable on its own.
+This page is the shortest useful AFK path: install the package, define an agent, attach one typed tool, and run it.
 
-<Note>
-  **Prerequisites:** Python 3.10+ and an LLM API key. Set `OPENAI_API_KEY` in
-  your environment, or configure any provider via
-  [LiteLLM](https://docs.litellm.ai/docs/providers).
-</Note>
+## Prerequisites
 
-## Setup
+- Python 3.13+
+- An LLM provider key, such as `OPENAI_API_KEY`
 
 ```bash
-pip install afk
+python -m pip install afk-py
+export OPENAI_API_KEY="..."
 ```
 
-## Step 1 — Minimal agent
+When working from this repository instead of an installed package:
 
-The simplest possible agent: a model, a name, and instructions.
+```bash
+python -m pip install -e . pytest
+```
+
+## 1. Define an agent
 
 ```python
 from afk.agents import Agent
@@ -27,270 +29,99 @@ from afk.core import Runner
 
 agent = Agent(
     name="assistant",
-    model="gpt-5.2-mini",
-    instructions="You are a helpful assistant. Be concise.",
+    model="gpt-4.1-mini",
+    instructions="Answer directly. Keep responses under 120 words.",
 )
 
-runner = Runner()
-result = runner.run_sync(agent, user_message="What is a mutex?")
-
-print(result.final_text)   # The model's answer
-print(result.state)        # "completed"
-```
-
-<Accordion title="What just happened?">
-  - `Agent(...)` is a **configuration object** — it describes *what* the agent
-  is, not how it runs. - `Runner()` is the **execution engine** — it manages the
-  LLM call loop and state. - `run_sync()` blocks until the run finishes. Under
-  the hood, it creates an async loop, sends the user message to the LLM, and
-  returns an `AgentResult`. - `result.final_text` always contains the model's
-  final response.
-</Accordion>
-
-## Step 2 — Add a tool
-
-Give your agent a capability by defining a typed tool function.
-
-```python
-from pydantic import BaseModel
-from afk.agents import Agent
-from afk.tools import tool
-from afk.core import Runner
-
-# 1. Define the tool's argument schema
-class CalcArgs(BaseModel):
-    expression: str
-
-# 2. Create the tool
-@tool(args_model=CalcArgs, name="calculate", description="Evaluate a math expression.")
-def calculate(args: CalcArgs) -> dict:
-    return {"result": eval(args.expression)}  # ← simplified for demo
-
-# 3. Attach it to an agent
-agent = Agent(
-    name="math-agent",
-    model="gpt-5.2-mini",
-    instructions="Use the calculate tool to solve math problems. Show your work.",
-    tools=[calculate],
+result = Runner().run_sync(
+    agent,
+    user_message="What is a mutex?",
 )
 
-runner = Runner()
-result = runner.run_sync(agent, user_message="What is 1234 * 5678?")
-print(result.final_text)           # "1234 × 5678 = 7,006,652"
-print(len(result.tool_executions)) # 1 (one tool call was made)
-```
-
-<Accordion title="How tool calling works">
-  1. The runner sends the tool's JSON schema to the LLM along with the user message.
-  2. The LLM decides to call the tool and returns a `ToolCall` with the function name and arguments.
-  3. AFK validates the arguments against the Pydantic model, executes the function, sanitizes the output, and feeds the result back to the LLM.
-  4. The LLM uses the tool result to compose its final answer.
-
-Tool arguments are always validated. If the LLM passes bad arguments, AFK returns the validation error to the model so it can self-correct.
-
-</Accordion>
-
-## Step 3 — Stream the response
-
-For real-time UIs, use streaming to receive text as it's generated.
-
-<Tabs>
-  <Tab title="Async streaming">
-    ```python
-    import asyncio
-    from afk.agents import Agent
-    from afk.core import Runner
-
-    agent = Agent(
-        name="streamer",
-        model="gpt-5.2-mini",
-        instructions="Explain topics clearly and concisely.",
-    )
-
-    async def main():
-        runner = Runner()
-        handle = await runner.run_stream(
-            agent, user_message="Explain containers in 3 sentences."
-        )
-
-        async for event in handle:
-            if event.type == "text_delta":
-                print(event.text_delta, end="", flush=True)
-            elif event.type == "completed":
-                print(f"\n\n[DONE] Done (state={event.result.state})")
-
-    asyncio.run(main())
-    ```
-
-  </Tab>
-  <Tab title="Sync (non-streaming)">
-    ```python
-    from afk.agents import Agent
-    from afk.core import Runner
-
-    agent = Agent(
-        name="streamer",
-        model="gpt-5.2-mini",
-        instructions="Explain topics clearly and concisely.",
-    )
-
-    runner = Runner()
-    result = runner.run_sync(agent, user_message="Explain containers in 3 sentences.")
-    print(result.final_text)
-    ```
-
-  </Tab>
-</Tabs>
-
-<Accordion title="Stream event types">
-  | Event | When it fires | Key field | | --- | --- | --- | | `text_delta` |
-  Incremental text from the model | `event.text_delta` | | `step_started` | New
-  step in the agent loop | `event.step` | | `tool_started` | A tool is about to
-  execute | `event.tool_name` | | `tool_completed` | A tool finished executing |
-  `event.success` | | `error` | Something went wrong | `event.error` | |
-  `completed` | Run finished | `event.result` |
-</Accordion>
-
-## Step 4 — Delegate to subagents
-
-Build a multi-agent system where a coordinator delegates to specialists.
-
-```python
-import asyncio
-from afk.agents import Agent
-from afk.tools import tool
-from afk.core import Runner
-from pydantic import BaseModel
-
-# Specialist agent: code reviewer
-class ReviewArgs(BaseModel):
-    code: str
-
-@tool(args_model=ReviewArgs, name="lint_code", description="Check code for style issues.")
-def lint_code(args: ReviewArgs) -> dict:
-    issues = []
-    if "print(" in args.code:
-        issues.append("Consider using logging instead of print()")
-    return {"issues": issues, "passed": len(issues) == 0}
-
-reviewer = Agent(
-    name="reviewer",
-    model="gpt-5.2-mini",
-    instructions="Review code for quality issues using the lint_code tool.",
-    tools=[lint_code],
-)
-
-# Specialist agent: documentation writer
-writer = Agent(
-    name="writer",
-    model="gpt-5.2-mini",
-    instructions="Write clear, concise documentation for code snippets.",
-)
-
-# Coordinator: delegates work
-coordinator = Agent(
-    name="coordinator",
-    model="gpt-5.2-mini",
-    instructions="""
-    You manage a team of specialists:
-    - 'reviewer' checks code quality
-    - 'writer' creates documentation
-
-    Delegate tasks to the appropriate specialist.
-    Combine their outputs into a final response.
-    """,
-    subagents=[reviewer, writer],
-)
-
-async def main():
-    runner = Runner()
-    result = await runner.run(
-        coordinator,
-        user_message="Review this code and write docs for it: def add(a, b): return a + b",
-    )
-    print(result.final_text)
-
-asyncio.run(main())
-```
-
-<Accordion title="How delegation works">
-  - The coordinator sees its subagents as available tools (automatically
-  generated `transfer_to_reviewer`, `transfer_to_writer` tools). - When the
-  coordinator decides to delegate, AFK routes the task to the subagent, runs it
-  through a full agent loop, and returns the result to the coordinator. - Each
-  subagent uses its own model and instructions, and has access to its own tools.
-  - The coordinator can delegate to multiple subagents and combine their
-  results.
-</Accordion>
-
-## Step 5 — Add safety limits
-
-Protect against runaway agents with `FailSafeConfig`.
-
-```python
-from afk.agents import Agent, FailSafeConfig
-from afk.core import Runner, RunnerConfig
-
-agent = Agent(
-    name="safe-agent",
-    model="gpt-5.2-mini",
-    instructions="Help users with their questions.",
-    tools=[calculate],
-    fail_safe=FailSafeConfig(
-        max_steps=10,              # ← Stop after 10 agent loop iterations
-        max_tool_calls=5,          # ← Stop after 5 tool calls
-        max_total_cost_usd=0.10,   # ← Stop if estimated cost exceeds $0.10
-        max_wall_time_s=30.0,      # ← Stop after 30 seconds
-    ),
-)
-
-runner = Runner(
-    config=RunnerConfig(
-        sanitize_tool_output=True,     # ← Prevent prompt injection from tool output
-        tool_output_max_chars=8000,    # ← Truncate oversized tool responses
-    ),
-)
-
-result = runner.run_sync(agent, user_message="Calculate 2 + 2")
 print(result.final_text)
+print(result.state)
 ```
 
-<Tip>
-  **Always set `max_total_cost_usd`** in production. A runaway agent loop can
-  consume significant API credits in minutes. Even during development, $0.50 is
-  a reasonable safety limit.
-</Tip>
+`Agent` stores configuration. `Runner` executes the run. `AgentResult.final_text` is the assistant response.
 
-## What you just built
+## 2. Add one typed tool
 
-In five steps, you've covered the core AFK workflow:
+Tools are Python functions with Pydantic argument models. AFK turns the model into a tool schema, validates model-provided arguments, executes the function, and feeds the result back into the agent loop.
 
-| Step | Concept        | What you learned                |
-| ---- | -------------- | ------------------------------- |
-| 1    | Agent + Runner | Define an agent and execute it  |
-| 2    | Tools          | Give agents typed capabilities  |
-| 3    | Streaming      | Real-time text output for UIs   |
-| 4    | Multi-agent    | Coordinate specialist subagents |
-| 5    | Safety         | Protect against runaway agents  |
+```python
+from pydantic import BaseModel
 
-## Next steps
+from afk.agents import Agent, FailSafeConfig
+from afk.core import Runner
+from afk.tools import tool
+
+
+class OrderArgs(BaseModel):
+    order_id: str
+
+
+@tool(
+    args_model=OrderArgs,
+    name="lookup_order",
+    description="Look up a customer order by id.",
+)
+def lookup_order(args: OrderArgs) -> dict:
+    return {
+        "order_id": args.order_id,
+        "status": "shipped",
+        "eta": "Friday",
+    }
+
+
+agent = Agent(
+    name="support-agent",
+    model="gpt-4.1-mini",
+    instructions="Use lookup_order when the user asks about an order.",
+    tools=[lookup_order],
+    fail_safe=FailSafeConfig(
+        max_steps=8,
+        max_tool_calls=4,
+        max_total_cost_usd=0.10,
+    ),
+)
+
+result = Runner().run_sync(
+    agent,
+    user_message="Where is order A123?",
+)
+
+print(result.final_text)
+print(len(result.tool_executions))
+```
+
+## 3. Read the result
+
+Common fields on `AgentResult`:
+
+| Field | Meaning |
+| --- | --- |
+| `final_text` | Final assistant text |
+| `state` | Terminal state such as `completed`, `failed`, `cancelled`, or `degraded` |
+| `run_id` | Unique id for this run |
+| `thread_id` | Conversation/thread id used by memory |
+| `tool_executions` | Ordered records for tool calls |
+| `subagent_executions` | Ordered records for subagent calls |
+| `usage_aggregate` | Aggregated token usage |
+| `total_cost_usd` | Estimated total run cost when available |
+
+## 4. Keep going
 
 <CardGroup cols={2}>
-  <Card
-    title="Learn in 15 Minutes"
-    icon="graduation-cap"
-    href="/library/learn-in-15-minutes"
-  >
-    Deep-dive tutorial covering memory, policies, observability, and more.
-  </Card>
-  <Card title="Building with AI" icon="hammer" href="/library/building-with-ai">
-    Production playbook: common patterns, anti-patterns, and deployment
-    guidance.
+  <Card title="Learn AFK in 15 Minutes" icon="graduation-cap" href="/library/learn-in-15-minutes">
+    Add streaming, memory, and safety controls.
   </Card>
   <Card title="Examples" icon="code" href="/library/examples/index">
-    Runnable examples for every major AFK feature.
+    Find complete snippets for common scenarios.
   </Card>
-  <Card title="Core Concepts" icon="book" href="/library/agents">
-    Deep dive into agents, tools, runner, memory, and more.
+  <Card title="Agents" icon="robot" href="/library/agents">
+    Understand the agent configuration object.
+  </Card>
+  <Card title="Runner" icon="play" href="/library/core-runner">
+    Understand sync, async, and streaming execution.
   </Card>
 </CardGroup>

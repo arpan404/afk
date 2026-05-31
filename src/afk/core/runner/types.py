@@ -106,6 +106,9 @@ class RunnerConfig:
     default_sandbox_profile: SandboxProfile | None = None
     sandbox_profile_provider: SandboxProfileProvider | None = None
     secret_scope_provider: SecretScopeProvider | None = None
+    enable_runtime_tools: bool = False
+    runtime_tool_root: str = ""
+    runtime_tool_sandbox_profile: SandboxProfile | None = None
     default_allowlisted_commands: tuple[str, ...] = (
         "ls",
         "cat",

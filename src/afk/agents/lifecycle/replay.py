@@ -8,7 +8,6 @@ Checkpoint replay from any checkpoint in event history.
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass
 from typing import Any
 

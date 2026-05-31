@@ -1,217 +1,76 @@
 ---
 title: What is AFK?
-description: A contract-first Python framework for building reliable AI agents.
+description: The short mental model for building and maintaining AFK agents.
 ---
 
-AFK (**Agent Forge Kit**) is a Python SDK for building AI agents that are predictable, testable, and production-ready. It separates **what your agent does** (contracts) from **how it runs** (runtime), so you can iterate on behavior without touching infrastructure.
+AFK is an agent runtime for Python applications. It is designed for teams that need agent behavior to be typed, observable, testable, and bounded by explicit controls.
 
-<Tip>
-  If you've used the OpenAI Assistants API or LangChain, think of AFK as the
-  layer that adds **typed contracts, policy gates, failure handling, and
-  observability** to your agent code — without locking you into a single LLM
-  provider.
-</Tip>
-
-## Why AFK?
-
-AFK is designed for engineering teams that need agent systems to be reliable in
-production, not just functional in a demo.
-
-| If you need...                            | AFK gives you...                                                                      |
-| ----------------------------------------- | -------------------------------------------------------------------------------------- |
-| Predictable multi-step behavior           | Deterministic runner loop with typed contracts and explicit lifecycle events           |
-| Safe tool execution                       | Pydantic validation, policy gates, approval flows, sandbox profile integration         |
-| Production controls                       | Cost/step/time limits, retry and circuit breaker policies, bounded tool outputs        |
-| Portability across LLM providers          | Normalized request/response contracts with pluggable provider adapters                 |
-| CI confidence for prompt and tool changes | Built-in eval suites, golden traces, structured metrics, and telemetry export backends |
-
-Use AFK when your agent will touch real systems and needs guardrails, debuggability,
-and repeatability. If you only need a simple single-turn chat, a direct provider SDK
-may be lighter.
-
-## The core idea
-
-Every AFK application is built from three pieces:
+The core idea is simple:
 
 ```mermaid
 flowchart LR
-    Agent["Agent
-    (what to do)"] --> Runner["Runner
-    (how to run it)"]
-    Runner --> Result["AgentResult
-    (what happened)"]
+    Agent["Agent definition"] --> Runner["Runner"]
+    Runner --> Result["AgentResult"]
+    Runner --> Runtime["LLM, tools, memory, policy, telemetry"]
 ```
 
-| Piece           | What it is                                                                                                      | You define                                            |
-| --------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| **Agent**       | A configuration object describing the agent's identity, model, instructions, tools, and subagents.              | Name, model, instructions, tools, subagents, policies |
-| **Runner**      | The execution engine that runs agents through a step loop, managing LLM calls, tool execution, and state.       | Configuration defaults, telemetry, memory backend     |
-| **AgentResult** | The output of a run — containing the final text, run state, tool/subagent execution records, and usage metrics. | Nothing — this is what you read after a run           |
+## The three core objects
 
-## What AFK gives you
+| Object | What it owns | What it does not own |
+| --- | --- | --- |
+| `Agent` | Name, model, instructions, tools, subagents, skills, MCP servers, defaults, fail-safe limits | Network calls, event loops, persistence, telemetry export |
+| `Runner` | Execution loop, tool dispatch, streaming, memory, checkpointing, policy/HITL, telemetry | Agent identity or instructions |
+| `AgentResult` | Final text, terminal state, tool/subagent records, usage aggregate, cost, run/thread ids | Future execution |
 
-<AccordionGroup>
-  <Accordion title="Typed agents with tool calling" icon="robot">
-    Define agents as configuration objects. Attach tools as typed Python functions with Pydantic models for argument validation. The framework handles schema generation, execution, and output sanitization.
+This separation is the main design rule. Agents describe behavior. Runners execute behavior. Runtime subsystems provide capabilities.
 
-    ```python
-    from afk.agents import Agent
-    from afk.tools import tool
-    from pydantic import BaseModel
+## When AFK is a good fit
 
-    class SearchArgs(BaseModel):
-        query: str
+Use AFK when your agent will:
 
-    @tool(args_model=SearchArgs, name="search", description="Search the knowledge base.")
-    def search(args: SearchArgs) -> dict:
-        return {"results": ["doc1", "doc2"]}
+- call tools or external systems;
+- run for more than one step;
+- need cost, time, step, or tool-call limits;
+- stream progress to a UI;
+- persist memory or resume a run;
+- require evals, telemetry, or production incident debugging;
+- coordinate specialist subagents.
 
-    agent = Agent(
-        name="assistant",
-        model="gpt-5.2-mini",
-        instructions="Help users find information.",
-        tools=[search],
-    )
-    ```
+A direct LLM provider SDK may be simpler for one-off single-turn text generation. AFK is useful when the agent needs operational structure.
 
-  </Accordion>
+## Builder path
 
-  <Accordion title="Multiple execution modes" icon="play">
-    Run agents synchronously (blocking), asynchronously (awaitable), or with real-time streaming. Pause, resume, and cancel runs at any point.
+If you are building an app with AFK, read in this order:
 
-    ```python
-    from afk.core import Runner
+1. [Quickstart](/library/quickstart) for the smallest complete agent.
+2. [Learn AFK in 15 Minutes](/library/learn-in-15-minutes) for the guided path.
+3. [Agents](/library/agents), [Runner](/library/core-runner), and [Tools](/library/tools) for the core building blocks.
+4. [Building with AI](/library/building-with-ai), [Evals](/library/evals), and [Observability](/library/observability) before production.
 
-    runner = Runner()
+## Maintainer path
 
-    # Synchronous (simplest)
-    result = runner.run_sync(agent, user_message="Find docs about caching")
+If you are changing AFK itself, read in this order:
 
-    # Async
-    result = await runner.run(agent, user_message="Find docs about caching")
+1. [Developer Guide](/library/developer-guide) for local setup, commands, and docs workflow.
+2. [Architecture](/library/architecture) for package boundaries.
+3. [Public API Rules](/library/public-imports-and-function-improvement) before changing exports or examples.
+4. [Tested Behaviors](/library/tested-behaviors) before changing runner, tools, LLM runtime, memory, queues, or telemetry.
 
-    # Streaming
-    handle = await runner.run_stream(agent, user_message="Find docs about caching")
-    async for event in handle:
-        if event.type == "text_delta":
-            print(event.text_delta, end="")
-    ```
+## Source-of-truth rules
 
-  </Accordion>
-
-  <Accordion title="Multi-agent orchestration" icon="sitemap">
-    Build systems where a coordinator agent delegates tasks to specialist subagents. AFK manages the DAG execution, join policies, and backpressure automatically.
-
-    ```python
-    researcher = Agent(name="researcher", model="gpt-5.2-mini", instructions="Find facts.")
-    writer = Agent(name="writer", model="gpt-5.2-mini", instructions="Write summaries.")
-
-    coordinator = Agent(
-        name="coordinator",
-        model="gpt-5.2-mini",
-        instructions="Delegate research, then summarize.",
-        subagents=[researcher, writer],
-    )
-    ```
-
-  </Accordion>
-
-  <Accordion title="Policy engine and safety controls" icon="shield">
-    Gate tool calls with policy rules. Require human approval for dangerous operations. Set hard limits on steps, cost, and wall time.
-
-    ```python
-    from afk.agents import PolicyEngine, PolicyRule, FailSafeConfig
-
-    policy = PolicyEngine(rules=[
-        PolicyRule(
-            rule_id="gate-writes",
-            condition=lambda e: e.tool_name and "write" in e.tool_name,
-            action="request_approval",
-            reason="Write operations need human approval",
-        ),
-    ])
-
-    agent = Agent(
-        name="safe-agent",
-        model="gpt-5.2-mini",
-        instructions="...",
-        fail_safe=FailSafeConfig(
-            max_steps=10,
-            max_tool_calls=5,
-            max_total_cost_usd=0.25,
-        ),
-    )
-    ```
-
-  </Accordion>
-
-  <Accordion title="Provider-portable LLM runtime" icon="sparkles">
-    Swap LLM providers without changing agent code. AFK normalizes requests and responses across OpenAI, Anthropic, and 100+ providers via LiteLLM. Built-in retry, circuit breaking, caching, and rate limiting.
-
-    ```python
-    from afk.llms import LLMBuilder
-
-    client = (
-        LLMBuilder()
-        .provider("openai")
-        .model("gpt-5.2-mini")
-        .profile("production")    # ← retry, timeout, rate limit, circuit breaker
-        .build()
-    )
-    ```
-
-  </Accordion>
-
-  <Accordion title="Observability and evals" icon="chart-bar">
-    Built-in telemetry pipeline with spans and metrics. Eval framework for CI-gated release quality. Export to console, JSON, or OpenTelemetry.
-
-    ```python
-    # Enable OTEL telemetry
-    runner = Runner(telemetry="otel")
-
-    # Run evals in CI
-    from afk.evals import run_suite, EvalBudget
-    from afk.evals.models import EvalCase
-
-    suite = run_suite(
-        runner_factory=lambda: Runner(),
-        cases=[EvalCase(name="basic", agent=agent, user_message="Hello")],
-    )
-    assert suite.failed == 0
-    ```
-
-  </Accordion>
-</AccordionGroup>
-
-## When should you use AFK?
-
-| Scenario                                  | AFK is a good fit                                                                                    | Consider alternatives                                                                     |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Building a production AI agent with tools | <Icon icon="check" iconType="solid" color="#22c55e" /> Typed contracts, policy gates, observability  | —                                                                                         |
-| Prototyping a quick LLM chat              | <Icon icon="check" iconType="solid" color="#22c55e" /> `Agent` + `Runner` in 5 lines                 | Raw API calls may be simpler                                                              |
-| Multi-agent orchestration                 | <Icon icon="check" iconType="solid" color="#22c55e" /> DAG delegation, join policies, backpressure   | —                                                                                         |
-| Fine-tuning or training models            | —                                                                                                    | <Icon icon="xmark" iconType="solid" color="#ef4444" /> AFK is for inference, not training |
-| Simple text completion without tools      | <Icon icon="check" iconType="solid" color="#22c55e" /> Works, but may be more than you need          | Direct SDK call is lighter                                                                |
-| Enterprise deployment with compliance     | <Icon icon="check" iconType="solid" color="#22c55e" /> Policy engine, audit events, secret isolation | —                                                                                         |
-
-## Key design decisions
-
-- **Contract-first:** Every interface is a Pydantic model or Python protocol. Tools, agents, results, and events are all typed contracts — not magic strings.
-- **Separation of concerns:** Orchestration logic (runner, step loop) is completely separate from execution adapters (LLM providers, tool handlers). Swap providers without touching agent code.
-- **Fail-safe by default:** Every agent run has configurable limits on steps, tool calls, cost, and wall time. The runner classifies failures as retryable, terminal, or non-fatal automatically.
-- **Provider-portable:** Your agent code never touches provider-specific types. The LLM runtime normalizes everything into `LLMRequest` and `LLMResponse`.
+- Public examples import from `afk.*`, never `src.afk.*`.
+- `Runner` is imported from `afk.core`.
+- User-facing docs should explain behavior before internals.
+- Maintainer docs may reference internal modules, but must identify the public contract affected by a change.
+- Generated agent-facing docs and skill indexes must be refreshed when navigation, examples, or skill references change.
 
 ## Next steps
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/library/quickstart">
-    Build an agent with tools and streaming in 5 minutes.
+    Build one agent and one typed tool.
   </Card>
-  <Card
-    title="Learn in 15 Minutes"
-    icon="graduation-cap"
-    href="/library/learn-in-15-minutes"
-  >
-    Hands-on tutorial covering every major AFK feature.
+  <Card title="Developer Guide" icon="code" href="/library/developer-guide">
+    Set up the repo and understand the contributor workflow.
   </Card>
 </CardGroup>

@@ -417,6 +417,11 @@ class TaskWorker:
             self._metrics.incr("queue_worker_failed_non_retryable_total")
             logger.error("Task %s failed (non-retryable): %s", task_item.id[:8], error)
             await self._handle_failure(task_item, error=error, retryable=False)
+        except asyncio.CancelledError:
+            error = "Task execution cancelled"
+            self._metrics.incr("queue_worker_failed_non_retryable_total")
+            logger.info("Task %s cancelled", task_item.id[:8])
+            await self._handle_failure(task_item, error=error, retryable=False)
         except Exception as exc:  # noqa: BLE001
             error = str(exc)
             self._metrics.incr("queue_worker_failed_retryable_total")

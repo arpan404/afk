@@ -178,6 +178,7 @@ class TestMCPServerEnv:
         env = MCPServerEnv.from_env()
         assert env.AFK_CORS_ORIGINS == []
         assert env.AFK_MCP_NAME == "afk-mcp-server"
+        assert env.AFK_MCP_HOST == "127.0.0.1"
         assert env.AFK_MCP_PORT == 8000
         assert env.AFK_MCP_ENABLE_SSE is True
         assert env.AFK_MCP_ENABLE_HEALTH is True
@@ -252,7 +253,7 @@ class TestMemoryEnv:
         monkeypatch.delenv("AFK_QUEUE_REDIS_URL", raising=False)
 
         env = MemoryEnv.from_env()
-        assert env.AFK_MEMORY_BACKEND == "sqlite"
+        assert env.AFK_MEMORY_BACKEND == "memory"
         assert env.AFK_SQLITE_PATH == "afk_memory.sqlite3"
         assert env.AFK_REDIS_HOST == "localhost"
         assert env.AFK_REDIS_PORT == 6379

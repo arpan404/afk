@@ -1,157 +1,81 @@
 ---
-title: Public Imports and API Surface
-description: Stable import policy and API hygiene rules.
+title: Public API Rules
+description: Maintainer rules for preserving AFK's public import contract.
 ---
 
-AFK maintains a clear boundary between its public API surface and internal implementation details. This page explains the import policy, shows canonical import patterns organized by use case, and provides guidance for migrating from internal imports to stable public imports.
+This page is for AFK maintainers. It explains how to change public exports without making downstream code or docs confusing.
 
-Understanding this boundary is important: public imports are covered by semantic versioning guarantees, while internal imports may change without notice in any release.
+For the user-facing import table, see [API Reference](/library/api-reference).
 
-## Import policy
+## Contract
 
-AFK follows three rules for its public API surface:
+The public API is the set of names exported by package-level `__init__.py` files:
 
-**1. Prefer public package exports.** Every AFK package defines an `__all__` list in its `__init__.py` file. These exports are the public API. Import from the package level rather than reaching into internal sub-modules.
+- `afk.agents`
+- `afk.core`
+- `afk.tools`
+- `afk.llms`
+- `afk.memory`
+- `afk.queues`
+- `afk.mcp`
+- `afk.messaging`
+- `afk.observability`
+- `afk.evals`
+
+Public docs and examples should import from these package surfaces. They should not use `src.afk` imports or deep implementation modules such as `afk.core.runner.api`.
+
+## Rules for maintainers
+
+1. If a downstream user should import a symbol, export it from the package-level `__init__.py`.
+2. If a symbol is not exported, do not use it in builder docs or examples.
+3. Keep `Agent` and `Runner` separate: `Agent` comes from `afk.agents`; `Runner` comes from `afk.core`.
+4. Prefer protocols, dataclasses, Pydantic models, and explicit error classes for public contracts.
+5. When removing or renaming a public symbol, update migration docs and tests in the same change.
+6. When changing a public constructor, update [API Reference](/library/api-reference), [Configuration Reference](/library/configuration-reference), examples, and generated agent-facing docs.
+
+## Preferred examples
 
 ```python
-# Preferred: import from public package surface
-from afk.agents import Agent, PolicyEngine, AgentResult
+from afk.agents import Agent, FailSafeConfig
 from afk.core import Runner, RunnerConfig
-from afk.llms import LLMBuilder, LLMRequest, Message
-
-# Avoid: importing from internal sub-modules
-from afk.agents.core.base import Agent          # internal path
-from afk.core.runner.api import RunnerAPIMixin  # internal mixin
-from afk.llms.builder import LLMBuilder         # internal module
+from afk.tools import ToolContext, tool
 ```
-
-**Why this matters:** Internal module paths may be reorganized between releases (sub-modules renamed, code moved between files). The package-level `__init__.py` exports are the stable contract. If you import from the package level, your code survives internal refactors without changes.
-
-**2. Avoid importing private or internal modules.** Any module with a leading underscore (`_helpers.py`), or any path containing `_internal` or `_private`, is not part of the public API. These modules exist to support the framework's internal implementation and may change without notice.
-
-**3. Keep interfaces contract-first and explicit.** When extending AFK (implementing custom tools, assertions, interaction providers, etc.), implement the documented protocol interfaces rather than subclassing internal classes. Protocol-based contracts are stable; internal class hierarchies are not.
-
-## Canonical import patterns by use case
-
-### Agent definition and execution
 
 ```python
-from afk.agents import Agent, BaseAgent, ChatAgent
-from afk.agents import AgentResult, AgentRunEvent, AgentRunHandle, AgentState
-from afk.agents import FailSafeConfig, UsageAggregate
-from afk.core import Runner, RunnerConfig
+from afk.llms import LLMBuilder, RetryPolicy, TimeoutPolicy
+from afk.memory import InMemoryMemoryStore, SQLiteMemoryStore
+from afk.queues import InMemoryTaskQueue, TaskWorker
 ```
 
-### Policy and security
+## Imports to avoid in public docs
 
-```python
-from afk.agents import PolicyEngine, PolicyRule, PolicyEvent, PolicyDecision
-from afk.agents import ApprovalRequest, ApprovalDecision
-from afk.agents import UserInputRequest, UserInputDecision
-from afk.tools.security import SandboxProfile, SandboxProfileProvider, SecretScopeProvider
-```
-
-### Tool development
-
-```python
-from afk.tools import tool, ToolResult, ToolContext
-```
-
-### LLM client (direct usage)
-
-```python
-from afk.llms import LLMBuilder, LLMClient, LLMConfig, LLMSettings
-from afk.llms import LLMRequest, LLMResponse, Message, ToolCall, Usage
-from afk.llms import RetryPolicy, TimeoutPolicy, CircuitBreakerPolicy
-from afk.llms import PROFILES
-```
-
-### Delegation and subagents
-
-```python
-from afk.agents import DelegationPlan, DelegationNode, DelegationEdge
-from afk.agents import RetryPolicy, JoinPolicy, DelegationResult
-from afk.agents import SubagentExecutionRecord, ToolExecutionRecord
-```
-
-### A2A protocol
-
-```python
-from afk.agents import InternalA2AProtocol, A2AServiceHost
-from afk.agents import AgentInvocationRequest, AgentInvocationResponse
-from afk.agents import JWTA2AAuthProvider, APIKeyA2AAuthProvider
-```
-
-### Eval suite
-
-```python
-from afk.evals import run_suite, EvalBudget
-from afk.evals.models import EvalCase, EvalSuiteConfig, EvalSuiteResult
-from afk.evals.models import EvalCaseResult, EvalAssertionResult
-from afk.evals.reporting import write_suite_report_json, suite_report_payload
-from afk.evals.golden import write_golden_trace, compare_event_types
-```
-
-### Observability
-
-```python
-from afk.observability.models import RunMetrics
-from afk.observability.contracts import SPAN_AGENT_RUN, SPAN_AGENT_LLM_CALL
-from afk.observability.exporters.console import ConsoleRunMetricsExporter
-from afk.observability.projectors import project_run_metrics_from_result
-```
-
-### Interaction providers
-
-```python
-from afk.core import InteractionProvider, HeadlessInteractionProvider
-from afk.core import InMemoryInteractiveProvider
-```
-
-### Streaming
-
-```python
-from afk.core import AgentStreamHandle, AgentStreamEvent
-```
-
-### Memory
-
-```python
-from afk.memory import MemoryStore, RetentionPolicy, StateRetentionPolicy
-from afk.memory import compact_thread_memory, MemoryCompactionResult
-```
-
-### Errors
-
-```python
-from afk.agents import (
-    AgentError,
-    AgentExecutionError,
-    AgentCancelledError,
-    AgentInterruptedError,
-    AgentLoopLimitError,
-    AgentBudgetExceededError,
-    SubagentRoutingError,
-    SubagentExecutionError,
-)
-from afk.llms import LLMError, LLMTimeoutError, LLMRetryableError
-```
-
-## Migration guide
-
-If you have existing code that imports from internal module paths, use this table to find the correct public import:
-
-| Internal Import (avoid) | Public Import (use instead) |
+| Avoid | Prefer |
 | --- | --- |
-| `from afk.agents.core.base import Agent` | `from afk.agents import Agent` |
-| `from afk.agents.types.result import AgentResult` | `from afk.agents import AgentResult` |
-| `from afk.agents.policy.engine import PolicyEngine` | `from afk.agents import PolicyEngine` |
-| `from afk.core.runner.api import RunnerAPIMixin` | `from afk.core import Runner` |
-| `from afk.core.runner.types import RunnerConfig` | `from afk.core import RunnerConfig` |
-| `from afk.llms.builder import LLMBuilder` | `from afk.llms import LLMBuilder` |
-| `from afk.llms.types import LLMRequest` | `from afk.llms import LLMRequest` |
-| `from afk.evals.suite import run_suite` | `from afk.evals import run_suite` |
-| `from afk.evals.budgets import EvalBudget` | `from afk.evals import EvalBudget` |
-| `from afk.tools.core.base import ToolResult` | `from afk.tools import ToolResult` |
+| `src.afk.agents.Agent` | `afk.agents.Agent` |
+| `afk.agents.core.base.Agent` | `afk.agents.Agent` |
+| `afk.core.runner.api.RunnerAPIMixin` | `afk.core.Runner` |
+| `afk.tools.core.decorator.tool` | `afk.tools.tool` |
+| `afk.llms.builder.LLMBuilder` | `afk.llms.LLMBuilder` |
 
-To find all internal imports in your project, search for patterns like `from afk.*.*.` (three or more dots of depth) and check whether a shallower public import exists.
+Deep imports are acceptable in internal tests only when the test is specifically covering an internal unit. Integration tests and examples should exercise the public surface.
+
+## Change checklist
+
+Before merging a public API change:
+
+- Update the relevant package `__all__`.
+- Add or update tests that import through the public package.
+- Update user-facing docs if a builder would see the changed behavior.
+- Update maintainer docs if an invariant or subsystem boundary changed.
+- Run `PYTHONPATH=src pytest -q` or targeted tests for the affected subsystem.
+- Regenerate agent-facing docs with `./scripts/build_agentic_ai_assets.sh` when docs, examples, skill metadata, or navigation changes.
+
+## Search commands
+
+```bash
+rg -n "src\\.afk|import src\\.afk" docs README.md CONTRIBUTING.md ENV_VARS.md skills
+rg -n "from afk\\.agents import Runner" docs README.md CONTRIBUTING.md ENV_VARS.md skills
+rg -n "from afk\\.[a-z_]+\\.[a-z_]+\\." docs README.md CONTRIBUTING.md ENV_VARS.md skills
+```
+
+The last command intentionally finds deep imports for review. Some maintainer references may be valid, but builder docs should avoid them.

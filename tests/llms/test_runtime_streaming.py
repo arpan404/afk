@@ -18,6 +18,7 @@ from afk.llms import (
 )
 from afk.llms.errors import LLMInvalidResponseError
 from afk.llms.providers import ProviderSettingsSchema
+from afk.llms.runtime import CachePolicy
 
 
 class _FakeStreamHandle:
@@ -137,6 +138,40 @@ def test_chat_stream_falls_back_to_next_provider():
     )
 
 
+def test_chat_cache_key_is_scoped_by_session_namespace_and_response_model():
+    register_llm_provider(_Provider("cache_scope"), overwrite=True)
+    llm = create_llm_client(provider="cache_scope", settings=LLMSettings())
+    base = LLMRequest(
+        model="demo",
+        messages=[Message(role="user", content="hello")],
+    )
+    session_req = dataclass_replace_session(base, "session_1")
+    other_session_req = dataclass_replace_session(base, "session_2")
+    tenant_req = dataclass_replace_metadata(base, {"tenant_id": "tenant_a"})
+
+    key_base = llm._cache_key("cache_scope", base)
+    key_session = llm._cache_key("cache_scope", session_req)
+    key_other_session = llm._cache_key("cache_scope", other_session_req)
+    key_tenant = llm._cache_key("cache_scope", tenant_req)
+    key_model = llm._cache_key("cache_scope", base, response_model=dict)
+    key_namespace = llm._cache_key(
+        "cache_scope",
+        base,
+        cache_policy=CachePolicy(namespace="customer_a"),
+    )
+
+    assert len(
+        {
+            key_base,
+            key_session,
+            key_other_session,
+            key_tenant,
+            key_model,
+            key_namespace,
+        }
+    ) == 6
+
+
 def test_chat_stream_handle_interrupt_uses_single_underlying_handle():
     provider = _Provider("stream_handle_ok")
     register_llm_provider(provider, overwrite=True)
@@ -158,6 +193,18 @@ def dataclass_replace_route(req: LLMRequest, order: tuple[str, ...]) -> LLMReque
     from afk.llms.runtime import RoutePolicy
 
     return replace(req, route_policy=RoutePolicy(provider_order=order))
+
+
+def dataclass_replace_session(req: LLMRequest, session_token: str) -> LLMRequest:
+    from dataclasses import replace
+
+    return replace(req, session_token=session_token)
+
+
+def dataclass_replace_metadata(req: LLMRequest, metadata: dict[str, object]) -> LLMRequest:
+    from dataclasses import replace
+
+    return replace(req, metadata=metadata)
 
 
 def test_stream_handle_rejects_double_completion_events():

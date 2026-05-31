@@ -30,7 +30,7 @@ from .errors import (
 from .llm import LLM
 from .middleware import MiddlewareStack
 from .observability import LLMLifecycleEvent, LLMObserver
-from .profiles import LLMProfile, PROFILES
+from .profiles import PROFILES, LLMProfile
 from .providers import (
     AnthropicAgentProvider,
     LiteLLMProvider,
@@ -99,13 +99,13 @@ def create_llm_client(
     middlewares: MiddlewareStack | None = None,
     observers: list[LLMObserver] | None = None,
     router=None,
-    retry_policy: "RetryPolicy | None" = None,
-    timeout_policy: "TimeoutPolicy | None" = None,
-    rate_limit_policy: "RateLimitPolicy | None" = None,
-    circuit_breaker_policy: "CircuitBreakerPolicy | None" = None,
-    hedging_policy: "HedgingPolicy | None" = None,
-    cache_policy: "CachePolicy | None" = None,
-    coalescing_policy: "CoalescingPolicy | None" = None,
+    retry_policy: RetryPolicy | None = None,
+    timeout_policy: TimeoutPolicy | None = None,
+    rate_limit_policy: RateLimitPolicy | None = None,
+    circuit_breaker_policy: CircuitBreakerPolicy | None = None,
+    hedging_policy: HedgingPolicy | None = None,
+    cache_policy: CachePolicy | None = None,
+    coalescing_policy: CoalescingPolicy | None = None,
 ) -> LLMClient:
     """Create enterprise runtime client with explicit provider selection.
 

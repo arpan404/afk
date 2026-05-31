@@ -1,291 +1,117 @@
-# Agent Forge Kit (AFK) Python SDK (v1.0.0)
+# Agent Forge Kit (AFK) Python SDK
 
-**A production-grade framework for building robust, deterministic agent systems.**
+AFK is a Python 3.13+ SDK for building reliable AI agents with typed tools, runtime controls, memory, streaming, evals, and observability.
 
-**Documentation:** [afk.arpan.sh](https://afk.arpan.sh)
+Documentation: [afk.arpan.sh](https://afk.arpan.sh)
 
-AFK is built for engineers who need more than just a "chat loop." It provides a typed, observable, and fail-safe runtime for orchestrating complex agent behaviors, managing long-running threads, and integrating with your existing infrastructure.
+## Install
 
-## Architecture
-
-The framework is built on three core pillars:
-
-1.  **Agent**: Stateless definition of identity, instructions, and tools.
-2.  **Runner**: Stateful execution engine managing the event loop and memory.
-3.  **Runtime**: Underlying capabilities (LLM I/O, Tool Registry).
-
-```mermaid
-flowchart LR
-    Agent[Agent Config] --> Runner[Runner Engine]
-    Runner --> EventLoop
-    EventLoop <--> Memory[Memory Store]
-    EventLoop --> LLM[LLM Client]
-    EventLoop --> Tools[Tool Registry]
-```
-
-## Key Capabilities
-
-- **Deterministic Orchestration**: Type-safe event loop with guaranteed lifecycle events.
-- **Fail-Safe Runtime**: Configurable circuit breakers, cost limits, and retry policies.
-- **Observability First**: Built-in OpenTelemetry tracing and structured metrics.
-- **Deep Tooling**: Secure tool execution with policy hooks and sandbox profiles.
-- **Scalable Memory**: Pluggable backends (SQLite, Redis, Postgres) with auto-compaction.
-- **Workflow State Machine**: Build complex multi-step workflows with DAG-like state machines.
-- **Policy Audit Logging**: SOC2/GDPR compliant audit trails for all policy decisions.
-- **Checkpoint Replay API**: First-class human-in-loop review and rollback support.
-
-## Why AFK
-
-AFK is for teams moving from demos to production agents.
-
-- Use AFK when you need **predictable runs**, **typed tool contracts**, and **policy-gated actions**.
-- Use AFK when reliability matters: retries, limits, circuit breakers, observability, and evals are built in.
-- Use AFK when you want provider flexibility without rewriting agent logic for each model vendor.
-
-Choose AFK over raw SDK calls when your workflow includes tools, multi-step execution, approvals, or release gating.
-Choose a raw SDK when you only need simple chat/completions and minimal runtime behavior.
-
-## Installation
+The distribution package is `afk-py`; the import package is `afk`.
 
 ```bash
-pip install the-afk==1.0.0
+python -m pip install afk-py
+```
+
+For repository development:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -e . pytest
 ```
 
 ## Quick Start
 
-The `Runner` supports both synchronous (script) and asynchronous (server) execution modes.
-
 ```python
-import asyncio
 from afk.agents import Agent
 from afk.core import Runner
 
-# 1. Define your agent (stateless)
 agent = Agent(
     name="ops-bot",
     model="gpt-4.1-mini",
     instructions="You are a helpful SRE assistant.",
 )
 
-# 2. Run it (stateful)
-async def main():
-    runner = Runner()
-    result = await runner.run(agent, user_message="Check system health")
-
-    print(f"Status: {result.state}")
-    print(f"Output: {result.final_text}")
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-> **Note**: For scripts and CLI tools, you can use `runner.run_sync(...)`.
-
-## Power User Features
-
-AFK is designed for complexity. Here are some of the advanced features available out of the box:
-
-### Fail-Safe Controls
-
-Prevent runaway costs and infinite loops with `FailSafeConfig`.
-
-```python
-from afk.agents import FailSafeConfig
-
-agent = Agent(
-    ...,
-    fail_safe=FailSafeConfig(
-        max_steps=20,
-        max_total_cost_usd=1.00,  # Hard stop at $1
-        subagent_failure_policy="continue_with_error",
-    )
-)
-```
-
-[Read the Configuration Reference →](https://afk.arpan.sh/library/configuration-reference)
-
-### Streaming
-
-Build real-time UIs with the event stream API.
-
-```python
-handle = await runner.run_stream(agent, user_message="...")
-async for event in handle:
-    if event.type == "text_delta":
-        print(event.text_delta, end="")
-```
-
-[Read the Streaming Guide →](https://afk.arpan.sh/library/streaming)
-
-### Debug Mode
-
-Use debugger facade or runner config:
-
-```python
-from afk.debugger import Debugger, DebuggerConfig
-
-debugger = Debugger(DebuggerConfig(redact_secrets=True, verbosity="detailed"))
-runner = debugger.runner()
-```
-
-```python
-from afk.core import Runner, RunnerConfig
-
-runner = Runner(config=RunnerConfig(debug=True))
-```
-
-### Reasoning Controls
-
-Set agent defaults and optionally override per run:
-
-```python
-agent = Agent(
-    ...,
-    reasoning_enabled=True,
-    reasoning_effort="low",
-    reasoning_max_tokens=256,
-)
-
-result = await runner.run(
+result = Runner().run_sync(
     agent,
-    context={"_afk": {"reasoning": {"enabled": True, "effort": "high", "max_tokens": 512}}},
-)
-```
-
-### Background Tools
-
-Tools can defer long-running work and resolve later:
-
-```python
-from afk.tools import ToolResult, ToolDeferredHandle
-
-return ToolResult(
-    success=True,
-    deferred=ToolDeferredHandle(
-        ticket_id="build-1",
-        tool_name="build_project",
-        status="running",
-        resume_hint="continue docs while build runs",
-    ),
-    metadata={"background_task": build_future},
-)
-```
-
-### Evals
-
-Test your agents with the built-in eval suite.
-
-```python
-from afk.evals import run_suite, EvalCase
-
-await run_suite(
-    cases=[
-        EvalCase(input="Hello", assertions=[...])
-    ]
-)
-```
-
-[Read the Evals Guide →](https://afk.arpan.sh/library/evals)
-
-### Workflow State Machine
-
-Build complex multi-step workflows with a fluent state machine API:
-
-```python
-from afk.agents import WorkflowBuilder, WorkflowExecutor, WorkflowExecutionContext
-
-workflow = WorkflowBuilder("deploy", "Deploy Service")
-workflow.add_node("build", "Build image", timeout_s=300)
-workflow.add_node("test", "Run tests", timeout_s=120)
-workflow.add_node("deploy", "Deploy to K8s", timeout_s=60)
-workflow.add_edge("build", "test").add_edge("test", "deploy")
-workflow.set_initial("build")
-
-spec = workflow.build()
-executor = WorkflowExecutor()
-context = WorkflowExecutionContext(
-    workflow_id="deploy",
-    run_id="run-1",
-    thread_id="thread-1",
-)
-result = await executor.execute(spec, context)
-```
-
-### Policy Audit Logging
-
-Compliance-ready audit logging for all policy decisions:
-
-```python
-from afk.agents import create_policy_audit_logger, AuditConfig
-
-audit = create_policy_audit_logger(
-    file_path="./audit.log",
-    min_level="info",
+    user_message="What is an error budget?",
 )
 
-# Log policy decisions
-await audit.log_policy_decision(event, decision, run_id=run_id)
-
-# Log tool executions
-await audit.log_tool_execution("webfetch", allowed=True, run_id=run_id)
-
-# Log approvals
-await audit.log_approval(approved=True, run_id=run_id)
+print(result.state)
+print(result.final_text)
 ```
 
-### Checkpoint Replay
+## Core Model
 
-Human-in-loop review with rollback support:
+AFK separates agent behavior from runtime execution:
 
-```python
-from afk.agents import create_replay_api
+- `Agent` describes identity, model, instructions, tools, subagents, skills, MCP servers, and fail-safe limits.
+- `Runner` executes agents synchronously, asynchronously, or as a stream.
+- Runtime subsystems provide LLM adapters, tool execution, memory, queues, policy, and telemetry.
+- `AgentResult` records final text, state, run/thread ids, tool/subagent executions, usage, and cost.
 
-api = create_replay_api(memory_store)
-
-# Open review session
-session = await api.open_session(run_id, thread_id)
-
-# Get timeline
-timeline = await api.get_timeline(run_id, thread_id)
-for event in timeline.events:
-    print(f"Step {event.step}: {event.summary}")
-
-# Get snapshot at step
-snapshot = await api.get_step_snapshot(run_id, thread_id, step=5)
-
-# Rollback to earlier step
-session = await api.rollback(session, target_step=3)
-```
-
-### Memory Auto-Compaction
-
-Automatic memory management based on importance scoring:
+## Add a Tool
 
 ```python
-from afk.memory import MemoryCompactor, CompactionConfig
+from pydantic import BaseModel
 
-compactor = MemoryCompactor(
-    CompactionConfig(
-        enabled=True,
-        trigger_threshold_bytes=5_000_000,  # 5MB
-        target_size_bytes=2_000_000,   # 2MB
-        pressure_threshold=0.7,      # 70%
-        compaction_interval_s=60.0,    # Check every minute
-    )
+from afk.agents import Agent, FailSafeConfig
+from afk.core import Runner
+from afk.tools import tool
+
+
+class LookupArgs(BaseModel):
+    order_id: str
+
+
+@tool(args_model=LookupArgs, name="lookup_order", description="Look up an order.")
+def lookup_order(args: LookupArgs) -> dict:
+    return {"order_id": args.order_id, "status": "shipped"}
+
+
+agent = Agent(
+    name="support-agent",
+    model="gpt-4.1-mini",
+    instructions="Use lookup_order when users ask about orders.",
+    tools=[lookup_order],
+    fail_safe=FailSafeConfig(max_steps=8, max_tool_calls=4, max_total_cost_usd=0.10),
 )
 
-# Run compaction manually
-result = await compactor.compact(events, thread_id)
-print(f"Compacted {result.events_compacted} events, "
-      f"saved {result.memory_saved_bytes} bytes")
+result = Runner().run_sync(agent, user_message="Where is order A123?")
+print(result.final_text)
 ```
 
-## Documentation
+## Common Commands
 
-- **[Configuration Reference](https://afk.arpan.sh/library/configuration-reference)**: Full list of options.
-- **[API Reference](https://afk.arpan.sh/library/api-reference)**: Classes and methods.
-- **[Architecture & Modules](https://afk.arpan.sh/library/full-module-reference)**: Inner workings.
+```bash
+PYTHONPATH=src pytest -q
+PYTHONPATH=src pytest -q tests/agents/test_agent_runtime.py
+ruff check src tests
+ruff format src tests
+./scripts/docs_dev.sh
+./scripts/build_agentic_ai_assets.sh
+```
 
-## License
+## Install AFK Codex Skills
 
-MIT. See `LICENSE`.
+Install AFK skills with Vercel's Skills CLI:
+
+```bash
+npx skills add https://github.com/arpan404/afk --skill afk-coder
+npx skills add https://github.com/arpan404/afk --skill afk-maintainer
+```
+
+The `skills` CLI installs the selected skill into the configured agent environment, including Codex.
+
+## Docs Paths
+
+- Start building: [Quickstart](https://afk.arpan.sh/library/quickstart)
+- Guided tutorial: [Learn AFK in 15 Minutes](https://afk.arpan.sh/library/learn-in-15-minutes)
+- Public imports: [API Reference](https://afk.arpan.sh/library/api-reference)
+- Contributor workflow: [Developer Guide](https://afk.arpan.sh/library/developer-guide)
+- Environment variables: [Environment Variables](https://afk.arpan.sh/library/environment-variables)
+
+## When to Use AFK
+
+Use AFK when your agent needs tools, multi-step execution, streaming, memory, approvals, cost limits, telemetry, evals, queues, or provider portability.
+
+A direct provider SDK may be simpler for one-off single-turn text generation.

@@ -171,3 +171,15 @@ def test_resolve_server_rejects_non_http_scheme_for_dict_url():
     store = MCPStore()
     with pytest.raises(MCPServerResolutionError, match="http or https"):
         store.resolve_server({"name": "bad", "url": "ftp://example.com/mcp"})
+
+
+def test_store_rejects_public_http_mcp_urls():
+    store = MCPStore()
+    with pytest.raises(MCPServerResolutionError, match="must use HTTPS for remote"):
+        run_async(store.list_tools("svc=http://example.com/mcp"))
+
+
+def test_store_rejects_private_host_mcp_urls_by_default():
+    store = MCPStore()
+    with pytest.raises(MCPServerResolutionError, match="restricted private"):
+        run_async(store.list_tools("svc=http://127.0.0.1:8000"))

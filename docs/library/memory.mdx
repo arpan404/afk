@@ -12,7 +12,7 @@ import asyncio
 from afk.agents import Agent
 from afk.core import Runner
 
-agent = Agent(name="tutor", model="gpt-5.2-mini", instructions="You are a Python tutor.")
+agent = Agent(name="tutor", model="gpt-4.1-mini", instructions="You are a Python tutor.")
 
 async def main():
     runner = Runner()
@@ -166,13 +166,36 @@ AFK ships with four backends. All implement the `MemoryStore` protocol.
   </Tab>
 </Tabs>
 
+### Connection pooling for Redis
+
+For production Redis deployments, use connection pooling for better performance:
+
+```python
+from afk.llms.cache.redis_pool import get_redis_pool, PoolConfig
+
+pool = await get_redis_pool(
+    "redis://localhost:6379",
+    config=PoolConfig(
+        max_connections=50,
+        socket_timeout=5.0,
+        socket_connect_timeout=5.0,
+    ),
+)
+
+# Use the pool with RedisMemoryStore
+from afk.memory.adapters.redis import RedisMemoryStore
+
+runner = Runner(
+    memory_store=RedisMemoryStore(url="redis://localhost:6379"),
+)
+```
+
 ### Environment-based selection
 
 Set environment variables to auto-select a backend without code changes:
 
 ```bash
-export AFK_MEMORY_BACKEND=sqlite
-export AFK_MEMORY_SQLITE_PATH=./agent_memory.sqlite3
+export AFK_MEMORY_BACKEND=memory
 ```
 
 The runner falls back to in-memory if the configured backend fails to initialize.

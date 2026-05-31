@@ -1,0 +1,4 @@
+interface:
+  display_name: "AFK Maintainer"
+  short_description: "Review and maintain AFK."
+  default_prompt: "Use $afk-maintainer to review or change AFK while preserving public contracts and safety rules."

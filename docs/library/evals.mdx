@@ -3,19 +3,18 @@ title: Evals
 description: Behavioral testing for agent quality — assertions, budgets, and CI integration.
 ---
 
-AFK's eval framework tests agent behavior with real LLM calls. Define test cases, run them against your agents, and gate releases on pass rate. Think of evals as integration tests for AI — they verify that prompts, tools, and orchestration produce correct behavior.
+AFK evals run agents against named inputs and check the resulting state, text, tool usage, budgets, and telemetry. Use them for prompt changes, tool changes, routing changes, and regression tests. They can run against real providers, test adapters, or agents configured with deterministic tools.
 
 ## Your first eval
 
 ```python
 from afk.agents import Agent
 from afk.core import Runner
-from afk.evals import run_suite
-from afk.evals.models import EvalCase, EvalBudget
+from afk.evals import EvalCase, EvalSuiteConfig, StateCompletedAssertion, run_suite
 
 agent = Agent(
     name="classifier",
-    model="gpt-5.2-mini",
+    model="gpt-4.1-mini",
     instructions="Classify as: billing, technical, account, other. Output only the label.",
 )
 
@@ -26,15 +25,16 @@ suite = run_suite(
             name="billing-question",
             agent=agent,
             user_message="Why was I charged twice?",
-            assertions=[lambda r: r.final_text.strip().lower() == "billing"],
         ),
         EvalCase(
             name="technical-question",
             agent=agent,
             user_message="The API returns a 500 error",
-            assertions=[lambda r: r.final_text.strip().lower() == "technical"],
         ),
     ],
+    config=EvalSuiteConfig(
+        assertions=(StateCompletedAssertion(),),
+    ),
 )
 
 print(f"Passed: {suite.passed}/{suite.total}")
@@ -54,14 +54,14 @@ flowchart LR
 
 <Steps>
   <Step title="Define cases">
-    Each case specifies an agent, input message, and assertions to verify.
+    Each case specifies an agent and input message. Suite-level assertions and budgets verify the result.
   </Step>
   <Step title="Schedule execution">
     The scheduler runs cases sequentially or in parallel, respecting concurrency
     limits.
   </Step>
   <Step title="Run agents">
-    Each case runs through a full agent loop with real LLM calls.
+    Each case runs through the same runner path your application uses.
   </Step>
   <Step title="Assert results">
     Assertions verify the result — text content, state, tool usage, cost,
@@ -87,10 +87,6 @@ flowchart LR
         name="basic-greeting",
         agent=agent,
         user_message="Hello!",
-        assertions=[
-            lambda r: r.state == "completed",
-            lambda r: len(r.final_text) > 0,
-        ],
     )
     ```
 
@@ -103,9 +99,6 @@ flowchart LR
         name="invalid-input",
         agent=agent,
         user_message="",
-        assertions=[
-            lambda r: r.state in ("completed", "degraded"),
-        ],
     )
     ```
 
@@ -118,10 +111,6 @@ flowchart LR
         name="uses-search",
         agent=agent,
         user_message="Find docs about caching",
-        assertions=[
-            lambda r: any(t.tool_name == "search_docs" for t in r.tool_executions),
-            lambda r: r.state == "completed",
-        ],
     )
     ```
 
@@ -134,10 +123,7 @@ flowchart LR
         name="within-budget",
         agent=agent,
         user_message="Analyze this dataset",
-        budget=EvalBudget(max_total_cost_usd=0.05, max_steps=5),
-        assertions=[
-            lambda r: r.usage.total_cost_usd <= 0.05,
-        ],
+        budget=EvalBudget(max_total_cost_usd=0.05, max_total_tokens=4_000),
     )
     ```
 
@@ -146,35 +132,26 @@ flowchart LR
 
 ## Assertions
 
-Assertions are functions that take an `AgentResult` and return `True` (pass) or `False` (fail):
+Assertions are suite-level callables. Import the built-ins from `afk.evals`, or implement the `EvalAssertion` protocol.
 
 ```python
-# Text content assertions
-lambda r: "error budget" in r.final_text.lower()
-lambda r: len(r.final_text) < 500
+from afk.evals import FinalTextContainsAssertion, StateCompletedAssertion
 
-# State assertions
-lambda r: r.state == "completed"
-lambda r: r.state != "failed"
-
-# Tool usage assertions
-lambda r: len(r.tool_executions) > 0
-lambda r: all(t.success for t in r.tool_executions)
-
-# Cost assertions
-lambda r: r.usage.total_cost_usd < 0.10
+assertions = (
+    StateCompletedAssertion(),
+    FinalTextContainsAssertion("error budget"),
+)
 ```
 
 ## Suite configuration
 
 ```python
-from afk.evals.models import EvalSuiteConfig
+from afk.evals import EvalBudget, EvalSuiteConfig
 
 config = EvalSuiteConfig(
     max_concurrency=3,         # Run up to 3 cases in parallel
     fail_fast=True,            # Stop on first failure
-    timeout_per_case_s=60.0,   # Max time per case
-    total_budget=EvalBudget(
+    budget=EvalBudget(
         max_total_cost_usd=1.00,  # Total suite budget
     ),
 )
@@ -200,7 +177,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: pip install afk
+      - run: python -m pip install afk-py pytest
       - run: python -m pytest tests/evals/ -v
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -218,12 +195,13 @@ Gate releases on eval pass rate:
 
 ```python
 suite = run_suite(runner_factory=lambda: Runner(), cases=cases)
+pass_rate = suite.passed / suite.total if suite.total else 0.0
 
-if suite.pass_rate < 0.95:
-    print(f"Release blocked: {suite.pass_rate:.0%} pass rate (need 95%)")
+if pass_rate < 0.95:
+    print(f"Release blocked: {pass_rate:.0%} pass rate (need 95%)")
     sys.exit(1)
 
-print(f"Release approved: {suite.pass_rate:.0%} pass rate")
+print(f"Release approved: {pass_rate:.0%} pass rate")
 ```
 
 ## Next steps

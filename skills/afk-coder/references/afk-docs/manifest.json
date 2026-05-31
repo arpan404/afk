@@ -1,0 +1,16 @@
+{
+  "generated_at_utc": "2026-05-31T13:25:20.450882+00:00",
+  "document_count": 63,
+  "skill_count": 2,
+  "files": [
+    "docs-index.json",
+    "docs-index.jsonl",
+    "inverted-index.json",
+    "path-to-id.json",
+    "id-to-path.json",
+    "examples.md",
+    "records/",
+    "text/",
+    "../skills/index.json"
+  ]
+}

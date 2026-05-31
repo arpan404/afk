@@ -1,18 +1,11 @@
 ---
 title: Learn AFK in 15 Minutes
-description: A hands-on tutorial covering agents, tools, streaming, multi-agent, and memory.
+description: A guided path through agents, tools, streaming, memory, and safety.
 ---
 
-This tutorial walks you through every major AFK concept in five hands-on sections. Each section takes about 3 minutes and builds on the previous one. By the end, you'll have a working understanding of agents, tools, streaming, multi-agent orchestration, and memory.
+This tutorial expands the quickstart into the core workflow used by most AFK applications. Each section introduces one concept and keeps the code small enough to copy into a single file.
 
-<Note>
-  **Prerequisites:** `pip install afk` and an OpenAI API key in your environment
-  (`OPENAI_API_KEY`).
-</Note>
-
-## Minute 1–3: Your first agent
-
-An AFK agent is a configuration object. You describe _what_ it is — the runner handles _how_ it executes.
+## 1. Agent + runner
 
 ```python
 from afk.agents import Agent
@@ -20,260 +13,187 @@ from afk.core import Runner
 
 agent = Agent(
     name="tutor",
-    model="gpt-5.2-mini",
-    instructions="""
-    You are a programming tutor.
-    Explain concepts using simple language and short code examples.
-    Keep answers under 100 words.
-    """,
+    model="gpt-4.1-mini",
+    instructions="Explain programming concepts in plain language.",
 )
 
 runner = Runner()
 result = runner.run_sync(agent, user_message="What is recursion?")
 
-print(result.final_text)   # The model's explanation
-print(result.state)        # "completed"
-print(result.run_id)       # Unique run ID for tracing
+print(result.final_text)
+print(result.run_id)
 ```
 
-**Key takeaway:** `Agent` is pure configuration (no execution logic). `Runner` is the engine. `AgentResult` is the output. These three types are the foundation of everything in AFK.
+Key point: an agent is declarative. The runner owns execution.
 
----
-
-## Minute 4–6: Give your agent tools
-
-Tools let agents take actions beyond text generation. Define a tool as a Python function with a Pydantic model for its arguments.
+## 2. Typed tools
 
 ```python
 from pydantic import BaseModel
+
 from afk.agents import Agent
-from afk.tools import tool
 from afk.core import Runner
+from afk.tools import tool
+
 
 class LookupArgs(BaseModel):
     topic: str
     max_results: int = 3
 
-@tool(args_model=LookupArgs, name="search_docs", description="Search the documentation by topic.")
+
+@tool(args_model=LookupArgs, name="search_docs", description="Search docs by topic.")
 def search_docs(args: LookupArgs) -> dict:
-    # In production, this would call a real search API
     return {
         "results": [
-            {"title": f"Guide: {args.topic}", "relevance": 0.95},
-            {"title": f"FAQ: {args.topic}", "relevance": 0.82},
-        ][:args.max_results]
+            {"title": f"Guide: {args.topic}", "score": 0.95},
+            {"title": f"FAQ: {args.topic}", "score": 0.82},
+        ][: args.max_results]
     }
+
 
 agent = Agent(
     name="research-tutor",
-    model="gpt-5.2-mini",
-    instructions="Use search_docs to find relevant documentation before answering.",
-    tools=[search_docs],   # ← Attach tools here
+    model="gpt-4.1-mini",
+    instructions="Search docs before answering user questions.",
+    tools=[search_docs],
 )
 
-runner = Runner()
-result = runner.run_sync(agent, user_message="How do I handle errors in Python?")
+result = Runner().run_sync(
+    agent,
+    user_message="How do I handle errors in Python?",
+)
 
 print(result.final_text)
-print(f"Tool calls made: {len(result.tool_executions)}")
-
-# Inspect what tools were called
-for rec in result.tool_executions:
-    print(f"  {rec.tool_name}: {'[OK]' if rec.success else '[ERR]'} ({rec.latency_ms:.0f}ms)")
+print(result.tool_executions)
 ```
 
-**Key takeaway:** Tools are typed functions. AFK validates arguments via Pydantic, executes the handler, sanitizes the output, and feeds results back to the LLM. The model decides when and how to call tools.
+Key point: tool arguments are validated before your function runs.
 
----
+## 3. Streaming
 
-## Minute 7–9: Stream responses in real time
-
-For chat UIs and CLI tools, streaming gives you text as it's generated instead of waiting for the full response.
+Use streaming when a UI or CLI should show progress before the final result is ready.
 
 ```python
 import asyncio
+
 from afk.agents import Agent
 from afk.core import Runner
 
+
 agent = Agent(
-    name="explainer",
-    model="gpt-5.2-mini",
-    instructions="Give detailed, well-structured explanations.",
-    tools=[search_docs],   # Reuse the tool from above
+    name="streamer",
+    model="gpt-4.1-mini",
+    instructions="Explain topics clearly.",
 )
 
-async def main():
-    runner = Runner()
-    handle = await runner.run_stream(
-        agent, user_message="Explain the Python GIL and its impact on threading"
+
+async def main() -> None:
+    handle = await Runner().run_stream(
+        agent,
+        user_message="Explain Python decorators in three bullets.",
     )
 
     async for event in handle:
-        match event.type:
-            case "text_delta":
-                print(event.text_delta, end="", flush=True)
-            case "tool_started":
-                print(f"\n[TOOL] Calling {event.tool_name}...")
-            case "tool_completed":
-                status = "[OK]" if event.success else "[ERR]"
-                print(f"   {status} {event.tool_name} done")
-            case "completed":
-                print(f"\n\n[DONE] Run completed ({event.result.state})")
+        if event.type == "text_delta":
+            print(event.text_delta, end="", flush=True)
+        elif event.type == "completed":
+            print(f"\n\nstate={event.result.state}")
 
-    # Access the full result after streaming
-    result = handle.result
-    print(f"Total tokens: {result.usage.total_tokens}")
 
 asyncio.run(main())
 ```
 
-**Key takeaway:** `run_stream()` returns an async iterator of events. You get `text_delta` for incremental text, tool lifecycle events, and a final `completed` event with the full `AgentResult`.
+Key point: `run_stream()` returns an `AgentStreamHandle`. Consume it to receive text, tool lifecycle events, errors, and the terminal result.
 
----
+## 4. Memory continuity
 
-## Minute 10–12: Multi-agent orchestration
-
-When a task requires different expertise, split it across specialist subagents.
+Pass the same `thread_id` to keep conversation context attached to a thread.
 
 ```python
 import asyncio
+
 from afk.agents import Agent
 from afk.core import Runner
 
-# Specialist 1: Research agent
-researcher = Agent(
-    name="researcher",
-    model="gpt-5.2-mini",
-    instructions="""
-    You are a research specialist.
-    Find relevant facts and present them as bullet points.
-    Be thorough but concise.
-    """,
-)
-
-# Specialist 2: Writing agent
-writer = Agent(
-    name="writer",
-    model="gpt-5.2-mini",
-    instructions="""
-    You are a technical writer.
-    Take research findings and write a clear, well-structured summary.
-    Use simple language suitable for a general audience.
-    """,
-)
-
-# Coordinator: delegates and combines
-coordinator = Agent(
-    name="coordinator",
-    model="gpt-5.2-mini",
-    instructions="""
-    You manage a team:
-    - Delegate research tasks to 'researcher'
-    - Delegate writing tasks to 'writer'
-    Combine their work into a polished final response.
-    """,
-    subagents=[researcher, writer],
-)
-
-async def main():
-    runner = Runner()
-    result = await runner.run(
-        coordinator,
-        user_message="Write a brief explainer about quantum computing for beginners",
-    )
-
-    print(result.final_text)
-    print(f"\nSubagent calls: {len(result.subagent_executions)}")
-    for sub in result.subagent_executions:
-        print(f"  -> {sub.subagent_name}: {'[OK]' if sub.success else '[ERR]'}")
-
-asyncio.run(main())
-```
-
-**Key takeaway:** Subagents appear as auto-generated tools to the coordinator (`transfer_to_researcher`, `transfer_to_writer`). Each subagent runs a full agent loop with its own model and instructions.
-
----
-
-## Minute 13–15: Memory and thread continuity
-
-AFK supports multi-turn conversations through thread-based memory. Pass a `thread_id` to maintain context across runs.
-
-```python
-import asyncio
-from afk.agents import Agent
-from afk.core import Runner
 
 agent = Agent(
-    name="tutor",
-    model="gpt-5.2-mini",
-    instructions="You are a Python tutor. Remember what the student has asked before.",
+    name="memory-tutor",
+    model="gpt-4.1-mini",
+    instructions="Remember the user's earlier questions in this thread.",
 )
 
-async def main():
+
+async def main() -> None:
     runner = Runner()
-    thread = "session-42"   # ← Same thread_id = same conversation
+    thread_id = "student-session-42"
 
-    # Turn 1
-    r1 = await runner.run(agent, user_message="What are decorators?", thread_id=thread)
-    print(f"Turn 1: {r1.final_text[:80]}...")
+    first = await runner.run(
+        agent,
+        user_message="What are Python decorators?",
+        thread_id=thread_id,
+    )
+    second = await runner.run(
+        agent,
+        user_message="Give me a short example using that idea.",
+        thread_id=thread_id,
+    )
 
-    # Turn 2 — the agent remembers Turn 1
-    r2 = await runner.run(agent, user_message="Give me an example", thread_id=thread)
-    print(f"Turn 2: {r2.final_text[:80]}...")
+    print(first.final_text)
+    print(second.final_text)
 
-    # Turn 3 — still has context
-    r3 = await runner.run(agent, user_message="How is that different from a wrapper function?", thread_id=thread)
-    print(f"Turn 3: {r3.final_text[:80]}...")
 
 asyncio.run(main())
 ```
 
-<Accordion title="Resume interrupted runs">
-  If a run is interrupted (process crash, timeout, pause for human approval), you can resume it from the last checkpoint:
+Key point: thread continuity is explicit. Use the same `thread_id` for related turns.
+
+## 5. Safety limits
+
+Production agents need hard limits even when prompts and tools are well designed.
 
 ```python
-# Start a run
-result = await runner.run(agent, user_message="Analyze this data...")
+from afk.agents import Agent, FailSafeConfig
+from afk.core import Runner, RunnerConfig
 
-# Later, resume from the checkpoint
-resumed = await runner.resume(
-    agent,
-    run_id=result.run_id,
-    thread_id=result.thread_id,
+agent = Agent(
+    name="bounded-agent",
+    model="gpt-4.1-mini",
+    instructions="Help users, but stop if the task becomes too large.",
+    fail_safe=FailSafeConfig(
+        max_steps=8,
+        max_llm_calls=12,
+        max_tool_calls=20,
+        max_wall_time_s=45.0,
+        max_total_cost_usd=0.25,
+    ),
 )
-print(resumed.state)  # "completed"
+
+runner = Runner(
+    config=RunnerConfig(
+        sanitize_tool_output=True,
+        tool_output_max_chars=8_000,
+    ),
+)
+
+result = runner.run_sync(agent, user_message="Summarize the tradeoffs of caching.")
+print(result.final_text)
 ```
 
-AFK persists checkpoints at key boundaries (step start, post-LLM, post-tool batch). On resume, completed tool calls are replayed from cache — no duplicate side effects.
+Key point: limits are part of the agent contract. Set them before shipping.
 
-</Accordion>
+## What to read next
 
-**Key takeaway:** `thread_id` connects runs into a conversation. Memory persists automatically. For long threads, use `runner.compact_thread()` to summarize old messages and control storage growth.
-
----
-
-## You just learned AFK
-
-Here's what you covered:
-
-| Minute | Concept         | Key API                                               |
-| ------ | --------------- | ----------------------------------------------------- |
-| 1–3    | Agents & Runner | `Agent(...)`, `Runner().run_sync(...)`                |
-| 4–6    | Tools           | `@tool(...)`, `result.tool_executions`                |
-| 7–9    | Streaming       | `runner.run_stream(...)`, `async for event in handle` |
-| 10–12  | Multi-agent     | `agent.subagents=[...]`, `result.subagent_executions` |
-| 13–15  | Memory          | `thread_id=...`, `runner.resume(...)`                 |
-
-## Go deeper
-
-<CardGroup cols={3}>
-  <Card title="Core Concepts" icon="book" href="/library/agents">
-    Deep dive into agents, runner, tools, memory, and more.
+<CardGroup cols={2}>
+  <Card title="Agents" icon="robot" href="/library/agents">
+    Agent fields, prompt resolution, subagents, skills, and MCP tools.
   </Card>
-  <Card title="Building with AI" icon="hammer" href="/library/building-with-ai">
-    Production patterns, anti-patterns, and deployment playbook.
+  <Card title="Tools" icon="wrench" href="/library/tools">
+    Tool schemas, context, hooks, middleware, sandboxing, and output limits.
   </Card>
-  <Card title="Examples" icon="code" href="/library/examples/index">
-    Runnable examples for every major feature.
+  <Card title="Streaming" icon="radio" href="/library/streaming">
+    Event types, stream handles, cancellation, and UI patterns.
+  </Card>
+  <Card title="Production Readiness" icon="shield" href="/library/building-with-ai">
+    Evals, telemetry, security controls, queues, and deployment.
   </Card>
 </CardGroup>

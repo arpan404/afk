@@ -115,3 +115,80 @@ def test_service_host_endpoints_authorize_and_invoke():
         assert authorized.status_code == 200
         body = authorized.json()
         assert body["success"] is True
+
+
+def test_service_host_production_hides_docs_and_sanitizes_errors():
+    pytest.importorskip("fastapi")
+    pytest.importorskip("httpx")
+
+    provider = APIKeyA2AAuthProvider(
+        key_to_subject={"prod-key": "svc-1"},
+        key_to_roles={"prod-key": ("a2a:all",)},
+    )
+    host = A2AServiceHost(
+        protocol=InternalA2AProtocol(dispatch=_ok_dispatch),
+        auth_provider=provider,
+        production_mode=True,
+    )
+    app = host.create_app()
+
+    from fastapi.testclient import TestClient
+
+    with TestClient(app) as client:
+        assert client.get("/docs").status_code == 404
+        assert client.get("/openapi.json").status_code == 404
+
+        unauthorized = client.post("/a2a/invoke", json={})
+        assert unauthorized.status_code == 401
+        assert unauthorized.json()["detail"] == "Authentication failed"
+
+        invalid = client.post(
+            "/a2a/invoke",
+            json={},
+            headers={"x-api-key": "prod-key"},
+        )
+        assert invalid.status_code == 422
+        assert invalid.json()["detail"] == "Invalid invoke payload"
+
+
+def test_service_host_stream_endpoint_returns_ndjson():
+    pytest.importorskip("fastapi")
+    pytest.importorskip("httpx")
+
+    provider = APIKeyA2AAuthProvider(
+        key_to_subject={"prod-key": "svc-1"},
+        key_to_roles={"prod-key": ("a2a:all",)},
+    )
+    host = A2AServiceHost(
+        protocol=InternalA2AProtocol(dispatch=_ok_dispatch),
+        auth_provider=provider,
+        production_mode=True,
+    )
+    app = host.create_app()
+
+    from fastapi.testclient import TestClient
+
+    payload = {
+        "run_id": "r1",
+        "thread_id": "t1",
+        "conversation_id": "c1",
+        "correlation_id": "corr1",
+        "idempotency_key": "idem1",
+        "source_agent": "parent",
+        "target_agent": "child",
+        "payload": {"k": "v"},
+        "metadata": {},
+        "causation_id": "cause1",
+        "timeout_s": 1.0,
+    }
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/a2a/invoke/stream",
+            json=payload,
+            headers={"x-api-key": "prod-key"},
+        )
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/x-ndjson")
+        assert response.text.strip()
+        assert all(line.startswith("{") for line in response.text.splitlines())

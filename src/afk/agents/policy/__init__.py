@@ -1,13 +1,3 @@
-from .engine import (
-    PolicyEngine,
-    PolicyEvaluation,
-    PolicyRule,
-    PolicyRuleCondition,
-    PolicySubject,
-    infer_policy_subject,
-    normalize_policy_payload,
-)
-
 from .audit import (
     AuditAction,
     AuditConfig,
@@ -18,6 +8,15 @@ from .audit import (
     FileAuditSink,
     PolicyAuditLogger,
     create_policy_audit_logger,
+)
+from .engine import (
+    PolicyEngine,
+    PolicyEvaluation,
+    PolicyRule,
+    PolicyRuleCondition,
+    PolicySubject,
+    infer_policy_subject,
+    normalize_policy_payload,
 )
 
 __all__ = [

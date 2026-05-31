@@ -1325,6 +1325,7 @@ def test_runtime_sandbox_policy_blocks_shell_operator_commands():
     sandbox = SandboxProfile(
         profile_id="cmd-safe",
         allow_command_execution=True,
+        allowed_command_prefixes=["ls"],
         deny_shell_operators=True,
     )
     agent = Agent(
@@ -1352,6 +1353,7 @@ def test_per_tool_sandbox_provider_overrides_default_profile():
     default_profile = SandboxProfile(
         profile_id="default-allow",
         allow_command_execution=True,
+        allowed_command_prefixes=["ls && whoami"],
         deny_shell_operators=False,
     )
     agent = Agent(

@@ -12,7 +12,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from typing import Protocol
 
-from .types import (
+from ..types import (
     EmbeddingRequest,
     EmbeddingResponse,
     LLMRequest,

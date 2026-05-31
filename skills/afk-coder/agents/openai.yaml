@@ -1,0 +1,4 @@
+interface:
+  display_name: "AFK Coder"
+  short_description: "Build AFK agents and apps."
+  default_prompt: "Use $afk-coder to build or update an AFK agent with public imports and validated examples."

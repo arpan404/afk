@@ -21,7 +21,7 @@ from .core.errors import ToolPolicyError
 class SandboxProfile:
     profile_id: str = "default"
     allow_network: bool = False
-    allow_command_execution: bool = True
+    allow_command_execution: bool = False
     allowed_command_prefixes: list[str] = field(default_factory=list)
     deny_shell_operators: bool = True
     allowed_paths: list[str] = field(default_factory=list)
@@ -81,14 +81,6 @@ def validate_tool_args_against_sandbox(
         if not profile.allow_command_execution:
             return f"Command execution denied by sandbox profile '{profile.profile_id}'"
 
-        command = command_parts[0].strip()
-        if profile.allowed_command_prefixes:
-            if not _is_command_allowed(command, profile.allowed_command_prefixes):
-                return (
-                    f"Command '{command}' not allowlisted by sandbox profile "
-                    f"'{profile.profile_id}'"
-                )
-
         if profile.deny_shell_operators:
             blocked = {"&&", "||", ";", "|", "`", "$(", ">", ">>", "<", "<<", "&"}
             joined = " ".join(command_parts)
@@ -98,6 +90,18 @@ def validate_tool_args_against_sandbox(
                         f"Command denied due to shell operator '{op}' by sandbox "
                         f"profile '{profile.profile_id}'"
                     )
+
+        command = command_parts[0].strip()
+        if not profile.allowed_command_prefixes:
+            return (
+                f"Command '{command}' not allowlisted by sandbox profile "
+                f"'{profile.profile_id}'"
+            )
+        if not _is_command_allowed(command, profile.allowed_command_prefixes):
+            return (
+                f"Command '{command}' not allowlisted by sandbox profile "
+                f"'{profile.profile_id}'"
+            )
 
     denied_roots = [_resolve_root(path, cwd) for path in profile.denied_paths]
     allowed_roots = [_resolve_root(path, cwd) for path in profile.allowed_paths]
@@ -288,7 +292,11 @@ def _is_command_allowed(command: str, allowlist: list[str]) -> bool:
         allowed = item.strip()
         if not allowed:
             continue
-        if command == allowed or command.startswith(allowed + "/"):
+        if (
+            command == allowed
+            or command.startswith(allowed + "/")
+            or command.startswith(allowed + " ")
+        ):
             return True
     return False
 
@@ -300,13 +308,36 @@ def _truncate_text(value: str, *, max_chars: int) -> str:
 
 
 def _truncate_json_like(value: Any, *, max_chars: int) -> Any:
-    if isinstance(value, str):
-        return _truncate_text(value, max_chars=max_chars)
-    if isinstance(value, list):
-        return [_truncate_json_like(item, max_chars=max_chars) for item in value]
-    if isinstance(value, dict):
-        return {
-            str(key): _truncate_json_like(item, max_chars=max_chars)
-            for key, item in value.items()
-        }
-    return value
+    remaining = max(max_chars, 0)
+
+    def _truncate(value: Any) -> Any:
+        nonlocal remaining
+        if remaining <= 0:
+            return "[truncated]"
+        if isinstance(value, str):
+            if len(value) <= remaining:
+                remaining -= len(value)
+                return value
+            omitted = len(value) - remaining
+            prefix = value[:remaining]
+            remaining = 0
+            return f"{prefix}... [truncated {omitted} chars]"
+        if isinstance(value, list):
+            items = []
+            for item in value:
+                if remaining <= 0:
+                    items.append("[truncated]")
+                    break
+                items.append(_truncate(item))
+            return items
+        if isinstance(value, dict):
+            items = {}
+            for key, item in value.items():
+                if remaining <= 0:
+                    items["..."] = "[truncated]"
+                    break
+                items[str(key)] = _truncate(item)
+            return items
+        return value
+
+    return _truncate(value)

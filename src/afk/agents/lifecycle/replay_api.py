@@ -8,15 +8,13 @@ Checkpoint Replay API for human-in-loop review and debugging.
 
 from __future__ import annotations
 
-import asyncio
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable
+from typing import Any
 
 from ..errors import AgentCheckpointCorruptionError
 from .replay import (
-    CheckpointInfo,
     CheckpointReplayHandle,
     CheckpointReplayManager,
 )

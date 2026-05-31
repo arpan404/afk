@@ -1,332 +1,201 @@
 ---
 title: API Reference
-description: Quick import reference and constructor signatures for the Agent Forge Kit (AFK) Python SDK.
+description: Canonical public imports and core signatures for AFK.
 ---
 
-This page provides a quick reference for commonly used AFK imports and constructor signatures. For the full field-by-field reference, see the [Configuration Reference](/library/configuration-reference). For module-level documentation, see the [Module Reference](/library/full-module-reference).
+This page is the public import contract for application developers. Use these imports in docs, examples, tests that exercise public behavior, and downstream applications.
 
-## Quick import map
+For field-by-field configuration, see [Configuration Reference](/library/configuration-reference). For generated module detail, see [Full Module Reference](/library/full-module-reference).
 
-| Task                    | Import                                                | From               |
-| ----------------------- | ----------------------------------------------------- | ------------------ |
-| Define an agent         | `from afk.agents import Agent`                        | `afk.agents`       |
-| Configure safety limits | `from afk.agents import FailSafeConfig`               | `afk.agents`       |
-| Set up policy engine    | `from afk.agents import PolicyEngine, PolicyRule`     | `afk.agents`       |
-| Run an agent            | `from afk.core import Runner`                         | `afk.core`         |
-| Configure the runner    | `from afk.core import RunnerConfig`                   | `afk.core`         |
-| Debug a run             | `from afk.debugger import Debugger, DebuggerConfig`   | `afk.debugger`     |
-| Define a tool           | `from afk.tools import tool`                          | `afk.tools`        |
-| Tool context access     | `from afk.tools import ToolContext`                   | `afk.tools`        |
-| Tool hooks              | `from afk.tools import prehook, posthook, middleware` | `afk.tools`        |
-| Build an LLM client     | `from afk.llms import LLMBuilder`                     | `afk.llms`         |
-| Run evals               | `from afk.evals import run_suite`                     | `afk.evals`        |
-| Define eval cases       | `from afk.evals.models import EvalCase, EvalBudget`   | `afk.evals.models` |
-| A2A client              | `from afk.a2a import A2AClient`                       | `afk.a2a`          |
-| MCP server              | `from afk.mcp import MCPServer`                       | `afk.mcp`          |
-| Task queue              | `from afk.queues import TaskQueue, TaskItem`          | `afk.queues`       |
+## Import map
 
-## Architecture overview
+| Task | Public import |
+| --- | --- |
+| Define an agent | `from afk.agents import Agent` |
+| Configure fail-safe limits | `from afk.agents import FailSafeConfig` |
+| Configure policy rules | `from afk.agents import PolicyEngine, PolicyRule` |
+| Implement dynamic policy hooks | `from afk.agents import PolicyRole` |
+| Run an agent | `from afk.core import Runner` |
+| Configure the runner | `from afk.core import RunnerConfig` |
+| Consume streaming events | `from afk.core import AgentStreamEvent, AgentStreamHandle` |
+| Define a tool | `from afk.tools import tool` |
+| Access tool context | `from afk.tools import ToolContext` |
+| Build an LLM client | `from afk.llms import LLMBuilder` |
+| Run eval suites | `from afk.evals import run_suite` |
+| Define eval cases | `from afk.evals import EvalCase, EvalBudget` |
+| Create memory stores | `from afk.memory import InMemoryMemoryStore, SQLiteMemoryStore` |
+| Create task queues | `from afk.queues import InMemoryTaskQueue, RedisTaskQueue, TaskWorker` |
+| Expose MCP tools | `from afk.mcp import MCPServer` |
+| Use A2A messaging | `from afk.messaging import InternalA2AProtocol` |
 
-The framework is built on three core pillars that interact at runtime:
+Do not use `src.afk.*` imports in user-facing docs.
 
-1.  **Agent** (`afk.agents.Agent`) — The **definition**.
-    It holds the static configuration: "Who am I?" (instructions, name), "What can I do?" (tools, subagents), and "How safe am I?" (fail-safe limits). Agents are stateless definitions that can be reused across many runs.
+## Agent
 
-2.  **Runner** (`afk.core.Runner`) — The **engine**.
-    It orchestrates the dynamic execution: managing the event loop, maintaining conversation state in memory, executing tools, handling failures, and dispatching events to telemetry. Runners are stateful (holding connections to memory/telemetry) but re-entrant.
-
-3.  **Runtime** (`afk.llms`, `afk.tools`) — The **capabilities**.
-    The underlying machinery that powers the agent: LLM clients handling provider I/O, and the tool registry managing safe execution of Python functions.
-
-```mermaid
-flowchart LR
-    subgraph Definition
-      Agent[Agent Config]
-    end
-    subgraph Execution
-      Runner[Runner Engine]
-      Memory[Memory Store]
-      EventLoop[Event Loop]
-    end
-    subgraph Runtime
-      LLM[LLM Client]
-      Tools[Tool Registry]
-    end
-
-    Agent --> Runner
-    Runner --> EventLoop
-    EventLoop <--> Memory
-    EventLoop --> LLM
-    EventLoop --> Tools
-```
-
-## Execution model
-
-The `Runner` supports three execution modes for different use cases. All modes use the same underlying event loop and guarantee the same consistency models.
-
-### 1. Synchronous (`run_sync`)
-
-Blocks the calling thread until the run is complete. Best for scripts, cron jobs, and simple CLI tools.
-
-- **Concurrency**: Internal tasks (like tool execution) still run on the asyncio event loop, but the entry point is blocking.
-- **Return**: Returns the final `AgentResult` only after the run reaches a terminal state (`completed`, `failed`).
-
-### 2. Asynchronous (`await run`)
-
-Returns an awaitable coroutine. Best for backend API handlers (FastAPI, Django Async) and high-concurrency workloads.
-
-- **Concurrency**: Non-blocking. Allows thousands of concurrent agent runs in a single process.
-- **Return**: Returns `AgentResult` upon completion.
-
-### 3. Streaming (`await run_stream`)
-
-Returns an async iterator of `AgentStreamEvent`s. Best for real-time UIs (chatbots, IDE integrations).
-
-- **Feedback**: Emits events _immediately_ as they happen (token delta, tool start, tool end).
-- **Control**: Allows the consumer to abort the run by cancelling the stream consumption.
-
----
-
-## Most common pattern
-
-```python
-from afk.agents import Agent, FailSafeConfig
-from afk.tools import tool
-from afk.core import Runner, RunnerConfig
-from pydantic import BaseModel
-```
-
----
-
-## Constructor signatures
-
-### Agent
-
-```python
+```text
 from afk.agents import Agent
 
 agent = Agent(
     *,
-    model: str | LLM,                                    # Required — model name or client
-    name: str | None = None,                             # Agent identity
-    instructions: str | callable | None = None,          # System prompt
-    instruction_file: str | Path | None = None,          # Prompt file path
-    tools: list | None = None,                           # Tool list
-    subagents: list[Agent] | None = None,                # Specialist subagents
-    context_defaults: dict | None = None,                # Default run context
-    fail_safe: FailSafeConfig | None = None,             # Limits and failure policies
-    max_steps: int = 20,                                 # Max loop iterations
-    policy_engine: PolicyEngine | None = None,           # Deterministic policy rules
-    model_resolver: callable | None = None,              # Custom model resolver
-    skills: list[str] | None = None,                     # Skill names to load
-    mcp_servers: list | None = None,                     # External MCP server refs
+    model: str | LLM,
+    name: str | None = None,
+    tools: list | None = None,
+    subagents: list[Agent] | None = None,
+    instructions: str | callable | None = None,
+    instruction_file: str | Path | None = None,
+    prompts_dir: str | Path | None = None,
+    context_defaults: dict | None = None,
+    inherit_context_keys: list[str] | None = None,
+    model_resolver: callable | None = None,
+    skills: list[str] | None = None,
+    mcp_servers: list | None = None,
+    skills_dir: str | Path = ".agents/skills",
+    instruction_roles: list | None = None,
+    policy_roles: list | None = None,
+    policy_engine: PolicyEngine | None = None,
+    subagent_router: callable | None = None,
+    max_steps: int = 20,
+    tool_parallelism: int | None = None,
+    subagent_parallelism_mode: str = "configurable",
+    fail_safe: FailSafeConfig | None = None,
+    reasoning_enabled: bool | None = None,
+    reasoning_effort: str | None = None,
+    reasoning_max_tokens: int | None = None,
+    skill_tool_policy: SkillToolPolicy | None = None,
+    enable_mcp_tools: bool = True,
+    enable_skill_tools: bool = True,
+    runner: Runner | None = None,
 )
 ```
 
-<Tip>
-  Only `model` is required. See the [Configuration
-  Reference](/library/configuration-reference#agent) for the full list of 25+
-  fields with defaults.
-</Tip>
+Only `model` is required. Most examples should also set `name` and `instructions` for clear traces and predictable behavior.
 
-### Runner
+## Runner
 
 ```python
-from afk.core import Runner
+from afk.core import Runner, RunnerConfig
 
 runner = Runner(
-    *,
-    memory_store: MemoryStore | None = None,             # Memory backend
-    interaction_provider: InteractionProvider | None = None,  # HITL provider
-    policy_engine: PolicyEngine | None = None,           # Shared policy engine
-    telemetry: str | TelemetrySink | None = None,        # "console" | "otel" | "json"
-    telemetry_config: dict | None = None,                # Backend config
-    config: RunnerConfig | None = None,                  # Runner configuration
+    memory_store=None,
+    interaction_provider=None,
+    policy_engine=None,
+    telemetry=None,
+    telemetry_config=None,
+    config=RunnerConfig(),
 )
 ```
 
-#### Key Runner methods
+Common methods:
 
-- **`run_sync(agent, ...)`** -> `AgentResult`
-  Blocking execution. In memory-backend modes, this persists state to the DB at every step. In-memory mode is transient.
-  _Use for:_ Scripts, CLI tools, tests.
+| Method | Use when | Returns |
+| --- | --- | --- |
+| `runner.run_sync(agent, user_message=..., thread_id=...)` | Scripts, CLIs, tests without an existing event loop | `AgentResult` |
+| `await runner.run(agent, user_message=..., thread_id=...)` | Async services, workers, APIs | `AgentResult` |
+| `await runner.run_stream(agent, user_message=..., thread_id=...)` | Chat UIs and progress streams | `AgentStreamHandle` |
+| `await runner.resume(agent, run_id=..., thread_id=..., context=...)` | Continue from persisted state | `AgentResult` |
+| `await runner.compact_thread(thread_id=...)` | Apply memory retention/compaction | `MemoryCompactionResult` |
 
-- **`await run(agent, ...)`** -> `AgentResult`
-  Async execution. This is the standard entry point for scalable applications. It handles the full agent loop: LLM calls -> Tool execution -> Policy checks -> Recursion.
-  _Use for:_ Web servers, queue workers, scalable backend services.
+`run_sync()` is a convenience wrapper for synchronous code. Use `await runner.run(...)` inside async applications.
 
-- **`await run_stream(agent, ...)`** -> `AgentStreamHandle`
-  Returns a handle exposing an `async iterator` of events. The stream yields events as they happen. You MUST consume the stream to drive execution forward.
-  _Use for:_ Chat interfaces, real-time feedback.
-
-- **`await list_background_tools(*, thread_id, run_id, include_resolved=False)`** -> `list[dict]`
-  Lists persisted deferred tool tickets for a run.
-  _Use for:_ Long-running tool monitoring and external worker reconciliation.
-
-- **`await resolve_background_tool(*, thread_id, run_id, ticket_id, output=...)`** -> `None`
-  Marks a deferred ticket as completed and stores output for runner polling.
-  _Use for:_ External worker completion callbacks.
-
-- **`await fail_background_tool(*, thread_id, run_id, ticket_id, error=...)`** -> `None`
-  Marks a deferred ticket as failed with error details.
-  _Use for:_ External worker failure propagation.
-
-- **`await resume(agent, *, run_id, thread_id)`** -> `AgentResult`
-  Re-hydrates a run from the database. It loads the full execution snapshot (messages, unexecuted tool calls) and continues exactly where it left off.
-  _Use for:_ Human-in-the-loop workflows (resume after approval), recovering from process crashes.
-
-- **`await compact_thread(*, thread_id)`** -> `None`
-  Triggers memory compaction for a specific thread. This applies the configured `RetentionPolicy` to reduce token usage by summarizing history or discarding old messages.
-  _Use for:_ Long-running conversations where context window limits are a concern.
-
-### RunnerConfig
+## RunnerConfig
 
 ```python
 from afk.core import RunnerConfig
 
 config = RunnerConfig(
-    interaction_mode: str = "headless",                  # "headless" | "interactive" | "external"
-    sanitize_tool_output: bool = True,                   # Strip injection vectors
-    tool_output_max_chars: int = 12_000,                 # Output truncation limit
-    approval_timeout_s: float = 300.0,                   # Approval timeout
-    approval_fallback: str = "deny",                     # "allow" | "deny" | "defer"
+    interaction_mode="headless",
+    approval_timeout_s=300.0,
+    input_timeout_s=300.0,
+    approval_fallback="deny",
+    input_fallback="deny",
+    sanitize_tool_output=True,
+    untrusted_tool_preamble=True,
+    tool_output_max_chars=12_000,
+    max_parallel_subagents_global=64,
+    max_parallel_subagents_per_parent=8,
+    max_parallel_subagents_per_target_agent=4,
+    checkpoint_async_writes=True,
+    debug=False,
+    background_tools_enabled=True,
 )
 ```
 
-### FailSafeConfig
+Use [Configuration Reference](/library/configuration-reference) for the complete set of runner fields and defaults.
+
+## FailSafeConfig
 
 ```python
 from afk.agents import FailSafeConfig
 
 fail_safe = FailSafeConfig(
-    max_steps: int = 20,                                 # Max run loop iterations
-    max_llm_calls: int = 50,                             # Max LLM invocations
-    max_tool_calls: int = 200,                           # Max tool invocations
-    max_wall_time_s: float = 300.0,                      # Wall-clock timeout
-    max_total_cost_usd: float | None = None,             # Cost ceiling
-    llm_failure_policy: str = "retry_then_fail",         # LLM error strategy
-    tool_failure_policy: str = "continue_with_error",    # Tool error strategy
-    subagent_failure_policy: str = "continue",           # Subagent error strategy
-    fallback_model_chain: list[str] = [],                # Fallback models
+    llm_failure_policy="retry_then_fail",
+    tool_failure_policy="continue_with_error",
+    subagent_failure_policy="continue",
+    approval_denial_policy="skip_action",
+    max_steps=20,
+    max_wall_time_s=300.0,
+    max_llm_calls=50,
+    max_tool_calls=200,
+    max_parallel_tools=16,
+    max_subagent_depth=3,
+    max_total_cost_usd=None,
+    fallback_model_chain=[],
 )
 ```
 
-<Warning>
-  **Always set `max_total_cost_usd`** in production. Without it, a runaway agent
-  loop can spend significant API credits in minutes.
-</Warning>
+Set `max_total_cost_usd` for production agents. The default is intentionally unset because acceptable budgets vary by application.
 
-### @tool decorator
+## Tool decorator
 
 ```python
+from pydantic import BaseModel
+
 from afk.tools import tool
 
-@tool(
-    *,
-    args_model: Type[BaseModel],                         # Required — Pydantic args model
-    name: str | None = None,                             # Tool name (default: function name)
-    description: str | None = None,                      # LLM-visible description
-    timeout: float | None = None,                        # Execution timeout in seconds
-    prehooks: list[PreHook] | None = None,               # Argument transform hooks
-    posthooks: list[PostHook] | None = None,             # Output transform hooks
-    middlewares: list[Middleware] | None = None,          # Execution wrappers
-    raise_on_error: bool = False,                        # Raise vs return ToolResult
-)
+
+class SearchArgs(BaseModel):
+    query: str
+
+
+@tool(args_model=SearchArgs, name="search", description="Search by query.")
+def search(args: SearchArgs) -> dict:
+    return {"query": args.query, "results": []}
 ```
 
----
+Tool functions may be sync or async. They may accept `(args)`, `(args, ctx)`, or `(ctx, args)`.
 
-## Core types
+## AgentResult
 
-### AgentResult
+```python
+result = Runner().run_sync(agent, user_message="Hello")
 
-| Field                 | Type                            | Description                                                                   |
-| --------------------- | ------------------------------- | ----------------------------------------------------------------------------- |
-| `final_text`          | `str`                           | The agent's final response                                                    |
-| `state`               | `str`                           | Terminal state: `completed`, `failed`, `degraded`, `cancelled`, `interrupted` |
-| `run_id`              | `str`                           | Unique run identifier                                                         |
-| `thread_id`           | `str`                           | Thread identifier for memory continuity                                       |
-| `tool_executions`     | `list[ToolExecutionRecord]`     | All tool calls with name, success, output, latency, and agent provenance       |
-| `subagent_executions` | `list[SubagentExecutionRecord]` | All subagent invocations                                                      |
-| `usage_aggregate`     | `UsageAggregate`                | Token counts and cost estimates                                               |
-| `state_snapshot`      | `dict[str, JSONValue]`          | Final runtime counters/snapshot metadata                                       |
+print(result.final_text)
+print(result.state)
+print(result.run_id)
+print(result.thread_id)
+print(result.tool_executions)
+print(result.subagent_executions)
+print(result.usage_aggregate.total_tokens)
+print(result.total_cost_usd)
+```
 
-### AgentStreamEvent
+Important fields:
 
-| Field          | Type           | Description                                                          |
-| -------------- | -------------- | -------------------------------------------------------------------- |
-| `type`         | `str`          | Event category (see [Streaming](/library/streaming#event-reference)) |
-| `text_delta`   | `str \| None`  | Incremental text chunk                                               |
-| `tool_name`    | `str \| None`  | Tool name for tool events                                            |
-| `tool_call_id` | `str \| None`  | Tool call identifier                                                 |
-| `tool_success` | `bool \| None` | Whether tool succeeded                                               |
-| `tool_output`  | `JSONValue \| None` | Tool output payload                                             |
-| `tool_error`   | `str \| None`  | Tool error message                                                   |
-| `step`         | `int \| None`  | Current step index                                                   |
-| `state`        | `str \| None`  | Current agent state                                                  |
-| `result`       | `AgentResult`  | Terminal result (for `completed` events)                             |
-| `error`        | `str \| None`  | Error message (for `error` events)                                   |
-
----
-
-## Agents module
-
-<CardGroup cols={2}>
-  <Card title="Agent" href="/library/agents">
-    Core agent configuration — model, instructions, tools, subagents.
-  </Card>
-  <Card title="FailSafeConfig" href="/library/agents#adding-safety-limits">
-    Step limits, cost budgets, timeout, failure policies.
-  </Card>
-  <Card title="PolicyEngine" href="/library/security-model">
-    Policy rules for gating tool calls and actions.
-  </Card>
-  <Card
-    title="PolicyRule"
-    href="/library/security-model#boundary-1-policy-engine"
-  >
-    Individual policy rule definition.
-  </Card>
-</CardGroup>
-
-## Core module
-
-<CardGroup cols={2}>
-  <Card title="Runner" href="/library/core-runner">
-    Agent execution engine — sync, async, stream.
-  </Card>
-  <Card title="RunnerConfig" href="/library/core-runner#runner-configuration">
-    Safety defaults, sanitization, interaction mode.
-  </Card>
-  <Card title="AgentResult" href="/library/core-runner#agentresult-reference">
-    Run output — final_text, state, tool/subagent executions, usage.
-  </Card>
-</CardGroup>
-
-## Tools module
-
-<CardGroup cols={2}>
-  <Card title="@tool decorator" href="/library/tools">
-    Define typed tool functions with Pydantic models.
-  </Card>
-  <Card title="Hooks" href="/library/tools#hooks-and-middleware">
-    Pre/post hooks and middleware for tool execution.
-  </Card>
-</CardGroup>
-
-## LLM module
-
-<CardGroup cols={2}>
-  <Card title="LLMBuilder" href="/llms/index">
-    Builder pattern for LLM client configuration.
-  </Card>
-  <Card title="LLMRequest / LLMResponse" href="/llms/contracts">
-    Normalized contracts for LLM interaction.
-  </Card>
-</CardGroup>
+| Field | Meaning |
+| --- | --- |
+| `final_text` | Final assistant text |
+| `state` | Terminal run state |
+| `requested_model` | Model requested by the caller or agent |
+| `normalized_model` | Effective normalized model when available |
+| `provider_adapter` | Provider/adapter used when available |
+| `tool_executions` | Ordered tool execution records |
+| `subagent_executions` | Ordered subagent execution records |
+| `usage_aggregate` | Aggregated input/output/total tokens |
+| `total_cost_usd` | Estimated total cost when available |
+| `state_snapshot` | Terminal runtime snapshot payload |
 
 ## API stability
 
-AFK follows semantic versioning. Public exports from `afk.agents`, `afk.core`, `afk.tools`, `afk.llms`, and `afk.evals` are considered stable and will not change without a major version bump.
-
-Internal modules (prefixed with `_` or under `afk.core.runner._internal`) are not part of the public API and may change at any time.
+- Public docs and examples should use imports from `afk.agents`, `afk.core`, `afk.tools`, `afk.llms`, `afk.memory`, `afk.queues`, `afk.mcp`, `afk.messaging`, `afk.observability`, and `afk.evals`.
+- Internal modules under package subdirectories may change faster than public exports.
+- When changing public exports, update this page, [Public API Rules](/library/public-imports-and-function-improvement), examples, and generated agent-facing docs.
