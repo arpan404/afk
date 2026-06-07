@@ -29,7 +29,7 @@ from afk.core import Runner
 
 agent = Agent(
     name="assistant",
-    model="gpt-4.1-mini",
+    model="gpt-5.5",
     instructions="Answer directly. Keep responses under 120 words.",
 )
 
@@ -75,7 +75,7 @@ def lookup_order(args: OrderArgs) -> dict:
 
 agent = Agent(
     name="support-agent",
-    model="gpt-4.1-mini",
+    model="gpt-5.5",
     instructions="Use lookup_order when the user asks about an order.",
     tools=[lookup_order],
     fail_safe=FailSafeConfig(

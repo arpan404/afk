@@ -13,7 +13,7 @@ from afk.core import Runner
 
 agent = Agent(
     name="tutor",
-    model="gpt-4.1-mini",
+    model="gpt-5.5",
     instructions="Explain programming concepts in plain language.",
 )
 
@@ -53,7 +53,7 @@ def search_docs(args: LookupArgs) -> dict:
 
 agent = Agent(
     name="research-tutor",
-    model="gpt-4.1-mini",
+    model="gpt-5.5",
     instructions="Search docs before answering user questions.",
     tools=[search_docs],
 )
@@ -82,7 +82,7 @@ from afk.core import Runner
 
 agent = Agent(
     name="streamer",
-    model="gpt-4.1-mini",
+    model="gpt-5.5",
     instructions="Explain topics clearly.",
 )
 
@@ -118,7 +118,7 @@ from afk.core import Runner
 
 agent = Agent(
     name="memory-tutor",
-    model="gpt-4.1-mini",
+    model="gpt-5.5",
     instructions="Remember the user's earlier questions in this thread.",
 )
 
@@ -157,7 +157,7 @@ from afk.core import Runner, RunnerConfig
 
 agent = Agent(
     name="bounded-agent",
-    model="gpt-4.1-mini",
+    model="gpt-5.5",
     instructions="Help users, but stop if the task becomes too large.",
     fail_safe=FailSafeConfig(
         max_steps=8,

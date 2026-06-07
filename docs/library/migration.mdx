@@ -26,7 +26,7 @@ This guide helps you migrate existing agent code from other frameworks to AFK.
 from langchain_openai import ChatOpenAI
 from langchain.agents import initialize_agent, Tool
 
-llm = ChatOpenAI(model="gpt-4")
+llm = ChatOpenAI(model="gpt-5.5")
 
 def search(query: str) -> str:
     return f"Results for: {query}"
@@ -56,7 +56,7 @@ def search(args: SearchArgs) -> dict:
 
 agent = Agent(
     name="assistant",
-    model="gpt-4.1-mini",
+    model="gpt-5.5",
     instructions="Use the search tool to find information.",
     tools=[search],
 )
@@ -215,7 +215,7 @@ stack = MiddlewareStack(
 client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-4.1-mini")
+    .model("gpt-5.5")
     .with_middlewares(stack)
     .build()
 )
@@ -300,7 +300,7 @@ assistant = client.beta.assistants.create(
     name="Helper",
     instructions="You are a helpful assistant.",
     tools=[{"type": "function", "function": {...}}],
-    model="gpt-4",
+    model="gpt-5.5",
 )
 
 thread = client.beta.threads.create()
@@ -329,7 +329,7 @@ def help(args) -> dict:
 
 agent = Agent(
     name="helper",
-    model="gpt-4.1-mini",
+    model="gpt-5.5",
     instructions="You are a helpful assistant.",
     tools=[help],
 )
@@ -370,7 +370,7 @@ def call_with_retry(func, max_attempts=3):
 client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-4.1-mini")
+    .model("gpt-5.5")
     .profile("production")
     .build()
 )
@@ -402,7 +402,7 @@ class CircuitBreaker:
 client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-4.1-mini")
+    .model("gpt-5.5")
     .profile("production")
     .build()
 )

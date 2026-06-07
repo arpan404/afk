@@ -24,7 +24,7 @@ from afk.agents import FailSafeConfig
 # Add hard limits to prevent runaway loops
 agent = Agent(
     name="safe-agent",
-    model="gpt-4.1-mini",
+    model="gpt-5.5",
     instructions="Complete the task in at most 3 tool calls. If you can't solve it, say so.",
     fail_safe=FailSafeConfig(
         max_tool_calls=5,  # Stop after 5 calls
@@ -57,7 +57,7 @@ runner = Runner(telemetry="console")
 ```python
 agent = Agent(
     name="helpful",
-    model="gpt-4.1-mini",
+    model="gpt-5.5",
     instructions="""
     You have access to the following tools:
     - search_docs: Use this to find information in the knowledge base
@@ -89,13 +89,13 @@ from afk.llms import LLMBuilder, LLMRequest, Message
 client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-4.1-mini")
+    .model("gpt-5.5")
     .build()
 )
 
 response = await client.chat(
     LLMRequest(
-        model="gpt-4.1-mini",
+        model="gpt-5.5",
         messages=[Message(role="user", content="Classify this ticket")],
         temperature=0.0,
     )
@@ -184,7 +184,7 @@ from afk.llms import LLMSettings, RateLimitPolicy, create_llm_client
 
 client = create_llm_client(
     provider="openai",
-    settings=LLMSettings(default_model="gpt-4.1-mini"),
+    settings=LLMSettings(default_model="gpt-5.5"),
     rate_limit_policy=RateLimitPolicy(requests_per_second=0.5, burst=5),
 )
 
@@ -193,7 +193,7 @@ from afk.llms import RetryPolicy
 
 client = create_llm_client(
     provider="openai",
-    settings=LLMSettings(default_model="gpt-4.1-mini"),
+    settings=LLMSettings(default_model="gpt-5.5"),
     retry_policy=RetryPolicy(max_retries=5, backoff_base_s=2.0),
 )
 ```
@@ -212,7 +212,7 @@ from afk.llms import TimeoutPolicy
 
 client = create_llm_client(
     provider="openai",
-    settings=LLMSettings(default_model="gpt-4.1-mini"),
+    settings=LLMSettings(default_model="gpt-5.5"),
     timeout_policy=TimeoutPolicy(request_timeout_s=120.0),
 )
 
@@ -238,16 +238,16 @@ config = TimeoutConfig(
 client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-4.1-mini")  # Check exact model name
+    .model("gpt-5.5")  # Check exact model name
     .build()
 )
 
 # Use fallback for resilience
 agent = Agent(
     name="resilient",
-    model="gpt-4.1",  # Primary model
+    model="gpt-5.5",  # Primary model
     fail_safe=FailSafeConfig(
-        fallback_model_chain=["gpt-4.1-mini", "gpt-4.1-nano"],
+        fallback_model_chain=["gpt-5.5", "gpt-5.5"],
     ),
 )
 ```
@@ -319,7 +319,7 @@ except asyncio.TimeoutError:
 # ALWAYS set cost limits
 agent = Agent(
     name="safe",
-    model="gpt-4.1-mini",
+    model="gpt-5.5",
     fail_safe=FailSafeConfig(
         max_total_cost_usd=0.50,  # Stop at $0.50
     ),
@@ -350,7 +350,7 @@ await runner.compact_thread(
 client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-4.1")  # Larger context than gpt-4.1-mini
+    .model("gpt-5.5")  # Larger context than gpt-5.5
     .build()
 )
 ```

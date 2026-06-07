@@ -12,7 +12,7 @@ from afk.agents import Agent
 
 agent = Agent(
     name="assistant",                          # ← Identity (used in logs, telemetry)
-    model="gpt-4.1-mini",                      # ← Which LLM to use
+    model="gpt-5.5",                      # ← Which LLM to use
     instructions="Be helpful and concise.",     # ← System prompt
 )
 ```
@@ -61,7 +61,7 @@ Those are the fields most examples should set. `model` is the only required cons
     ```python
     agent = Agent(
         name="classifier",
-        model="gpt-4.1-mini",
+        model="gpt-5.5",
         instructions="""
         Classify the input into one of: positive, negative, neutral.
         Output only the label.
@@ -81,19 +81,19 @@ Those are the fields most examples should set. `model` is the only required cons
     ```python
     researcher = Agent(
         name="researcher",
-        model="gpt-4.1-mini",
+        model="gpt-5.5",
         instructions="Find relevant facts. Be thorough.",
     )
 
     writer = Agent(
         name="writer",
-        model="gpt-4.1-mini",
+        model="gpt-5.5",
         instructions="Write clear, concise summaries.",
     )
 
     coordinator = Agent(
         name="coordinator",
-        model="gpt-4.1-mini",
+        model="gpt-5.5",
         instructions="""
         You manage a team:
         - Delegate research to 'researcher'
@@ -139,7 +139,7 @@ from afk.agents import Agent, FailSafeConfig
 
 agent = Agent(
     name="safe-agent",
-    model="gpt-4.1-mini",
+    model="gpt-5.5",
     instructions="...",
     tools=[...],
     fail_safe=FailSafeConfig(
@@ -155,7 +155,7 @@ agent = Agent(
         subagent_failure_policy="continue",               # "continue" | "retry_then_fail" | "skip_action"
 
         # Fallback model chain for LLM resilience
-        fallback_model_chain=["gpt-4.1-mini", "gpt-4.1-nano"],
+        fallback_model_chain=["gpt-5.5", "gpt-5.5"],
     ),
 )
 ```

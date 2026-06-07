@@ -16,7 +16,7 @@ Agents can specify their model in two ways:
     ```python
     agent = Agent(
         name="demo",
-        model="gpt-4.1-mini",
+        model="gpt-5.5",
         instructions="Answer directly.",
     )
     ```
@@ -36,7 +36,7 @@ Agents can specify their model in two ways:
     client = (
         LLMBuilder()
         .provider("openai")
-        .model("gpt-4.1-mini")
+        .model("gpt-5.5")
         .profile("production")
         .build()
     )
@@ -132,11 +132,11 @@ Treat these as example starting points. Confirm current model names, prices, and
 
 | Task                       | Starting model                  | Why                                 |
 | -------------------------- | ------------------------------ | ----------------------------------- |
-| Simple Q&A, classification | `gpt-4.1-nano`                 | Fast, cheap, good enough            |
-| General purpose with tools | `gpt-4.1-mini`                 | Best balance of cost and capability |
-| Complex reasoning, coding  | `gpt-4.1` or `claude-opus-4-5` | Better at multi-step reasoning      |
-| Cost-sensitive batch       | `gpt-4.1-nano`                 | Lowest cost per token               |
-| Higher quality generation  | `gpt-4.1` + low temperature    | More capability, less variation     |
+| Simple Q&A, classification | `gpt-5.5`                 | Fast, cheap, good enough            |
+| General purpose with tools | `gpt-5.5`                 | Best balance of cost and capability |
+| Complex reasoning, coding  | `gpt-5.5` or `opus-4.8` | Better at multi-step reasoning      |
+| Cost-sensitive batch       | `gpt-5.5`                 | Lowest cost per token               |
+| Higher quality generation  | `gpt-5.5` + low temperature    | More capability, less variation     |
 
 ## Next steps
 

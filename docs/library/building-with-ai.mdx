@@ -32,7 +32,7 @@ flowchart LR
     ```python
     agent = Agent(
         name="classifier",
-        model="gpt-4.1-mini",
+        model="gpt-5.5",
         instructions="""
         Classify the support ticket into exactly one category:
         billing, technical, account, feature-request, other.
@@ -58,7 +58,7 @@ flowchart LR
 
     agent = Agent(
         name="rag-agent",
-        model="gpt-4.1-mini",
+        model="gpt-5.5",
         instructions="""
         Always search the knowledge base before answering.
         Cite sources. If no relevant docs found, say so.
@@ -84,7 +84,7 @@ flowchart LR
 
     agent = Agent(
         name="coder",
-        model="gpt-4.1",
+        model="gpt-5.5",
         instructions="""
         Write code, then run the tests to verify.
         Fix any failures before presenting the final version.
@@ -110,7 +110,7 @@ flowchart LR
     ```python
     coordinator = Agent(
         name="coordinator",
-        model="gpt-4.1-mini",
+        model="gpt-5.5",
         instructions="""
         Route each request to the appropriate specialist:
         - Technical questions → 'engineer'
