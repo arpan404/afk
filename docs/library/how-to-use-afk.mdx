@@ -15,7 +15,7 @@ from afk.core import Runner
 
 agent = Agent(
     name="ticket-classifier",
-    model="gpt-4.1-mini",
+    model="gpt-5.5",
     instructions="""
     Classify the support ticket as exactly one of:
     billing, technical, account, or other.
@@ -55,7 +55,7 @@ def lookup_ticket(args: TicketArgs) -> dict:
 
 agent = Agent(
     name="ticket-agent",
-    model="gpt-4.1-mini",
+    model="gpt-5.5",
     instructions="Look up tickets before answering. Never modify data.",
     tools=[lookup_ticket],
     fail_safe=FailSafeConfig(

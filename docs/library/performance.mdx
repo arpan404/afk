@@ -14,13 +14,13 @@ from afk.agents import Agent
 
 classifier = Agent(
     name="classifier",
-    model="gpt-4.1-nano",
+    model="gpt-5.5",
     instructions="Classify the request. Return only one label.",
 )
 
 analyst = Agent(
     name="analyst",
-    model="gpt-4.1",
+    model="gpt-5.5",
     instructions="Perform detailed technical analysis.",
 )
 ```
@@ -95,7 +95,7 @@ from afk.agents import Agent, FailSafeConfig
 
 agent = Agent(
     name="bounded-agent",
-    model="gpt-4.1-mini",
+    model="gpt-5.5",
     instructions="Answer concisely and use tools only when needed.",
     fail_safe=FailSafeConfig(
         max_total_cost_usd=0.10,

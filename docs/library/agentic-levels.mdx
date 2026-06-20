@@ -12,7 +12,7 @@ AFK applications progress through five levels of capability. Each level adds fea
     One agent, one model, no tools. The simplest possible setup.
 
     ```python
-    agent = Agent(name="classifier", model="gpt-4.1-mini", instructions="Classify as positive/negative/neutral.")
+    agent = Agent(name="classifier", model="gpt-5.5", instructions="Classify as positive/negative/neutral.")
     result = runner.run_sync(agent, user_message="Great product!")
     ```
 
@@ -31,7 +31,7 @@ AFK applications progress through five levels of capability. Each level adds fea
     @tool(args_model=SearchArgs, name="search", description="Search knowledge base.")
     def search(args: SearchArgs) -> dict: ...
 
-    agent = Agent(name="helper", model="gpt-4.1-mini", tools=[search])
+    agent = Agent(name="helper", model="gpt-5.5", tools=[search])
     ```
 
     **AFK features added:** `@tool`, Pydantic models, `FailSafeConfig`
@@ -48,7 +48,7 @@ AFK applications progress through five levels of capability. Each level adds fea
     ```python
     coordinator = Agent(
         name="coordinator",
-        model="gpt-4.1-mini",
+        model="gpt-5.5",
         subagents=[researcher, writer, reviewer],
     )
     ```

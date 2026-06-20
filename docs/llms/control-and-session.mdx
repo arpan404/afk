@@ -30,10 +30,10 @@ Use `profile()` to apply a curated set of policies:
 from afk.llms import LLMBuilder
 
 # Development: no retry, no caching, fast failures
-dev = LLMBuilder().provider("openai").model("gpt-4.1-mini").profile("development").build()
+dev = LLMBuilder().provider("openai").model("gpt-5.5").profile("development").build()
 
 # Production: retry, circuit breaker, rate limiting, caching
-prod = LLMBuilder().provider("openai").model("gpt-4.1-mini").profile("production").build()
+prod = LLMBuilder().provider("openai").model("gpt-5.5").profile("production").build()
 ```
 
 | Profile       | Retry                           | Cache               | Rate Limit | Circuit Breaker        | Timeout |
@@ -55,7 +55,7 @@ Configure each policy independently with `create_llm_client()`:
 
     client = create_llm_client(
         provider="openai",
-        settings=LLMSettings(default_model="gpt-4.1-mini"),
+        settings=LLMSettings(default_model="gpt-5.5"),
         retry_policy=RetryPolicy(max_retries=3, backoff_base_s=1.0),
     )
     ```
@@ -76,7 +76,7 @@ Configure each policy independently with `create_llm_client()`:
 
     client = create_llm_client(
         provider="openai",
-        settings=LLMSettings(default_model="gpt-4.1-mini"),
+        settings=LLMSettings(default_model="gpt-5.5"),
         circuit_breaker_policy=CircuitBreakerPolicy(
             failure_threshold=5,
             cooldown_s=30.0,
@@ -102,7 +102,7 @@ Configure each policy independently with `create_llm_client()`:
 
     client = create_llm_client(
         provider="openai",
-        settings=LLMSettings(default_model="gpt-4.1-mini"),
+        settings=LLMSettings(default_model="gpt-5.5"),
         rate_limit_policy=RateLimitPolicy(requests_per_second=1.0, burst=10),
     )
     ```
@@ -116,7 +116,7 @@ Configure each policy independently with `create_llm_client()`:
 
     client = create_llm_client(
         provider="openai",
-        settings=LLMSettings(default_model="gpt-4.1-mini"),
+        settings=LLMSettings(default_model="gpt-5.5"),
         cache_policy=CachePolicy(enabled=True, ttl_s=300, namespace="docs"),
     )
     ```
@@ -135,7 +135,7 @@ Configure each policy independently with `create_llm_client()`:
 
     client = create_llm_client(
         provider="openai",
-        settings=LLMSettings(default_model="gpt-4.1-mini"),
+        settings=LLMSettings(default_model="gpt-5.5"),
         timeout_policy=TimeoutPolicy(request_timeout_s=60.0),
     )
     ```
@@ -152,12 +152,12 @@ from afk.agents import Agent, FailSafeConfig
 
 agent = Agent(
     name="resilient",
-    model="gpt-4.1",
+    model="gpt-5.5",
     fail_safe=FailSafeConfig(
-        fallback_model_chain=["gpt-4.1-mini", "gpt-4.1-nano"],
+        fallback_model_chain=["gpt-5.5", "gpt-5.5"],
     ),
 )
-# If gpt-4.1 fails → try gpt-4.1-mini → try gpt-4.1-nano
+# If gpt-5.5 fails → try gpt-5.5 → try gpt-5.5
 ```
 
 ## Tuning cheat sheet

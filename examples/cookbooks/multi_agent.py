@@ -21,7 +21,7 @@ def search_docs(query: str) -> ToolResult[str]:
 def run_query(sql: str) -> ToolResult[str]:
     """Simulate a database query."""
     return ToolResult(output=f"Query result for: {sql}")
-
+  
 
 async def main() -> None:
     # Specialized subagents

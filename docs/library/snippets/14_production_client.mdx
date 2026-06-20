@@ -41,7 +41,7 @@ stack = MiddlewareStack(
 production_client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-4.1-mini")
+    .model("gpt-5.5")
     .profile("production")
     .with_middlewares(stack)
     .build()
@@ -54,7 +54,7 @@ production_client = (
 from afk.llms import TimeoutPolicy
 
 req = LLMRequest(
-    model="gpt-4.1-mini",
+    model="gpt-5.5",
     messages=[...],
     timeout_policy=TimeoutPolicy(request_timeout_s=120.0),  # Override default
 )
@@ -166,7 +166,7 @@ class ProductionSetup:
         self.llm_client = (
             LLMBuilder()
             .provider("openai")
-            .model("gpt-4.1-mini")
+            .model("gpt-5.5")
             .profile("production")
             .with_middlewares(stack)
             .build()
@@ -188,7 +188,7 @@ class ProductionSetup:
 async def main():
     agent = Agent(
         name="assistant",
-        model="gpt-4.1-mini",
+        model="gpt-5.5",
         instructions="You are a helpful assistant.",
     )
     

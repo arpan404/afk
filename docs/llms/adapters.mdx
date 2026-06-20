@@ -38,10 +38,10 @@ Providers translate between AFK's normalized contracts (`LLMRequest`/`LLMRespons
 from afk.llms import LLMBuilder
 
 # OpenAI
-openai_client = LLMBuilder().provider("openai").model("gpt-4.1-mini").build()
+openai_client = LLMBuilder().provider("openai").model("gpt-5.5").build()
 
 # Anthropic
-anthropic_client = LLMBuilder().provider("anthropic").model("claude-opus-4-5").build()
+anthropic_client = LLMBuilder().provider("anthropic").model("opus-4.8").build()
 
 # LiteLLM (any provider)
 gemini_client = LLMBuilder().provider("litellm").model("gemini/gemini-2.5-pro").build()
@@ -99,7 +99,7 @@ Use provider-specific settings for custom endpoints, proxy URLs, or credentials:
 client = (
     LLMBuilder()
     .provider("openai")
-    .model("gpt-4.1-mini")
+    .model("gpt-5.5")
     .with_provider_settings("openai", {"base_url": "https://proxy.example.com/v1"})
     .build()
 )
